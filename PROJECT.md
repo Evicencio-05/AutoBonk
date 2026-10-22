@@ -14,7 +14,7 @@ Agentic trading from the operator's own technical analysis. Ideas come from char
 
 - Trade the Agentic account only. Do not trade the taxable account or the IRA.
 - Do not write `config/agentic.yaml`. The operator set the cap at $100 per contract.
-- No autonomous orders.
+- No autonomous orders. Thursday 2026-10-22 is the first live session. Cash is $50. A plan still waits for confirm.
 - TradeWhisperer, GEX/VEX, and fundamentals are not inputs.
 
 ## Discord

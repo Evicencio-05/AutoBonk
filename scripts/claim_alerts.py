@@ -69,6 +69,11 @@ CHASE = 0.50
 FRESH_SECONDS = 20 * 60
 # $100 a contract. The debit compared below is the price of one share of the option.
 CONTRACT_CAP = 1.0
+# Thursday 2026-10-22 is the first live session. Cash is $50, so one contract.
+LIVE_FROM = date(2026, 10, 22)
+LIVE_CASH = 50.0
+LIVE_DEBIT = LIVE_CASH / 100
+LIVE_PATH = ROOT / "alerts" / "live.md"
 PAPER_HEADER = (
     "| Time | Ticker | Action | Side | Level | Fill | Reason | Contract | Premium |\n"
     "|------|--------|--------|------|-------|------|--------|----------|---------|\n"
@@ -1918,6 +1923,38 @@ def refresh_contract_marks(path: Path = CONTRACTS_PATH, now: int | None = None) 
     return changed
 
 
+def session_kind(close_at: int) -> str:
+    """Paper through Wednesday 2026-10-21. Thursday is the first live session."""
+    when = datetime.fromtimestamp(close_at, PT).date()
+    return "live" if when >= LIVE_FROM else "paper"
+
+
+def cash_fit(event: dict) -> str:
+    """A live contract has to fit the $50 cash. Missing a price is not a fit."""
+    contract = event.get("contract")
+    premium = event.get("premium")
+    if contract in (None, "", "none") or premium is None:
+        return "none"
+    if float(premium) > LIVE_DEBIT:
+        return "over"
+    return "fits"
+
+
+def live_notice(event: dict) -> str:
+    """The checker text for a live plan. It still is not an order."""
+    text = format_live(event)
+    if text.endswith(" Not an order."):
+        text = text[: -len(" Not an order.")]
+    fit = cash_fit(event)
+    if fit == "fits":
+        cash = "The debit fits $50."
+    elif fit == "over":
+        cash = "The debit is over $50, so it is not the live contract."
+    else:
+        cash = "No contract was priced for the $50 cash."
+    return text + f" Live session. {cash} Waiting for confirm. Not an order."
+
+
 def paper_line(event: dict) -> str | None:
     """One blotter row for an entry or an exit. A skip is not a trade."""
     if event.get("kind") not in ("entry", "exit"):
@@ -2012,6 +2049,49 @@ def append_context(
     path.write_text(existing.rstrip() + "\n" + "\n".join(fresh) + "\n")
 
 
+def live_line(event: dict) -> str | None:
+    """One plan row. The last cell says whether the debit fits the $50 cash."""
+    line = paper_line(event)
+    if line is None:
+        return None
+    return line.rstrip()[:-1].rstrip() + f" | {cash_fit(event)} |"
+
+
+def append_live(events: list[dict], path: Path = LIVE_PATH) -> None:
+    """A live plan. This does not write the paper tape and it does not send an order."""
+    lines = [line for line in (live_line(event) for event in events) if line]
+    if not lines:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not path.is_file():
+        path.write_text(
+            "# Live plans\n\n"
+            "Thursday 2026-10-22 is the first live session. Agentic only. "
+            "Cash is $50, so one contract at or under $0.50. "
+            "A row waits for confirm. It is not an order and it is not a paper row. "
+            "The fade checker stays off.\n\n"
+            "| Time | Ticker | Action | Side | Level | Fill | Reason | Contract | Premium | Cash |\n"
+            "|------|--------|--------|------|-------|------|--------|----------|---------|------|\n"
+        )
+    text = path.read_text()
+    known = set()
+    for line in text.splitlines():
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if len(cells) >= 5 and cells[0] not in ("Time", ""):
+            known.add((cells[0], cells[1], cells[2], cells[4]))
+    fresh = []
+    for line in lines:
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        key = (cells[0], cells[1], cells[2], cells[4])
+        if key in known:
+            continue
+        known.add(key)
+        fresh.append(line)
+    if not fresh:
+        return
+    path.write_text(text.rstrip() + "\n" + "\n".join(fresh) + "\n")
+
+
 def append_paper(events: list[dict], path: Path = PAPER_PATH) -> None:
     lines = [line for line in (paper_line(event) for event in events) if line]
     if not lines:
@@ -2040,6 +2120,31 @@ def refresh_dashboard() -> None:
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     module.main()
+
+
+def notify_live(event: dict) -> None:
+    """Desktop toast for a live plan. The toast is not an order."""
+    headline = f"{event['ticker']} live {event['kind']}"
+    price = event["fill"] if event.get("fill") is not None else event["bar"]["c"]
+    body = f"{event['side']} {event['level']:.2f} at {price:.2f}. Waiting for confirm. Not an order."
+    try:
+        subprocess.run(
+            [
+                "omarchy",
+                "notification",
+                "send",
+                "--app-name",
+                "AutoBonk",
+                "-u",
+                "normal",
+                headline,
+                body,
+            ],
+            check=False,
+            timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return
 
 
 def notify_paper(event: dict) -> None:
@@ -2549,41 +2654,77 @@ def check(now: int | None = None, notify: bool = False) -> list[str]:
                 continue
             originals.append(event)
     save_state(fired, no_contract=blocked, taken=taken)
-    text = PAPER_PATH.read_text() if PAPER_PATH.is_file() else ""
-    quoted = quote_paper(originals, spec["levels"]) if originals else []
-    final = apply_contract_exits(
-        quoted,
-        paper_rows(text),
+    paper_src = []
+    live_src = []
+    other = []
+    for event in originals:
+        if event.get("kind") in ("entry", "exit") and session_kind(event["close_at"]) == "live":
+            live_src.append(event)
+        elif event.get("kind") in ("entry", "exit"):
+            paper_src.append(event)
+        else:
+            other.append(event)
+    paper_text = PAPER_PATH.read_text() if PAPER_PATH.is_file() else ""
+    live_text = LIVE_PATH.read_text() if LIVE_PATH.is_file() else ""
+    final_paper = apply_contract_exits(
+        quote_paper(paper_src, spec["levels"]) if paper_src else [],
+        paper_rows(paper_text),
         moment,
-        marks=_mark_premiums(text),
+        marks=_mark_premiums(paper_text),
+        stock_bar=_stock_bar_at,
+        option_mark=_option_mark_at,
+    )
+    final_live = apply_contract_exits(
+        quote_paper(live_src, spec["levels"], path=LIVE_PATH) if live_src else [],
+        paper_rows(live_text),
+        moment,
+        marks=_mark_premiums(live_text),
         stock_bar=_stock_bar_at,
         option_mark=_option_mark_at,
     )
     messages = []
     quiet = []
     paper = []
-    for event in final:
+    live = []
+
+    def publish(event: dict, live_row: bool) -> None:
         identity = event_id(event["ticker"], event)
         if identity not in fired:
             fired.add(identity)
         routed = route_event(event, moment)
         save_state(fired, no_contract=blocked, taken=taken)
         if routed == "drop" and event.get("reason") != "expiry":
-            continue
+            return
         if routed != "drop":
-            line = format_live(event)
+            line = live_notice(event) if live_row else format_live(event)
             if routed == "alert":
                 if notify:
                     notify_discord(line)
                 messages.append(line)
+                if live_row:
+                    notify_live(event)
             else:
                 quiet.append(line)
         if event.get("kind") in ("entry", "exit"):
-            paper.append(event)
+            if live_row:
+                live.append(event)
+            else:
+                paper.append(event)
+
+    for event in other:
+        publish(event, False)
+    for event in final_paper:
+        publish(event, False)
+    for event in final_live:
+        publish(event, True)
     save_state(fired, no_contract=blocked, taken=taken)
     logged = messages + quiet
     if logged:
         append_log(logged)
+    if live:
+        append_live(live)
+        append_context(live, spec["levels"])
+        record_contracts(live)
     if paper:
         append_paper(paper)
         append_context(paper, spec["levels"])
@@ -2595,6 +2736,7 @@ def check(now: int | None = None, notify: bool = False) -> list[str]:
     comparison = close_expired_contracts(moment)
     if (
         paper
+        or live
         or repaired
         or comparison
         or refresh_open_marks(now=moment)

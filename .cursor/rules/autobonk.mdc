@@ -11,8 +11,9 @@ Read `HANDOFF.md` once, then `rules/ta_rules.md` and `charts/pm_levels_index.md`
 - Discord forwards are empty unless read with `scripts/discord_ta.py`. Run `ingest` so images are local files.
 - Draft plans for the Agentic account only.
 - Place an order only after the operator replies confirm.
-- Monday 2026-10-19 is paper only. Log each checker entry and exit in `alerts/paper.md`. Do not place an order, including after confirm. A paper row is not a journal trade.
-- The fade test in `alerts/fade_forward.md` covered 2026-10-19 through 2026-10-21. The gate passed: profit factor 3.17, net +8.56 stock points, 13 closes. The fade record is paper. Do not switch the live checker to it. Real money waits until the operator says so.
+- Monday 2026-10-19 through Wednesday 2026-10-21 are paper. Those checker rows stay in `alerts/paper.md`. Do not place an order for a paper session, including after confirm. A paper row is not a journal trade.
+- Thursday 2026-10-22 is the first live session. Agentic only. Cash is $50, so one contract at or under $0.50. A checker entry is a plan in `alerts/live.md`. Place an order only after the operator replies confirm. The checker does not place the order. A debit over $50 is not the live contract.
+- The fade test in `alerts/fade_forward.md` covered 2026-10-19 through 2026-10-21. The gate passed: profit factor 3.17, net +8.56 stock points, 13 closes. The fade record is paper. Do not switch the live checker to it.
 - Do not edit `config/agentic.yaml` or `.env`.
 - Do not invent TA rules. If `rules/ta_rules.md` is still the blank template, stop and ask.
 - After new TA or a confirmed trade, update `learning/journal.md`. Patterns come only from trades that were taken.
@@ -23,5 +24,5 @@ Read `HANDOFF.md` once, then `rules/ta_rules.md` and `charts/pm_levels_index.md`
 - Every support can flip to resistance, and every resistance can flip to support. The flip is a finished 10-minute close beyond the level by half the 14-period ATR. A close inside that band has not flipped the level. A later close back through flips it again. The flipped side targets the posted numbers in that direction.
 - 4h and daily RSI choose which levels are likely in play. They do not have to agree with the 10-minute play. Undecided RSI means the 10-minute RSI drives, especially price at RSI 50.
 - The first target in a note is the next number. "Possibly" is a further target if that one is also lost or claimed. Hitting the first target does not close the trade. Trimming or rolling up the chain is optional.
-- Skip a lower level when the next number has been tagged and the close came back through it. A later close through that number clears the skip. Skip an entry when the priced contract is none. A check more than 20 minutes late still writes that session's paper row and does not send the Discord alert.
+- Skip a lower level when the next number has been tagged and the close came back through it. A later close through that number clears the skip. Skip an entry when the priced contract is none. A check more than 20 minutes late still writes that session's paper row, or the live plan on a live session, and does not send the Discord alert.
 - A long option can cost up to $100 per contract. Look first at 0DTE or the next expiration, at the money or in the money. A reasonable out-of-the-money contract is allowed when theta and the distance to the posted target still leave room for it to gain. Do not take 0DTE in the last hour before the 13:00 PT cash close. Do not take a 0DTE strike past the halfway point between the stock and the far target. Do not cut it unless the level is invalidated or theta will hurt the contract significantly.

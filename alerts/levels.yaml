@@ -1,329 +1,445 @@
-# Levels from the operator's 2026-10-20 night #ta note.
+# Levels from the operator's 2026-10-22 06:24 PT premarket note.
 # Armed when that note arrived.
 # A claim or a lose is still a 10-minute close through the printed price.
 # The 15-cent touch is only for a wick that tags the level.
 # allows: long, short, or both. targets are in order. The first does not close the trade.
 # A lost support flips to resistance. A claimed resistance flips to support.
-# Unnumbered 4h SMAs, the channel, and the trend line are not separate orders.
-# 263.7, 262.5, and 267.5 are location. 225.25 is a warning, not an order.
-armed_at: "2026-10-20T23:05:37-07:00"
+# Resistance is long. Support is short. AAPL 342.37 is the bounce they named.
+# AAPL 343.8 is the support they listed, and last night 343.81 was the hold.
+# MU support was "every 10 points down" and was not numbered.
+# Last night's AVGO, GOOGL, and MSFT notes are not in this list.
+# Unnumbered SMAs, fibs, channels, and trend lines are not separate orders.
+# OS and gamma comments are not orders.
+armed_at: "2026-10-22T06:24:52-07:00"
 levels:
-  - ticker: SNOW
-    price: 320
-    side: claim
-    allows: long
-    targets: [335]
-    note: "More downside until 320, then 335 can be claimed and held"
-  - ticker: SNOW
-    price: 335
-    side: claim
-    allows: long
-    targets: []
-    note: "335 claimed and held"
-  - ticker: SNOW
-    price: 281
-    side: claim
-    allows: long
-    targets: []
-    note: "281 is the ultimate long, if we reach it"
-  - ticker: CRWD
-    price: 214
-    side: lose
-    allows: short
-    targets: [190, 170]
-    note: "Heads 214, then 190, then 170. 170 might be too far"
-  - ticker: CRWD
-    price: 190
-    side: lose
-    allows: short
-    targets: [170]
-    note: "Then 190"
-  - ticker: CRWD
-    price: 170
-    side: lose
-    allows: short
-    targets: []
-    note: "170 might be too far of a drop"
-  - ticker: AAPL
-    price: 355.5
-    side: lose
-    allows: short
-    targets: []
-    note: "355.5 remains the first level to break for downside"
-  - ticker: AAPL
-    price: 333.25
-    side: claim
-    allows: both
-    targets: [330.7, 328.25, 324.75]
-    up_targets: [340, 343, 345.4]
-    note: "Interested in 333.25. A bounce on the trend line is possible. If 333 breaks, 330.7"
-  - ticker: AAPL
-    price: 330.7
-    side: claim
-    allows: long
-    targets: [333.25, 340, 343, 345.4]
-    note: "If 333 breaks, look to 330.7 for a bounce"
-  - ticker: AAPL
-    price: 330
-    side: lose
-    allows: short
-    targets: [328.25, 324.75]
-    note: "If 330 breaks, 328.25 then 324.75"
-  - ticker: AAPL
-    price: 328.25
-    side: lose
-    allows: short
-    targets: [324.75]
-    note: "Then 328.25"
-  - ticker: AAPL
-    price: 324.75
-    side: lose
-    allows: short
-    targets: []
-    note: "Then 324.75"
-  - ticker: AAPL
-    price: 340
-    side: claim
-    allows: long
-    targets: [343, 345.4]
-    note: "A bounce claims broken levels, then 340, then 343, then 345.4"
-  - ticker: AAPL
-    price: 343
-    side: claim
-    allows: long
-    targets: [345.4]
-    note: "Then 343"
-  - ticker: AAPL
-    price: 345.4
-    side: claim
-    allows: long
-    targets: []
-    note: "Then 345.4"
-  - ticker: AMZN
-    price: 264.2
-    side: claim
-    allows: long
-    targets: [265.35, 267, 269.58]
-    note: "Claims at 264.2, then 265.35, then 267, then 269.58. Want an open above 263.7"
-  - ticker: AMZN
-    price: 265.35
-    side: claim
-    allows: long
-    targets: [267, 269.58]
-    note: "Then 265.35"
-  - ticker: AMZN
-    price: 267
-    side: claim
-    allows: long
-    targets: [269.58]
-    note: "Then 267"
-  - ticker: AMZN
-    price: 269.58
-    side: claim
-    allows: long
-    targets: []
-    note: "Then 269.58"
-  - ticker: AMZN
-    price: 260.5
-    side: lose
-    allows: short
-    targets: [257.95, 256.18, 254.4]
-    note: "Break 260.5, then 257.95, then 256.18, then 254.4"
-  - ticker: AMZN
-    price: 257.95
-    side: lose
-    allows: short
-    targets: [256.18, 254.4]
-    note: "Then 257.95"
-  - ticker: AMZN
-    price: 256.18
-    side: lose
-    allows: short
-    targets: [254.4]
-    note: "Then 256.18"
-  - ticker: AMZN
-    price: 254.4
-    side: lose
-    allows: short
-    targets: []
-    note: "Then 254.4"
-  - ticker: AVGO
-    price: 340.75
-    side: claim
-    allows: long
-    targets: [343, 344.43, 356.75]
-    note: "Did not claim 340.75. Can open above it. Then the 343 fib, then 344.43, then 356.75"
-  - ticker: AVGO
-    price: 343
-    side: claim
-    allows: long
-    targets: [344.43, 356.75]
-    note: "The 343 fib"
-  - ticker: AVGO
-    price: 344.43
-    side: claim
-    allows: long
-    targets: [356.75]
-    note: "Needs to claim 344.43 to have a chance to push"
-  - ticker: AVGO
-    price: 356.75
-    side: claim
-    allows: long
-    targets: []
-    note: "356.75 is the key level for an explosive push"
-  - ticker: NVDA
-    price: 224.5
-    side: claim
-    allows: long
-    targets: [229.25, 232]
-    note: "Push to 224.5, then 229.25, then 232. 4h resistance at 225.25, be wary there"
-  - ticker: NVDA
-    price: 229.25
-    side: claim
-    allows: long
-    targets: [232]
-    note: "Then 229.25"
-  - ticker: NVDA
-    price: 232
-    side: claim
-    allows: long
-    targets: []
-    note: "Then 232"
-  - ticker: GOOGL
-    price: 344
-    side: claim
-    allows: long
-    targets: [345.82, 347.35, 350, 352.66]
-    note: "Needs to claim 344. Above that 345.82, then 347.35, then 350, then 352.66"
-  - ticker: GOOGL
-    price: 345.82
-    side: claim
-    allows: long
-    targets: [347.35, 350, 352.66]
-    note: "Then 345.82"
-  - ticker: GOOGL
-    price: 347.35
-    side: claim
-    allows: long
-    targets: [350, 352.66]
-    note: "Then 347.35"
-  - ticker: GOOGL
-    price: 350
-    side: claim
-    allows: long
-    targets: [352.66]
-    note: "Then 350"
-  - ticker: GOOGL
-    price: 352.66
-    side: claim
-    allows: long
-    targets: []
-    note: "Then 352.66"
-  - ticker: GOOGL
-    price: 338.4
-    side: lose
-    allows: short
-    targets: [335.5]
-    note: "If 338.4 breaks, 335.5"
-  - ticker: GOOGL
-    price: 335.5
-    side: lose
-    allows: short
-    targets: []
-    note: "Then 335.5"
-  - ticker: INTC
-    price: 90.5
-    side: claim
-    allows: long
-    targets: [95, 97.5, 100, 102, 103]
-    note: "If 95 does not break immediately, look for a bounce on 90.5"
-  - ticker: INTC
-    price: 95
-    side: claim
-    allows: long
-    targets: [97.5, 100, 102, 103]
-    note: "Claim 95, then 97.5, then 100, then 102, maybe 103"
-  - ticker: INTC
-    price: 97.5
-    side: claim
-    allows: long
-    targets: [100, 102, 103]
-    note: "Then 97.5"
-  - ticker: INTC
-    price: 100
-    side: claim
-    allows: long
-    targets: [102, 103]
-    note: "Then 100"
-  - ticker: INTC
-    price: 102
-    side: claim
-    allows: long
-    targets: [103]
-    note: "Then 102, maybe 103"
-  - ticker: INTC
-    price: 103
-    side: claim
-    allows: long
-    targets: []
-    note: "Maybe 103"
-  - ticker: INTC
-    price: 90
-    side: lose
-    allows: short
-    targets: []
-    note: "Do not want to see 90 break"
-  - ticker: PLTR
-    price: 193.85
-    side: claim
-    allows: long
-    targets: [197, 200, 203.7, 210]
-    note: "Hold the 4h 20 and the fib at 193.85, then 197, then 200, then 203.7, then 210"
-  - ticker: PLTR
-    price: 197
-    side: claim
-    allows: long
-    targets: [200, 203.7, 210]
-    note: "Then 197"
-  - ticker: PLTR
-    price: 200
-    side: claim
-    allows: long
-    targets: [203.7, 210]
-    note: "Then 200"
-  - ticker: PLTR
-    price: 203.7
-    side: claim
-    allows: long
-    targets: [210]
-    note: "Then 203.7"
-  - ticker: PLTR
-    price: 210
-    side: claim
-    allows: long
-    targets: []
-    note: "Then 210"
-  - ticker: PLTR
-    price: 191.5
-    side: lose
-    allows: short
-    targets: [186.5]
-    note: "A break below 191.5 could see 186.5 or the 4h 200"
-  - ticker: PLTR
-    price: 186.5
-    side: lose
-    allows: short
-    targets: []
-    note: "Then 186.5"
-  - ticker: PLTR
-    price: 190
-    side: lose
-    allows: short
-    targets: [185]
-    note: "Easy slide to 185 if 190 breaks"
-  - ticker: PLTR
-    price: 185
-    side: lose
-    allows: short
-    targets: []
-    note: "Then 185"
+- ticker: AAPL
+  price: 343.8
+  side: claim
+  allows: both
+  targets:
+  - 342.5
+  - 342.37
+  - 339.5
+  note: Support. Last night 343.81 was the area to hold.
+  up_targets:
+  - 345.4
+  - 346.5
+  - 350
+- ticker: AAPL
+  price: 345.4
+  side: claim
+  allows: long
+  targets:
+  - 346.5
+  - 350
+  note: Claim 345.4 for higher, then 346.5, then 350
+- ticker: AAPL
+  price: 346.5
+  side: claim
+  allows: long
+  targets:
+  - 350
+  note: Then 346.5
+- ticker: AAPL
+  price: 350
+  side: claim
+  allows: long
+  targets: []
+  note: Then 350
+- ticker: AAPL
+  price: 342.5
+  side: lose
+  allows: short
+  targets:
+  - 342.37
+  - 339.5
+  note: Then 342.5
+- ticker: AAPL
+  price: 342.37
+  side: claim
+  allows: long
+  targets: []
+  note: Bounce
+- ticker: AAPL
+  price: 339.5
+  side: lose
+  allows: short
+  targets: []
+  note: Then 339.5
+- ticker: AMZN
+  price: 257.95
+  side: claim
+  allows: long
+  targets:
+  - 260
+  - 263.7
+  - 265.35
+  - 267
+  note: Resistance 257.95, then 260, 263.7, 265.35, 267
+- ticker: AMZN
+  price: 260
+  side: claim
+  allows: long
+  targets:
+  - 263.7
+  - 265.35
+  - 267
+  note: Then 260
+- ticker: AMZN
+  price: 263.7
+  side: claim
+  allows: long
+  targets:
+  - 265.35
+  - 267
+  note: Then 263.7
+- ticker: AMZN
+  price: 265.35
+  side: claim
+  allows: long
+  targets:
+  - 267
+  note: Then 265.35
+- ticker: AMZN
+  price: 267
+  side: claim
+  allows: long
+  targets: []
+  note: Then 267
+- ticker: AMZN
+  price: 256.18
+  side: lose
+  allows: short
+  targets:
+  - 254.5
+  - 250
+  - 246
+  note: Support 256.18, then 254.5, 250, 246
+- ticker: AMZN
+  price: 254.5
+  side: lose
+  allows: short
+  targets:
+  - 250
+  - 246
+  note: Then 254.5
+- ticker: AMZN
+  price: 250
+  side: lose
+  allows: short
+  targets:
+  - 246
+  note: Then 250
+- ticker: AMZN
+  price: 246
+  side: lose
+  allows: short
+  targets: []
+  note: Then 246
+- ticker: AMD
+  price: 530
+  side: claim
+  allows: long
+  targets:
+  - 535.5
+  - 540.2
+  - 551
+  note: Resistance 530, then 535.5, 540.2, 551
+- ticker: AMD
+  price: 535.5
+  side: claim
+  allows: long
+  targets:
+  - 540.2
+  - 551
+  note: Then 535.5
+- ticker: AMD
+  price: 540.2
+  side: claim
+  allows: long
+  targets:
+  - 551
+  note: Then 540.2
+- ticker: AMD
+  price: 551
+  side: claim
+  allows: long
+  targets: []
+  note: Then 551
+- ticker: AMD
+  price: 523.75
+  side: lose
+  allows: short
+  targets:
+  - 512.38
+  - 503.9
+  - 500
+  note: Support 523.75, then 512.38, 503.9, 500
+- ticker: AMD
+  price: 512.38
+  side: lose
+  allows: short
+  targets:
+  - 503.9
+  - 500
+  note: Then 512.38
+- ticker: AMD
+  price: 503.9
+  side: lose
+  allows: short
+  targets:
+  - 500
+  note: Then 503.9
+- ticker: AMD
+  price: 500
+  side: lose
+  allows: short
+  targets: []
+  note: Then 500
+- ticker: MU
+  price: 880
+  side: claim
+  allows: long
+  targets:
+  - 895
+  - 900
+  - 915.4
+  - 930
+  note: Resistance 880, then 895, 900, 915.4, 930. Support was every 10 points down
+    and was not numbered.
+- ticker: MU
+  price: 895
+  side: claim
+  allows: long
+  targets:
+  - 900
+  - 915.4
+  - 930
+  note: Then 895
+- ticker: MU
+  price: 900
+  side: claim
+  allows: long
+  targets:
+  - 915.4
+  - 930
+  note: Then 900
+- ticker: MU
+  price: 915.4
+  side: claim
+  allows: long
+  targets:
+  - 930
+  note: Then 915.4
+- ticker: MU
+  price: 930
+  side: claim
+  allows: long
+  targets: []
+  note: Then 930
+- ticker: NVDA
+  price: 218.25
+  side: claim
+  allows: long
+  targets:
+  - 220.25
+  note: Resistance 218.25, then 220.25
+- ticker: NVDA
+  price: 220.25
+  side: claim
+  allows: long
+  targets: []
+  note: Then 220.25
+- ticker: NVDA
+  price: 215.25
+  side: lose
+  allows: short
+  targets:
+  - 212.85
+  - 210
+  - 208.5
+  note: Support 215.25, then 212.85, 210, 208.5
+- ticker: NVDA
+  price: 212.85
+  side: lose
+  allows: short
+  targets:
+  - 210
+  - 208.5
+  note: Then 212.85
+- ticker: NVDA
+  price: 210
+  side: lose
+  allows: short
+  targets:
+  - 208.5
+  note: Then 210
+- ticker: NVDA
+  price: 208.5
+  side: lose
+  allows: short
+  targets: []
+  note: Then 208.5
+- ticker: PLTR
+  price: 200
+  side: claim
+  allows: long
+  targets:
+  - 201.5
+  - 204.5
+  - 210
+  note: Resistance 200, then 201.5, 204.5, 210
+- ticker: PLTR
+  price: 201.5
+  side: claim
+  allows: long
+  targets:
+  - 204.5
+  - 210
+  note: Then 201.5
+- ticker: PLTR
+  price: 204.5
+  side: claim
+  allows: long
+  targets:
+  - 210
+  note: Then 204.5
+- ticker: PLTR
+  price: 210
+  side: claim
+  allows: long
+  targets: []
+  note: Then 210
+- ticker: PLTR
+  price: 197
+  side: lose
+  allows: short
+  targets:
+  - 193.8
+  - 191.8
+  - 187.2
+  note: Support 197, then 193.8, 191.8, 187.2
+- ticker: PLTR
+  price: 193.8
+  side: lose
+  allows: short
+  targets:
+  - 191.8
+  - 187.2
+  note: Then 193.8
+- ticker: PLTR
+  price: 191.8
+  side: lose
+  allows: short
+  targets:
+  - 187.2
+  note: Then 191.8
+- ticker: PLTR
+  price: 187.2
+  side: lose
+  allows: short
+  targets: []
+  note: Then 187.2
+- ticker: SPCX
+  price: 157.9
+  side: claim
+  allows: long
+  targets:
+  - 160.75
+  - 163.7
+  note: Resistance 157.9, then 160.75, 163.7
+- ticker: SPCX
+  price: 160.75
+  side: claim
+  allows: long
+  targets:
+  - 163.7
+  note: Then 160.75
+- ticker: SPCX
+  price: 163.7
+  side: claim
+  allows: long
+  targets: []
+  note: Then 163.7
+- ticker: SPCX
+  price: 153.84
+  side: lose
+  allows: short
+  targets:
+  - 150
+  - 146.6
+  - 142.5
+  - 138.6
+  note: Support 153.84, then 150, 146.6, 142.5, 138.6
+- ticker: SPCX
+  price: 150
+  side: lose
+  allows: short
+  targets:
+  - 146.6
+  - 142.5
+  - 138.6
+  note: Then 150
+- ticker: SPCX
+  price: 146.6
+  side: lose
+  allows: short
+  targets:
+  - 142.5
+  - 138.6
+  note: Then 146.6
+- ticker: SPCX
+  price: 142.5
+  side: lose
+  allows: short
+  targets:
+  - 138.6
+  note: Then 142.5
+- ticker: SPCX
+  price: 138.6
+  side: lose
+  allows: short
+  targets: []
+  note: Then 138.6
+- ticker: TSLA
+  price: 372.75
+  side: claim
+  allows: long
+  targets:
+  - 377.75
+  - 382.75
+  note: Resistance 372.75, 377.75, then 382.75
+- ticker: TSLA
+  price: 377.75
+  side: claim
+  allows: long
+  targets:
+  - 382.75
+  note: Then 377.75
+- ticker: TSLA
+  price: 382.75
+  side: claim
+  allows: long
+  targets: []
+  note: Then 382.75
+- ticker: TSLA
+  price: 366.87
+  side: lose
+  allows: short
+  targets:
+  - 361.4
+  - 350
+  note: Support 366.87, then 361.4, 350
+- ticker: TSLA
+  price: 361.4
+  side: lose
+  allows: short
+  targets:
+  - 350
+  note: Then 361.4
+- ticker: TSLA
+  price: 350
+  side: lose
+  allows: short
+  targets: []
+  note: Then 350

@@ -1,6 +1,6 @@
 # Paper trades
 
-Monday 2026-10-19 is paper only. Each row is a checker entry or exit. Nothing here was sent to Robinhood. A row does not fill the journal Trade column and is not a pattern.
+Monday 2026-10-19 through Wednesday 2026-10-21 are paper. Each row is a checker entry or exit. Nothing here was sent to Robinhood. Thursday 2026-10-22 is live and is written in `alerts/live.md`, not here. A row does not fill the journal Trade column and is not a pattern.
 
 Premiums on these rows are the Robinhood 10-minute print for the contract under the $100 cap. Profit on the dashboard is one contract.
 

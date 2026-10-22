@@ -32,8 +32,10 @@ OUT = ROOT / "dashboard" / "index.html"
 def render(root: Path) -> str:
     return _page(
         [
+            ("Open trades", _paper(root), "trades"),
+            ("Live session", _live_session(root), "session"),
+            ("Watch", _watches(root), "watch"),
             ("Backtest", _studio(root), "backtest"),
-            ("Paper", _paper(root), "trades"),
             ("Contracts", _contracts(root), "contracts"),
             ("Live book", _live_book(root), "book"),
             ("Lessons", _lessons(root), "lessons"),
@@ -148,18 +150,169 @@ def _profit(trade: dict) -> float | None:
     return (exit_premium - entry) * 100
 
 
+def _paper_label(entry: dict) -> str:
+    """Paper only when the paid premium is over the contract cap."""
+    premium = _premium(entry.get("premium"))
+    book = desk.classify_contract(entry.get("contract"), premium, claim_alerts.CONTRACT_CAP)
+    return "paper" if book == "paper" else ""
+
+
+def _label_cell(entry: dict) -> str:
+    label = _paper_label(entry)
+    if not label:
+        return "<td></td>"
+    return "<td class='paper'>paper</td>"
+
+
+def _watch_rows(text: str) -> list[dict]:
+    """The latest watch for each level on the newest session in the log."""
+    found = []
+    for line in text.splitlines():
+        if " watch " not in line or not line.startswith("- "):
+            continue
+        head, _, rest = line[2:].partition(" at ")
+        pieces = head.split()
+        if len(pieces) < 4 or pieces[2] != "watch":
+            continue
+        when, _, note = rest.partition(". ")
+        if " PT" not in when:
+            continue
+        found.append(
+            {
+                "ticker": pieces[0],
+                "side": pieces[1],
+                "level": pieces[3],
+                "time": when.strip(),
+                "note": note.strip(),
+            }
+        )
+    if not found:
+        return []
+    newest = max(row["time"][:10] for row in found)
+    latest: dict[tuple[str, str, str], dict] = {}
+    for row in found:
+        if row["time"][:10] != newest:
+            continue
+        latest[(row["ticker"], row["side"], row["level"])] = row
+    return list(latest.values())
+
+
+def _watches(root: Path) -> str:
+    rows = _watch_rows(_read(root / "alerts" / "log.md"))
+    if not rows:
+        return "<p>No watch. A watch is not a fill and it is not an order.</p>"
+    body = []
+    for row in sorted(rows, key=lambda item: item["time"]):
+        side = row["side"]
+        side_class = " call" if side == "call" else " put" if side == "put" else ""
+        body.append(
+            "<tr>"
+            f"<td class='num'>{_esc(row['time'])}</td>"
+            f"<td class='ticker'>{_esc(row['ticker'])}</td>"
+            f"<td class='side{side_class}'>{_esc(side)}</td>"
+            f"<td class='num'>{_esc(row['level'])}</td>"
+            f"<td>{_esc(row['note'])}</td>"
+            "</tr>"
+        )
+    return (
+        "<p>The latest watch on each level for the newest session in the log. "
+        "A watch is not a fill and it is not an order.</p>"
+        "<table><thead><tr>"
+        "<th>Time</th><th>Ticker</th><th>Side</th><th>Level</th><th>Note</th>"
+        f"</tr></thead><tbody>{''.join(body)}</tbody></table>"
+    )
+
+
+def _open_table(trades: list[dict]) -> str:
+    open_rows = [trade for trade in trades if trade["exit"] is None]
+    if not open_rows:
+        return "<div id='open-trades'><p>No open trade.</p></div>"
+    body = []
+    for trade in reversed(open_rows):
+        entry = trade["entry"]
+        side = entry["side"]
+        side_class = " call" if side == "call" else " put" if side == "put" else ""
+        mark = trade["mark"]
+        mark_text = "" if mark is None else f"{mark['premium']} at {mark['as_of']}"
+        body.append(
+            "<tr>"
+            f"<td class='num'>{_esc(entry['time'])}</td>"
+            f"<td class='ticker'>{_esc(entry['ticker'])}</td>"
+            f"<td class='side{side_class}'>{_esc(side)}</td>"
+            f"<td class='num'>{_esc(entry['level'])}</td>"
+            f"<td class='num'>{_esc(entry['fill'])}</td>"
+            f"<td>{_esc(entry['contract'])}</td>"
+            f"<td class='num'>{_esc(entry['premium'])}</td>"
+            f"<td class='num'>{_esc(mark_text)}</td>"
+            f"{_label_cell(entry)}"
+            "</tr>"
+        )
+    return (
+        "<div id='open-trades'>"
+        "<p>These entries have no exit. A mark is the latest print. "
+        "A trade is labeled paper when the premium is over $1. This is not an order.</p>"
+        "<table><thead><tr>"
+        "<th>Time</th><th>Ticker</th><th>Side</th><th>Level</th>"
+        "<th>Fill</th><th>Contract</th><th>Paid</th><th>Mark</th><th></th>"
+        f"</tr></thead><tbody>{''.join(body)}</tbody></table></div>"
+    )
+
+
+def _live_session(root: Path) -> str:
+    """Plans for the first live session. A row is not an order."""
+    note = (
+        "<p>Thursday 2026-10-22 is the first live session. Agentic only. "
+        "Cash is $50, so one contract at or under $0.50. "
+        "A row waits for confirm. This is not an order. "
+        "The open trades above are the paper tape through Wednesday.</p>"
+    )
+    text = _read(root / "alerts" / "live.md")
+    body = []
+    for cells in _table_rows(text):
+        if cells[0] == "Time":
+            continue
+        padded = (cells + [""] * 10)[:10]
+        side = padded[3]
+        side_class = " call" if side == "call" else " put" if side == "put" else ""
+        cash = padded[9]
+        cash_class = " call" if cash == "fits" else " put" if cash == "over" else ""
+        body.append(
+            "<tr>"
+            f"<td class='num'>{_esc(padded[0])}</td>"
+            f"<td class='ticker'>{_esc(padded[1])}</td>"
+            f"<td>{_esc(padded[2])}</td>"
+            f"<td class='side{side_class}'>{_esc(side)}</td>"
+            f"<td class='num'>{_esc(padded[4])}</td>"
+            f"<td class='num'>{_esc(padded[5])}</td>"
+            f"<td>{_esc(padded[6])}</td>"
+            f"<td>{_esc(padded[7])}</td>"
+            f"<td class='num'>{_esc(padded[8])}</td>"
+            f"<td class='{cash_class.strip()}'>{_esc(cash)}</td>"
+            "</tr>"
+        )
+    if not body:
+        return note + "<p>No live plan yet.</p>"
+    return (
+        note
+        + "<table><thead><tr>"
+        "<th>Time</th><th>Ticker</th><th>Action</th><th>Side</th><th>Level</th>"
+        "<th>Fill</th><th>Reason</th><th>Contract</th><th>Premium</th><th>Cash</th>"
+        f"</tr></thead><tbody>{''.join(body)}</tbody></table>"
+    )
+
+
 def _paper(root: Path) -> str:
     text = _read(root / "alerts" / "paper.md")
     rows, marks = _paper_rows(text)
     notes = [
-        "<p>A paper row is not an order and is not a journal trade. "
+        "<p>A row here is not an order and is not a journal trade. "
         "Profit is one contract, the premium change times 100.</p>"
     ]
     for line in text.split("## Open marks", 1)[0].splitlines():
         if line.startswith("- "):
             notes.append(f"<p>{_esc(line[2:].strip())}</p>")
     if not rows:
-        return "<p>No paper trades yet.</p>" + "".join(notes)
+        return "<p>No open trade.</p>" + "".join(notes)
     trades = _paired_trades(rows, marks)
     trade_rows = []
     total = 0.0
@@ -192,6 +345,7 @@ def _paper(root: Path) -> str:
             f"<td>{_esc(entry['contract'])}</td>"
             f"<td class='num'>{_esc(entry['premium'])}</td>"
             f"<td class='num'>{_esc(exit_text)}</td>"
+            f"{_label_cell(entry)}"
             f"<td class='num{profit_class}'>{_esc(_dollars(profit))}</td>"
             "</tr>"
         )
@@ -215,11 +369,12 @@ def _paper(root: Path) -> str:
             "</tr>"
         )
     return (
-        "<table><thead><tr>"
+        _open_table(trades)
+        + "<table><thead><tr>"
         "<th>Time</th><th>Ticker</th><th>Side</th><th>Level</th>"
-        "<th>Contract</th><th>Paid</th><th>Exit</th><th>Profit</th>"
+        "<th>Contract</th><th>Paid</th><th>Exit</th><th></th><th>Profit</th>"
         f"</tr></thead><tbody>{''.join(trade_rows)}"
-        f"<tr data-stay><td colspan='7'>Day</td><td class='num{total_class}'>{_esc(total_text)}</td></tr>"
+        f"<tr data-stay><td colspan='8'>Day</td><td class='num{total_class}'>{_esc(total_text)}</td></tr>"
         "</tbody></table>"
         + _tape_books(trades)
         + "".join(notes)
@@ -997,7 +1152,7 @@ def _page(sections: list[tuple[str, str, str]]) -> str:
     )
     by_anchor = {anchor: title for title, _part, anchor in sections}
     groups = (
-        ("Trades", ("trades", "contracts")),
+        ("Trades", ("trades", "session", "watch", "contracts")),
         ("Lessons", ("lessons", "journal", "training")),
         ("Rules", ("rules",)),
         ("Backtest", ("backtest",)),

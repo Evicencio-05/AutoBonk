@@ -49,3 +49,25 @@
 - PLTR call skip 200.00 at 2026-10-21 10:30 PT. Candle red O 200.13 H 200.20 L 199.78 C 199.99. RSI purple 70.16 yellow 71.83. Fill bar closed back through the level. Not an order.
 - AAPL call watch 343.00 at 2026-10-21 11:00 PT. Candle red O 344.61 H 344.78 L 344.25 C 344.40. RSI purple 68.10 yellow 72.08. The 20 SMA is on the level. Not a fill. Not an order.
 - PLTR call watch 200.00 at 2026-10-21 13:00 PT. Candle red O 202.32 H 202.55 L 201.30 C 201.64. RSI purple 67.82 yellow 65.87. The 20 SMA is on the level. Not a fill. Not an order.
+- AAPL call watch 343.00 at 2026-10-22 05:50 PT. Candle red O 344.08 H 344.10 L 343.74 C 343.74. RSI purple 50.45 yellow 47.54. The 20 SMA is on the level. Not a fill. Not an order.
+- AMZN put watch 257.95 at 2026-10-22 05:50 PT. Candle green O 256.99 H 257.45 L 256.99 C 257.20. RSI purple 36.62 yellow 34.43. The 20 SMA is on the level. Not a fill. Not an order.
+- PLTR call watch 197.00 at 2026-10-22 05:50 PT. Candle red O 199.35 H 199.35 L 199.02 C 199.26. RSI purple 59.42 yellow 48.04. The 20 SMA is on the level. Not a fill. Not an order.
+- AMZN put watch 257.95 at 2026-10-22 06:10 PT. Candle green O 257.36 H 257.60 L 257.19 C 257.60. RSI purple 42.52 yellow 34.94. The 20 SMA is on the level. Not a fill. Not an order.
+- AAPL call watch 343.80 at 2026-10-22 06:50 PT. Candle red O 345.44 H 346.30 L 344.83 C 345.34. RSI purple 64.67 yellow 54.45. The 20 SMA is on the level. Not a fill. Not an order.
+- AMZN put watch 256.18 at 2026-10-22 07:00 PT. Candle green O 253.01 H 253.85 L 251.83 C 253.33. RSI purple 27.05 yellow 36.53. The 20 SMA is on the level. Not a fill. Not an order.
+- SPCX put watch 153.84 at 2026-10-22 07:00 PT. Candle green O 152.65 H 153.08 L 151.75 C 152.75. RSI purple 29.36 yellow 37.56. The 20 SMA is on the level. Not a fill. Not an order.
+- AAPL call skip 343.80 at 2026-10-22 07:20 PT. Candle red O 345.12 H 345.38 L 343.88 C 344.37. RSI purple 51.02 yellow 56.28. The next number was tagged and did not hold. Not an order.
+- MU call skip 900.00 at 2026-10-22 07:20 PT. Candle red O 900.68 H 901.19 L 893.89 C 894.71. RSI purple 57.59 yellow 47.58. Next open 900.68 left the level. Not an order.
+- PLTR call skip 200.00 at 2026-10-22 07:20 PT. Candle red O 200.85 H 201.92 L 200.10 C 200.42. RSI purple 57.69 yellow 60.52. The next number was tagged and did not hold. Not an order.
+- AMZN put watch 256.18 at 2026-10-22 07:40 PT. Candle green O 251.88 H 252.39 L 251.40 C 252.01. RSI purple 24.77 yellow 33.18. The 20 SMA is on the level. Not a fill. Not an order.
+- MU call skip 880.00 at 2026-10-22 07:40 PT. Candle red O 888.89 H 889.96 L 878.50 C 880.25. RSI purple 41.59 yellow 48.40. The next number was tagged and did not hold. Not an order.
+- AAPL call skip 342.37 at 2026-10-22 07:50 PT. Candle green O 342.95 H 343.64 L 342.28 C 343.56. RSI purple 45.36 yellow 54.86. Next open 342.95 left the level. Not an order.
+- SPCX put watch 153.84 at 2026-10-22 07:50 PT. Candle green O 150.43 H 150.95 L 150.31 C 150.46. RSI purple 19.10 yellow 31.79. The 20 SMA is on the level. Not a fill. Not an order.
+- AMZN put watch 254.50 at 2026-10-22 08:00 PT. Candle green O 252.13 H 252.61 L 251.67 C 252.27. RSI purple 27.21 yellow 32.37. The 20 SMA is on the level. Not a fill. Not an order.
+- TSLA call watch 377.75 at 2026-10-22 08:00 PT. Candle red O 386.70 H 386.81 L 385.25 C 386.23. RSI purple 73.18 yellow 67.46. The 20 SMA is on the level. Not a fill. Not an order.
+- AMZN put watch 254.50 at 2026-10-22 08:20 PT. Candle green O 251.59 H 252.30 L 251.43 C 252.25. RSI purple 31.02 yellow 30.98. The 20 SMA is on the level. Not a fill. Not an order.
+- NVDA put watch 215.25 at 2026-10-22 08:20 PT. Candle green O 213.32 H 213.95 L 212.80 C 213.72. RSI purple 29.79 yellow 36.41. The 20 SMA is on the level. Not a fill. Not an order.
+- TSLA call skip 382.75 at 2026-10-22 08:20 PT. Candle green O 381.79 H 384.50 L 380.35 C 383.57. RSI purple 62.16 yellow 68.47. Next open 381.79 left the level. Not an order.
+- AMD put skip 512.38 at 2026-10-22 08:30 PT. Candle red O 511.46 H 513.24 L 510.71 C 511.10. RSI purple 22.78 yellow 29.17. Next open 511.46 left the level. Not an order.
+- SPCX put entry 150.00 at 2026-10-22 08:30 PT. Candle green O 148.81 H 149.91 L 148.28 C 149.80. RSI purple 26.75 yellow 26.89. Fill 149.80. put debit at most $100. OTM is allowed when theta and the target still leave room to gain. Live session. No contract was priced for the $50 cash. Waiting for confirm. Not an order.
+- AMZN put watch 254.50 at 2026-10-22 08:40 PT. Candle green O 251.96 H 252.25 L 251.60 C 252.00. RSI purple 30.13 yellow 29.48. The 20 SMA is on the level. Not a fill. Not an order.

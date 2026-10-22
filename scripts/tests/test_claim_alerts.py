@@ -488,6 +488,63 @@ def test_paper_line_is_an_entry_and_not_a_skip():
     assert claim_alerts.paper_line({**event, "kind": "skip"}) is None
 
 
+def test_thursday_is_live_and_wednesday_stays_on_the_paper_tape():
+    wednesday = int(datetime(2026, 10, 21, 7, 30, tzinfo=ZoneInfo("America/Los_Angeles")).timestamp())
+    thursday = int(datetime(2026, 10, 22, 7, 30, tzinfo=ZoneInfo("America/Los_Angeles")).timestamp())
+    event = {
+        "kind": "entry",
+        "ticker": "AAPL",
+        "side": "call",
+        "level": 340.0,
+        "reason": "retest",
+        "close_at": thursday,
+        "fill": 340.35,
+        "contract": "10/22 342.5C",
+        "premium": 0.38,
+        "bar": {
+            "o": 340.42,
+            "h": 340.74,
+            "l": 340.07,
+            "c": 340.35,
+            "purple": 70.6,
+            "yellow": 63.51,
+        },
+    }
+    over = {
+        **event,
+        "ticker": "AMZN",
+        "side": "put",
+        "level": 260.5,
+        "contract": "10/22 257.5P",
+        "premium": 0.80,
+    }
+    missing = {**event, "contract": "none", "premium": None}
+    paper = Path("/tmp/autobonk-paper-untouched.md")
+    live = Path("/tmp/autobonk-live.md")
+    paper.write_text("# Paper trades\n\n| Time | Ticker |\n|---|---|\n")
+    if live.exists():
+        live.unlink()
+
+    assert claim_alerts.session_kind(wednesday) == "paper"
+    assert claim_alerts.session_kind(thursday) == "live"
+    assert claim_alerts.cash_fit(event) == "fits"
+    assert claim_alerts.cash_fit(over) == "over"
+    assert claim_alerts.cash_fit(missing) == "none"
+    notice = claim_alerts.live_notice(event)
+    assert "Waiting for confirm." in notice
+    assert "The debit fits $50." in notice
+    assert notice.endswith("Not an order.")
+    claim_alerts.append_live([event, over], live)
+
+    text = live.read_text()
+    assert "10/22 342.5C" in text
+    assert text.count("fits") == 1
+    assert "| over |" in text
+    assert "AAPL" not in paper.read_text()
+    claim_alerts.append_live([event], live)
+    assert live.read_text().count("10/22 342.5C") == 1
+
+
 def test_the_nearest_otm_call_under_the_cap_is_taken_when_the_target_can_reach_it():
     quotes = [
         {"strike": 345, "debit": 1.25},

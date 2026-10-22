@@ -11,6 +11,59 @@ dashboard = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(dashboard)
 
 
+def test_an_open_entry_and_a_watch_each_get_a_section():
+    root = Path("/tmp/autobonk-dashboard-open")
+    (root / "alerts").mkdir(parents=True, exist_ok=True)
+    (root / "alerts" / "levels.yaml").write_text(
+        'armed_at: "2026-10-21T23:05:37-07:00"\nlevels: []\n'
+    )
+    (root / "alerts" / "paper.md").write_text(
+        """
+| Time | Ticker | Action | Side | Level | Fill | Reason | Contract | Premium |
+|------|--------|--------|------|-------|------|--------|----------|---------|
+| 2026-10-21 07:30 PT | AAPL | entry | call | 340.00 | 340.35 | retest | 10/21 342.5C | 0.38 |
+| 2026-10-21 09:00 PT | TSLA | entry | call | 370.00 | 376.43 | sma | 10/21 380C | 1.20 |
+| 2026-10-20 08:00 PT | AAPL | entry | call | 340.00 | 341.88 | sma | 10/21 345C | 0.93 |
+| 2026-10-20 08:20 PT | NVDA | entry | call | 217.50 | 217.70 | retest | 10/21 222.5C | 0.44 |
+| 2026-10-20 08:20 PT | NVDA | exit | call | 217.50 | 217.20 | reclaim | 10/21 222.5C | 0.20 |
+"""
+    )
+    (root / "alerts" / "live.md").write_text(
+        """
+| Time | Ticker | Action | Side | Level | Fill | Reason | Contract | Premium | Cash |
+|------|--------|--------|------|-------|------|--------|----------|---------|------|
+| 2026-10-22 07:30 PT | AAPL | entry | call | 340.00 | 340.35 | retest | 10/22 342.5C | 0.38 | fits |
+| 2026-10-22 07:40 PT | AMZN | entry | put | 260.50 | 260.23 | retest | 10/22 257.5P | 0.80 | over |
+"""
+    )
+    (root / "alerts" / "log.md").write_text(
+        """
+- AAPL call watch 340.00 at 2026-10-21 08:10 PT. The 20 SMA is on the level. Not a fill. Not an order.
+- AAPL call watch 340.00 at 2026-10-21 08:40 PT. The 20 SMA is on the level. Not a fill. Not an order.
+- PLTR call watch 200.00 at 2026-10-20 13:00 PT. The 20 SMA is on the level. Not a fill. Not an order.
+"""
+    )
+
+    page = dashboard.render(root)
+
+    assert page.index("<h2>Open trades</h2>") < page.index("<h2>Watch</h2>")
+    assert "<h2>Paper</h2>" not in page
+    open_part = page.split("id='open-trades'", 1)[1].split("</div>", 1)[0]
+    assert "10/21 342.5C" in open_part
+    assert "10/21 345C" in open_part
+    assert "10/21 380C" in open_part
+    assert open_part.count("class='paper'") == 1
+    assert "NVDA" not in open_part
+    live_part = page.split("<h2>Live session</h2>", 1)[1].split("<h2>Watch</h2>", 1)[0]
+    assert "10/22 342.5C" in live_part
+    assert ">fits<" in live_part
+    assert ">over<" in live_part
+    assert "10/22" not in open_part
+    assert page.split("<h2>Watch</h2>", 1)[1].split("<h2>", 1)[0].count("08:40 PT") == 1
+    assert "2026-10-20 13:00 PT" not in page.split("<h2>Watch</h2>", 1)[1].split("<h2>", 1)[0]
+    assert "not an order" in page
+
+
 def test_fixture_levels_and_an_empty_journal_render():
     root = Path("/tmp/autobonk-dashboard")
     (root / "alerts").mkdir(parents=True, exist_ok=True)
@@ -45,9 +98,12 @@ None.
     assert "350" in page
     assert "charts/inbox is not the live book." in page
     assert "None." in page
-    assert "No paper trades yet." in page
+    assert "No open trade." in page
+    assert "No live plan yet." in page
+    assert "first live session" in page
+    assert page.index("<h2>Open trades</h2>") < page.index("<h2>Live session</h2>")
     assert "not an order" in page
-    assert page.index("<h2>Paper</h2>") < page.index("<h2>Live book</h2>")
+    assert page.index("<h2>Open trades</h2>") < page.index("<h2>Live book</h2>")
     assert 'id="loaded"' in page
     assert "place order" not in page.lower()
     assert "<h2>Lessons</h2>" in page
@@ -75,9 +131,10 @@ levels: []
 
     assert "SPCX" in page
     assert "146.50" in page
-    assert "Paper" in page
+    assert "<h2>Open trades</h2>" in page
     assert "class='side call'" in page
-    assert page.index("<h2>Paper</h2>") < page.index("<h2>Live book</h2>")
+    assert "class='paper'" not in page.split("id='open-trades'", 1)[1].split("</div>", 1)[0]
+    assert page.index("<h2>Open trades</h2>") < page.index("<h2>Live book</h2>")
     assert "place order" not in page.lower()
 
 
@@ -138,7 +195,7 @@ def test_a_contract_comparison_shows_the_percent_return():
     assert "10/21 347.5C" in page
     assert "+37.5%" in page
     assert "-54.5%" in page
-    assert page.index("<h2>Paper</h2>") < page.index("<h2>Contracts</h2>")
+    assert page.index("<h2>Open trades</h2>") < page.index("<h2>Contracts</h2>")
     assert page.index("<h2>Contracts</h2>") < page.index("<h2>Live book</h2>")
 
 
