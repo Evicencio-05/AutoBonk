@@ -933,3 +933,238 @@ def test_context_is_written_once():
     text = path.read_text()
     assert text.count("| 2026-10-21 07:30 PT | AAPL | entry |") == 1
     assert "Trade context" in text
+
+
+def _open_contract(**overrides):
+    row = {
+        "time": "2026-10-21 07:30 PT",
+        "ticker": "AAPL",
+        "action": "entry",
+        "side": "call",
+        "level": "340.00",
+        "fill": "340.35",
+        "contract": "10/21 342.5C",
+        "premium": 0.38,
+    }
+    row.update(overrides)
+    return row
+
+
+def _priced_bar(moment):
+    def stock_bar(ticker, at):
+        del ticker, at
+        return {"o": 340.1, "h": 340.4, "l": 339.2, "c": 339.5, "close_at": moment}
+
+    return stock_bar
+
+
+def test_contract_expiration_uses_the_entry_year_and_rolls_forward():
+    assert claim_alerts.contract_expiration(_open_contract()) == date(2026, 10, 21)
+    assert claim_alerts.contract_expiration(_open_contract(contract="none")) is None
+    january = _open_contract(time="2026-12-30 07:30 PT", contract="1/2 100C")
+
+    assert claim_alerts.contract_expiration(january) == date(2027, 1, 2)
+
+
+def test_a_zero_dte_stays_open_until_twelve_forty_five():
+    entry = _open_contract()
+    before = int(datetime(2026, 10, 21, 12, 44, tzinfo=ZoneInfo("America/Los_Angeles")).timestamp())
+    cutoff = int(datetime(2026, 10, 21, 12, 45, tzinfo=ZoneInfo("America/Los_Angeles")).timestamp())
+
+    assert claim_alerts.apply_contract_exits([], [entry], before) == []
+    exits = claim_alerts.apply_contract_exits(
+        [],
+        [entry],
+        cutoff,
+        stock_bar=_priced_bar(cutoff),
+        option_mark=lambda symbol, moment: 0.11,
+    )
+
+    assert len(exits) == 1
+    assert exits[0]["reason"] == "expiry"
+    assert exits[0]["close_at"] == cutoff
+    assert exits[0]["contract"] == "10/21 342.5C"
+    assert exits[0]["premium"] == 0.11
+    assert exits[0]["fill"] == 339.5
+    assert "12:45" in claim_alerts.format_live(exits[0])
+
+
+def test_a_passed_expiration_exits_at_the_cutoff_not_the_next_morning():
+    entry = _open_contract()
+    morning = int(datetime(2026, 10, 22, 8, 14, tzinfo=ZoneInfo("America/Los_Angeles")).timestamp())
+    cutoff = int(datetime(2026, 10, 21, 12, 45, tzinfo=ZoneInfo("America/Los_Angeles")).timestamp())
+
+    exits = claim_alerts.apply_contract_exits(
+        [],
+        [entry],
+        morning,
+        marks={"AAPL 10/21 342.5C": "0.18"},
+    )
+
+    assert exits[0]["close_at"] == cutoff
+    assert exits[0]["premium"] == 0.18
+    assert exits[0]["reason"] == "expiry"
+
+
+def test_a_later_expiration_is_not_cut_on_the_entry_day():
+    entry = _open_contract(contract="10/23 345C")
+    moment = int(datetime(2026, 10, 21, 12, 50, tzinfo=ZoneInfo("America/Los_Angeles")).timestamp())
+
+    assert claim_alerts.apply_contract_exits([], [entry], moment) == []
+
+
+def test_a_clock_exit_after_the_cutoff_moves_to_twelve_forty_five():
+    entry = _open_contract()
+    clock = int(datetime(2026, 10, 21, 12, 50, tzinfo=ZoneInfo("America/Los_Angeles")).timestamp())
+    cutoff = int(datetime(2026, 10, 21, 12, 45, tzinfo=ZoneInfo("America/Los_Angeles")).timestamp())
+    event = {
+        "kind": "exit",
+        "ticker": "AAPL",
+        "side": "call",
+        "level": 340.0,
+        "reason": "clock",
+        "close_at": clock,
+        "bar": _bar(clock - 600, 340.2, 340.8, 339.4, 339.9),
+        "fill": None,
+    }
+
+    exits = claim_alerts.apply_contract_exits(
+        [event],
+        [entry],
+        clock + 60,
+        stock_bar=_priced_bar(cutoff),
+        option_mark=lambda symbol, moment: 0.09,
+    )
+
+    assert len(exits) == 1
+    assert exits[0]["reason"] == "expiry"
+    assert exits[0]["close_at"] == cutoff
+    assert exits[0]["premium"] == 0.09
+
+
+def test_an_earlier_reclaim_stays_the_exit():
+    entry = _open_contract()
+    reclaim = int(datetime(2026, 10, 21, 10, 0, tzinfo=ZoneInfo("America/Los_Angeles")).timestamp())
+    moment = int(datetime(2026, 10, 21, 12, 46, tzinfo=ZoneInfo("America/Los_Angeles")).timestamp())
+    event = {
+        "kind": "exit",
+        "ticker": "AAPL",
+        "side": "call",
+        "level": 340.0,
+        "reason": "reclaim",
+        "close_at": reclaim,
+        "bar": _bar(reclaim - 600, 341.0, 341.2, 339.4, 339.6),
+        "fill": None,
+    }
+
+    exits = claim_alerts.apply_contract_exits([event], [entry], moment)
+
+    assert len(exits) == 1
+    assert exits[0]["reason"] == "reclaim"
+    assert exits[0]["close_at"] == reclaim
+
+
+def test_spx_is_not_cut_at_twelve_forty_five():
+    entry = _open_contract(ticker="SPX", contract="10/21 6000C", fill="6001.00")
+    at_cutoff = int(datetime(2026, 10, 21, 12, 45, tzinfo=ZoneInfo("America/Los_Angeles")).timestamp())
+    clock = int(datetime(2026, 10, 21, 12, 50, tzinfo=ZoneInfo("America/Los_Angeles")).timestamp())
+    session_end = int(datetime(2026, 10, 21, 13, 15, tzinfo=ZoneInfo("America/Los_Angeles")).timestamp())
+    clock_event = {
+        "kind": "exit",
+        "ticker": "SPX",
+        "side": "call",
+        "level": 340.0,
+        "reason": "clock",
+        "close_at": clock,
+        "bar": _bar(clock - 600, 6000, 6002, 5990, 5994),
+        "fill": None,
+    }
+
+    assert claim_alerts.apply_contract_exits([], [entry], at_cutoff) == []
+    kept = claim_alerts.apply_contract_exits([clock_event], [entry], clock + 60)
+    assert kept[0]["reason"] == "clock"
+    assert kept[0]["close_at"] == clock
+
+    expired = claim_alerts.apply_contract_exits(
+        [],
+        [entry],
+        session_end,
+        option_mark=lambda symbol, moment: 1.25,
+    )
+    assert expired[0]["reason"] == "expiry"
+    assert expired[0]["close_at"] == session_end
+    assert "1:15" in claim_alerts.format_live(expired[0])
+
+
+def test_a_closed_contract_is_not_exited_again():
+    entry = _open_contract()
+    closed = {
+        "time": "2026-10-21 10:00 PT",
+        "ticker": "AAPL",
+        "action": "exit",
+        "side": "call",
+        "level": "340.00",
+        "fill": "339.00",
+        "contract": "10/21 342.5C",
+        "premium": 0.20,
+    }
+    morning = int(datetime(2026, 10, 22, 8, 14, tzinfo=ZoneInfo("America/Los_Angeles")).timestamp())
+    clock = int(datetime(2026, 10, 21, 12, 50, tzinfo=ZoneInfo("America/Los_Angeles")).timestamp())
+    event = {
+        "kind": "exit",
+        "ticker": "AAPL",
+        "side": "call",
+        "level": 340.0,
+        "reason": "clock",
+        "close_at": clock,
+        "bar": _bar(clock - 600, 340, 341, 339, 339.2),
+        "fill": None,
+    }
+
+    assert claim_alerts.apply_contract_exits([], [entry, closed], morning) == []
+    assert claim_alerts.apply_contract_exits([event], [entry, closed], morning) == []
+
+
+def test_an_open_comparison_row_exits_when_the_contract_expires():
+    path = Path("/tmp/autobonk-expired-contracts.md")
+    path.write_text(
+        claim_alerts.CONTRACTS_HEADER
+        + "| 2026-10-21 07:30 PT | AAPL | 340.00 | chosen | 10/21 342.5C | 0.38 | 0.20 | -47.4% | open |\n"
+        + "| 2026-10-21 07:30 PT | SPX | 6000.00 | chosen | 10/21 6000C | 1.00 | 1.10 | +10.0% | open |\n"
+    )
+    moment = int(datetime(2026, 10, 21, 12, 45, tzinfo=ZoneInfo("America/Los_Angeles")).timestamp())
+
+    assert claim_alerts.close_expired_contracts(
+        moment,
+        path,
+        option_mark=lambda symbol, at: 0.05,
+    )
+
+    rows = {row["ticker"]: row for row in claim_alerts.contract_rows(path.read_text())}
+    assert rows["AAPL"]["state"] == "exit"
+    assert rows["AAPL"]["price"] == "0.05"
+    assert rows["SPX"]["state"] == "open"
+
+
+def test_a_closed_contract_drops_its_open_mark():
+    path = Path("/tmp/autobonk-marks.md")
+    path.write_text(
+        """
+| Time | Ticker | Action | Side | Level | Fill | Reason | Contract | Premium |
+|------|--------|--------|------|-------|------|--------|----------|---------|
+| 2026-10-21 07:30 PT | AAPL | entry | call | 340.00 | 340.35 | retest | 10/21 342.5C | 0.38 |
+| 2026-10-21 12:45 PT | AAPL | exit | call | 340.00 | 343.88 | expiry | 10/21 342.5C | 1.82 |
+
+## Open marks
+
+| Contract | Premium | As of | Source |
+|----------|---------|-------|--------|
+| AAPL 10/21 342.5C | 1.40 | 2026-10-21 13:51 PT | Yahoo |
+"""
+    )
+
+    assert claim_alerts.refresh_open_marks(path, now=0)
+
+    marks = path.read_text().split("## Open marks", 1)[1]
+    assert "342.5C" not in marks
+    assert "1.40" not in marks

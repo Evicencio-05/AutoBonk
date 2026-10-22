@@ -6,6 +6,7 @@ bar. A claim or a lose is a close beyond the level by half the 14-period ATR.
 A close inside that band has not broken the level. That same close flips
 the level: a lost support is resistance, and a claimed resistance is support.
 A wick within 15 cents only counts as the touch. The fill is the next bar's open.
+A 0DTE contract is out at 12:45 PT on expiration. SPX is not cut at 12:45.
 RSI is printed and does not block.
 
   python3 scripts/claim_alerts.py check
@@ -1017,6 +1018,11 @@ def format_live(event: dict) -> str:
         extra = " No strike under $1 was still in front of the far target."
     elif event["kind"] == "skip":
         extra = " Fill bar closed back through the level."
+    elif event["kind"] == "exit" and event["reason"] == "expiry":
+        if _is_spx(event["ticker"]):
+            extra = " SPX expiration. Out at 1:15 PT."
+        else:
+            extra = " 0DTE is out at 12:45 PT."
     elif event["kind"] == "exit" and event["reason"] == "target":
         extra = " Close through the last target."
     elif event["kind"] == "exit" and event["reason"] == "reclaim":
@@ -1424,10 +1430,10 @@ def _strike_span(low: float, high: float) -> list[float]:
     return sorted(found)
 
 
-def fetch_option_minutes(symbol: str) -> list[tuple]:
+def fetch_option_minutes(symbol: str, span: str = "1d") -> list[tuple]:
     """One-minute option bars from Yahoo. The checker cannot call Robinhood."""
     query = urllib.parse.urlencode(
-        {"interval": "1m", "range": "1d", "includePrePost": "true"}
+        {"interval": "1m", "range": span, "includePrePost": "true"}
     )
     url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?{query}"
     request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
@@ -1762,7 +1768,7 @@ def refresh_open_marks(path: Path = PAPER_PATH, now: int | None = None) -> bool:
         if not line.startswith("|"):
             continue
         cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
-        if cells and cells[0] not in ("Contract", "") and set(cells[0]) > {"-"}:
+        if cells and cells[0] not in ("Contract", "") and not set(cells[0]) <= {"-"}:
             previous[cells[0]] = line
     moment = int(datetime.now(PT).timestamp()) if now is None else now
     when = datetime.fromtimestamp(moment, PT).strftime("%Y-%m-%d %H:%M PT")
@@ -1781,11 +1787,11 @@ def refresh_open_marks(path: Path = PAPER_PATH, now: int | None = None) -> bool:
             )
         elif key in previous:
             lines.append(previous[key])
-    if len(lines) == 2:
-        return False
     blotter = text.split("\n## Open marks\n", 1)[0].rstrip()
+    if len(lines) == 2 and not previous:
+        return False
     path.write_text(blotter + "\n\n## Open marks\n\n" + "\n".join(lines) + "\n")
-    return True
+    return len(lines) != 2 or bool(previous)
 
 
 def contract_rows(text: str) -> list[dict]:
@@ -2237,6 +2243,281 @@ def _contract_ok(pending: dict, bar: dict, levels: list[dict], taken: set[str], 
     return True
 
 
+def _is_spx(ticker: str) -> bool:
+    name = (ticker or "").upper().strip().lstrip("^$")
+    return name in {"SPX", "SPXW"}
+
+
+def contract_expiration(row: dict) -> date | None:
+    """Expiration from a label such as '10/21 342.5C'. The year comes from the entry."""
+    label = (row.get("contract") or "").strip()
+    if not label or label == "none":
+        return None
+    parts = label.split()
+    if len(parts) != 2 or "/" not in parts[0]:
+        return None
+    tail = parts[1]
+    if not tail or tail[-1] not in ("C", "P"):
+        return None
+    try:
+        month_text, day_text = parts[0].split("/", 1)
+        month, day = int(month_text), int(day_text)
+        float(tail[:-1])
+        entry = _row_clock(row["time"])
+        expiration = date(entry.year, month, day)
+    except (ValueError, KeyError, IndexError, AttributeError):
+        return None
+    if expiration < entry.date():
+        try:
+            expiration = date(entry.year + 1, month, day)
+        except ValueError:
+            return None
+    return expiration
+
+
+def contract_deadline(row: dict) -> datetime | None:
+    """When this contract has to be out.
+
+    Equity 0DTE is out at 12:45 PT on the expiration date. SPX is not cut then.
+    SPX keeps the session and is out at 1:15 PT.
+    """
+    expiration = contract_expiration(row)
+    if expiration is None:
+        return None
+    if _is_spx(row.get("ticker") or ""):
+        return datetime(expiration.year, expiration.month, expiration.day, 13, 15, tzinfo=PT)
+    return datetime(expiration.year, expiration.month, expiration.day, 12, 45, tzinfo=PT)
+
+
+def _same_position(row: dict, event: dict) -> bool:
+    try:
+        level = float(row["level"])
+        other = float(event["level"])
+    except (TypeError, ValueError, KeyError):
+        return False
+    return (
+        row.get("ticker") == event.get("ticker")
+        and row.get("side") == event.get("side")
+        and abs(level - other) < 0.001
+    )
+
+
+def _pop_open(opens: list[dict], event: dict) -> dict | None:
+    for index, entry in enumerate(opens):
+        if _same_position(entry, event):
+            return opens.pop(index)
+    return None
+
+
+def _position_row(event: dict) -> dict:
+    when = event.get("time")
+    if not when:
+        when = datetime.fromtimestamp(event["close_at"], PT).strftime("%Y-%m-%d %H:%M PT")
+    fill = event.get("fill")
+    return {
+        "time": when,
+        "ticker": event["ticker"],
+        "action": "entry",
+        "side": event["side"],
+        "level": f"{float(event['level']):.2f}",
+        "fill": "" if fill is None else f"{float(fill):.2f}",
+        "contract": event.get("contract") or "",
+        "premium": event.get("premium"),
+    }
+
+
+def _mark_premiums(text: str) -> dict[str, str]:
+    marks_text = text.split("\n## Open marks\n", 1)[1] if "\n## Open marks\n" in text else ""
+    marks = {}
+    for line in marks_text.splitlines():
+        if not line.startswith("|"):
+            continue
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if not cells or cells[0] in ("Contract", "") or set(cells[0]) <= {"-"}:
+            continue
+        marks[cells[0]] = cells[1] if len(cells) > 1 else ""
+    return marks
+
+
+def _print_at(bars: list[tuple], moment: int) -> float | None:
+    usable = [bar for bar in bars if len(bar) > 4 and bar[4] is not None and bar[0] <= moment]
+    if not usable:
+        return None
+    return float(usable[-1][4])
+
+
+def _option_mark_at(symbol: str | None, moment: int) -> float | None:
+    if not symbol:
+        return None
+    price = _print_at(fetch_option_minutes(symbol, span="5d"), moment)
+    if price is None:
+        return None
+    return round(price, 2)
+
+
+def _stock_bar_at(ticker: str, moment: int) -> dict | None:
+    try:
+        fetched = fetch_five_minute(ticker)
+    except (SystemExit, OSError, urllib.error.URLError):
+        return None
+    usable = [
+        bar
+        for bar in add_indicators(ten_minute_bars(fetched, moment + 1))
+        if bar["close_at"] <= moment and in_session(bar["close_at"])
+    ]
+    if not usable:
+        return None
+    return usable[-1]
+
+
+def _premium_for(entry: dict, moment: int, marks: dict, option_mark) -> float | None:
+    symbol = _contract_symbol(entry)
+    if option_mark is not None and symbol:
+        try:
+            price = option_mark(symbol, moment)
+        except (urllib.error.URLError, TimeoutError, OSError, ValueError):
+            price = None
+        if price is not None:
+            return round(float(price), 2)
+    raw = marks.get(f"{entry['ticker']} {entry.get('contract') or ''}")
+    if raw in (None, ""):
+        return None
+    try:
+        return round(float(raw), 2)
+    except (TypeError, ValueError):
+        return None
+
+
+def _bar_at(entry: dict, moment: int, stock_bar) -> dict | None:
+    if stock_bar is None:
+        return None
+    try:
+        return stock_bar(entry["ticker"], moment)
+    except (SystemExit, OSError, urllib.error.URLError, ValueError):
+        return None
+
+
+def _expiry_event(entry: dict, deadline: datetime, marks: dict, stock_bar, option_mark) -> dict:
+    moment = int(deadline.timestamp())
+    bar = _bar_at(entry, moment, stock_bar)
+    if bar is None:
+        try:
+            fill = float(entry["fill"])
+        except (TypeError, ValueError):
+            fill = 0.0
+        bar = {"o": fill, "h": fill, "l": fill, "c": fill, "close_at": moment}
+    return {
+        "kind": "exit",
+        "ticker": entry["ticker"],
+        "side": entry["side"],
+        "level": float(entry["level"]),
+        "reason": "expiry",
+        "close_at": moment,
+        "signal_at": moment,
+        "bar": bar,
+        "fill": bar["c"],
+        "note": "",
+        "contract": entry.get("contract") or "",
+        "premium": _premium_for(entry, moment, marks, option_mark),
+    }
+
+
+def apply_contract_exits(
+    events: list[dict],
+    rows: list[dict],
+    moment: int,
+    marks: dict | None = None,
+    stock_bar=None,
+    option_mark=None,
+) -> list[dict]:
+    """Close a contract once its expiration cutoff has passed.
+
+    A replay exit at or after that cutoff moves to the cutoff. A contract that
+    is still open gets an exit there. An equity 0DTE is out at 12:45 PT. SPX
+    is not cut at 12:45.
+    """
+    marks = marks or {}
+    opens = _open_entries(rows)
+    file_open = list(opens)
+    adjusted = []
+    for event in events:
+        if event.get("kind") == "entry":
+            adjusted.append(event)
+            opens.append(_position_row(event))
+            continue
+        if event.get("kind") != "exit":
+            adjusted.append(event)
+            continue
+        entry = _pop_open(opens, event)
+        if entry is None:
+            matched = any(
+                row.get("action") == "entry" and _same_position(row, event) for row in rows
+            )
+            still_open = any(_same_position(row, event) for row in file_open)
+            if matched and not still_open:
+                continue
+            adjusted.append(event)
+            continue
+        deadline = contract_deadline(entry)
+        cutoff = None if deadline is None else int(deadline.timestamp())
+        if cutoff is not None and moment >= cutoff and event["close_at"] >= cutoff:
+            bar = _bar_at(entry, cutoff, stock_bar)
+            premium = _premium_for(entry, cutoff, marks, option_mark)
+            event = {
+                **event,
+                "reason": "expiry",
+                "close_at": cutoff,
+                "contract": entry.get("contract") or event.get("contract") or "",
+                "premium": event.get("premium") if premium is None else premium,
+            }
+            if bar is not None:
+                event["bar"] = bar
+                event["fill"] = bar["c"]
+        adjusted.append(event)
+    for entry in opens:
+        deadline = contract_deadline(entry)
+        if deadline is None or moment < int(deadline.timestamp()):
+            continue
+        adjusted.append(_expiry_event(entry, deadline, marks, stock_bar, option_mark))
+    return adjusted
+
+
+def close_expired_contracts(
+    moment: int | None = None,
+    path: Path = CONTRACTS_PATH,
+    option_mark=None,
+) -> bool:
+    """Mark an open comparison row exited once its contract cutoff has passed."""
+    if not path.is_file():
+        return False
+    moment = int(datetime.now(PT).timestamp()) if moment is None else moment
+    marker = _option_mark_at if option_mark is None else option_mark
+    rows = contract_rows(path.read_text())
+    changed = False
+    for row in rows:
+        if row["state"] != "open":
+            continue
+        deadline = contract_deadline(row)
+        if deadline is None or moment < int(deadline.timestamp()):
+            continue
+        symbol = _row_symbol(row)
+        price = None
+        if symbol:
+            try:
+                price = marker(symbol, int(deadline.timestamp()))
+            except (urllib.error.URLError, TimeoutError, OSError, ValueError):
+                price = None
+        if price is not None:
+            row["price"] = f"{float(price):.2f}"
+            row["return"] = format_return(row["entry"], row["price"])
+        row["state"] = "exit"
+        changed = True
+    if not changed:
+        return False
+    path.write_text(_contracts_text(rows))
+    return True
+
+
 def check(now: int | None = None, notify: bool = False) -> list[str]:
     spec = load_levels()
     armed_at = int(spec["armed_at"].timestamp())
@@ -2251,9 +2532,7 @@ def check(now: int | None = None, notify: bool = False) -> list[str]:
     def accept(pending: dict, bar: dict) -> bool:
         return _contract_ok(pending, bar, spec["levels"], taken, blocked)
 
-    messages = []
-    quiet = []
-    paper = []
+    originals = []
     for ticker, levels in grouped.items():
         bars = add_indicators(ten_minute_bars(fetch_five_minute(ticker), moment))
         usable = [
@@ -2266,25 +2545,46 @@ def check(now: int | None = None, notify: bool = False) -> list[str]:
             if identity in fired:
                 continue
             fired.add(identity)
-            routed = route_event(event, moment)
-            save_state(fired, no_contract=blocked, taken=taken)
-            if routed == "drop":
+            if route_event(event, moment) == "drop":
                 continue
-            text = format_live(event)
+            originals.append(event)
+    save_state(fired, no_contract=blocked, taken=taken)
+    text = PAPER_PATH.read_text() if PAPER_PATH.is_file() else ""
+    quoted = quote_paper(originals, spec["levels"]) if originals else []
+    final = apply_contract_exits(
+        quoted,
+        paper_rows(text),
+        moment,
+        marks=_mark_premiums(text),
+        stock_bar=_stock_bar_at,
+        option_mark=_option_mark_at,
+    )
+    messages = []
+    quiet = []
+    paper = []
+    for event in final:
+        identity = event_id(event["ticker"], event)
+        if identity not in fired:
+            fired.add(identity)
+        routed = route_event(event, moment)
+        save_state(fired, no_contract=blocked, taken=taken)
+        if routed == "drop" and event.get("reason") != "expiry":
+            continue
+        if routed != "drop":
+            line = format_live(event)
             if routed == "alert":
                 if notify:
-                    notify_discord(text)
-                messages.append(text)
+                    notify_discord(line)
+                messages.append(line)
             else:
-                quiet.append(text)
-            if event["kind"] in ("entry", "exit"):
-                paper.append(event)
+                quiet.append(line)
+        if event.get("kind") in ("entry", "exit"):
+            paper.append(event)
     save_state(fired, no_contract=blocked, taken=taken)
     logged = messages + quiet
     if logged:
         append_log(logged)
     if paper:
-        paper = quote_paper(paper, spec["levels"])
         append_paper(paper)
         append_context(paper, spec["levels"])
         record_contracts(paper)
@@ -2292,7 +2592,14 @@ def check(now: int | None = None, notify: bool = False) -> list[str]:
             if route_event(event, moment) == "alert":
                 notify_paper(event)
     repaired = fill_missing_contracts(spec["levels"])
-    if paper or repaired or refresh_open_marks() or refresh_contract_marks():
+    comparison = close_expired_contracts(moment)
+    if (
+        paper
+        or repaired
+        or comparison
+        or refresh_open_marks(now=moment)
+        or refresh_contract_marks(now=moment)
+    ):
         refresh_dashboard()
     return logged
 
