@@ -1,6 +1,6 @@
 # Daily review
 
-Run this after the cash close, once the 13:00 PT bar is finished. Copy the sections into `learning/reviews/YYYY-MM-DD.md` and fill them from the files below. A review is an observation. It does not change `rules/ta_rules.md` or the live checker, and it does not place an order.
+Run this after the cash close, once the 13:00 PT bar is finished. Copy the sections into `learning/reviews/YYYY-MM-DD.md` and fill them from the files below. A review is an observation. It does not change `rules/ta_rules.md`, it does not change the retest entry, and it does not place an order. Buffer sizes change only when the forward gate in the Backtest section says applied.
 
 Read `learning/journal.md`, `learning/training.md`, `alerts/levels.yaml`, `alerts/paper.md`, `alerts/log.md`, `alerts/contracts.md`, and `alerts/fade_forward.md` before writing.
 
@@ -36,10 +36,18 @@ Replay events that are missing from `alerts/paper.md`, and premiums on the tape 
 
 Append only the closes whose reason is fade to `alerts/fade_forward.md`. Score stock points. The live entry stays the retest. The 2026-10-21 gate is recorded in that file. A pass does not place an order.
 
+## Backtest
+
+Run `python3 scripts/recap.py` and paste `learning/parameter_search.md` here.
+
+The saved sessions in `bench/fixtures` are the sample. Every session except the last is the train. The last session is the forward day. Wick touch, the SMA band, chase, the ATR fraction, and near a level are each cut into 10 values on the same lows and highs as the desk. Each of the first four keeps up to three train values near the best net, and the live value is always one of them. Those values are crossed. The train winner is scored on the forward day against the live buffers.
+
+The checker takes that winner only when the train has at least 4 closes, the forward day has at least 2, the train peak has a neighbor in the same neighborhood, at most one changed buffer sits on a range edge, and the forward net beats the live buffers without buying that net with a deeper hole. Near a level is reported and not applied, because the live exit is still the target. A pass writes `alerts/parameters.yaml` and the next check uses those four buffers. A miss leaves the live buffers. One search is not a pattern.
+
 ## Lessons
 
 The first goal in `learning/goals.yaml` is sniping the bottom on contracts. Say whether a paper entry bought that bottom. The number is stock points on the entry candle, not a priced premium. What repeated, and which earlier day it showed up on. Call it a pattern only when the same feature is in more than one confirmed taken trade, and say which of those trades worked. A paper row is not a taken trade. One review does not edit `rules/ta_rules.md`.
 
 ## Unchanged
 
-Live entry, the rules file, and whether an order was placed.
+Live entry stays the retest. Buffer sizes change only when the Backtest gate says applied. The rules file stays as written. No order was placed.

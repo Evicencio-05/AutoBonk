@@ -36,6 +36,8 @@ LEVELS_PATH = ROOT / "alerts" / "levels.yaml"
 STATE_PATH = ROOT / "alerts" / "state.json"
 LOG_PATH = ROOT / "alerts" / "log.md"
 PAPER_PATH = ROOT / "alerts" / "paper.md"
+PARAMETERS_PATH = ROOT / "alerts" / "parameters.yaml"
+ADOPTED_BUFFERS = ("touch", "sma_band", "chase", "break_atr")
 CONTEXT_PATH = ROOT / "alerts" / "context.md"
 CONTRACTS_PATH = ROOT / "alerts" / "contracts.md"
 CONTRACTS_HEADER = (
@@ -450,8 +452,34 @@ def _default_of(name: str, spec: dict):
 
 
 def live_settings() -> dict:
-    """Every variable at the live default. None from the caller means this."""
+    """Every variable at the code default. A bare replay uses this."""
     return {name: _default_of(name, spec) for name, spec in VARIABLES.items()}
+
+
+def applied_buffers(path: Path | None = None) -> dict:
+    """Buffer sizes the forward test wrote. Entry and exit in that file are ignored."""
+    file = PARAMETERS_PATH if path is None else path
+    if not file.is_file():
+        return {}
+    data = yaml.safe_load(file.read_text()) or {}
+    if not isinstance(data, dict) or not data.get("apply"):
+        return {}
+    adopted = data.get("adopted") or {}
+    if not isinstance(adopted, dict):
+        raise ValueError("adopted buffers must be a map")
+    found = {}
+    for name in ADOPTED_BUFFERS:
+        if name not in adopted:
+            continue
+        found[name] = _coerce(name, adopted[name], VARIABLES[name])
+    return found
+
+
+def checker_settings(path: Path | None = None) -> dict:
+    """Code defaults, then any buffers the forward test applied."""
+    resolved = live_settings()
+    resolved.update(applied_buffers(path))
+    return resolved
 
 
 def resolve_settings(overrides: dict | None) -> dict:
@@ -777,8 +805,10 @@ def replay(
 ) -> list[dict]:
     """Walk finished bars. One position per call. The next open is the fill.
 
-    settings=None keeps the live defaults. The same bars and settings replay
-    to the same events.
+    settings=None uses the code defaults. The checker passes
+    checker_settings(), which adds alerts/parameters.yaml when that file
+    says to apply the buffers. The same bars and settings replay to the
+    same events.
     """
     chosen = live_settings() if settings is None else settings
     events = []
@@ -2658,7 +2688,7 @@ def check(now: int | None = None, notify: bool = False) -> list[str]:
             for bar in bars
             if bar["close_at"] < armed_at or in_session(bar["close_at"])
         ]
-        for event in replay(usable, levels, armed_at, accept=accept):
+        for event in replay(usable, levels, armed_at, checker_settings(), accept=accept):
             identity = event_id(ticker, event)
             if identity in fired:
                 continue
