@@ -266,6 +266,8 @@ def _live_session(root: Path) -> str:
         "<p>Thursday 2026-10-22 is the first live session. Agentic only. "
         "Cash is $50, so one contract at or under $0.50. "
         "A row waits for confirm. This is not an order. "
+        "The contract column is the strike at or under $1. "
+        "Under $0.50 is the nearest strike the cash can buy. The plan does not switch to it. "
         "The open trades above are the paper tape through Wednesday.</p>"
     )
     text = _read(root / "alerts" / "live.md")
@@ -273,7 +275,7 @@ def _live_session(root: Path) -> str:
     for cells in _table_rows(text):
         if cells[0] == "Time":
             continue
-        padded = (cells + [""] * 10)[:10]
+        padded = (cells + [""] * 12)[:12]
         side = padded[3]
         side_class = " call" if side == "call" else " put" if side == "put" else ""
         cash = padded[9]
@@ -290,6 +292,8 @@ def _live_session(root: Path) -> str:
             f"<td>{_esc(padded[7])}</td>"
             f"<td class='num'>{_esc(padded[8])}</td>"
             f"<td class='{cash_class.strip()}'>{_esc(cash)}</td>"
+            f"<td>{_esc(padded[10])}</td>"
+            f"<td>{_esc(padded[11])}</td>"
             "</tr>"
         )
     if not body:
@@ -299,6 +303,7 @@ def _live_session(root: Path) -> str:
         + "<table><thead><tr>"
         "<th>Time</th><th>Ticker</th><th>Action</th><th>Side</th><th>Level</th>"
         "<th>Fill</th><th>Reason</th><th>Contract</th><th>Premium</th><th>Cash</th>"
+        "<th>Under $0.50</th><th>Halfway</th>"
         f"</tr></thead><tbody>{''.join(body)}</tbody></table>"
     )
 

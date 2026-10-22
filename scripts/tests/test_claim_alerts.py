@@ -413,7 +413,7 @@ def test_a_rejected_contract_does_not_open_the_trade():
 
     assert [event["kind"] for event in events] == ["skip"]
     assert events[0]["reason"] == "contract"
-    assert "far target" in claim_alerts.format_live(events[0])
+    assert "no further number" in claim_alerts.format_live(events[0])
 
 
 def test_a_late_exit_is_kept_and_a_late_watch_is_dropped():
@@ -545,6 +545,102 @@ def test_thursday_is_live_and_wednesday_stays_on_the_paper_tape():
     assert live.read_text().count("10/22 342.5C") == 1
 
 
+def test_the_ladder_keeps_walking_past_the_one_dollar_strike():
+    assert claim_alerts._has_cash_strike([{"debit": 0.90}]) is False
+    assert claim_alerts._has_cash_strike([{"debit": 0.90}, {"debit": 0.49}]) is True
+
+
+def test_the_cash_strike_is_shown_and_does_not_replace_the_chosen_strike():
+    session = date(2026, 10, 22)
+    friday = date(2026, 10, 23)
+    quotes = [
+        {"strike": 150, "debit": 2.38},
+        {"strike": 146, "debit": 0.90},
+        {"strike": 144, "debit": 0.49},
+        {"strike": 139, "debit": 0.11},
+    ]
+
+    rows = claim_alerts.assemble_contracts(
+        session, {friday: quotes}, "put", 149.80, 146.6, 138.6
+    )
+
+    by_role = {row["role"]: row for row in rows}
+    assert by_role["chosen"]["contract"] == "10/23 146P"
+    assert by_role["cash"]["contract"] == "10/23 144P"
+    assert by_role["cash"]["premium"] == 0.49
+    assert by_role["cash"]["halfway"] == "past"
+    assert by_role["cheap"]["contract"] == "10/23 139P"
+    event = {
+        "kind": "entry",
+        "ticker": "SPCX",
+        "side": "put",
+        "level": 150.0,
+        "reason": "retest",
+        "close_at": int(datetime(2026, 10, 22, 8, 30, tzinfo=ZoneInfo("America/Los_Angeles")).timestamp()),
+        "fill": 149.80,
+        "contract": "10/23 146P",
+        "premium": 0.90,
+        "contracts": rows,
+        "bar": {"o": 148.81, "h": 149.91, "l": 148.28, "c": 149.80, "purple": 26.75, "yellow": 26.89},
+    }
+    notice = claim_alerts.live_notice(event)
+    assert "over $50" in notice
+    assert "10/23 144P" in notice
+    assert "past halfway" in notice
+    assert "keeps the $1 strike" in notice
+    line = claim_alerts.live_line(event)
+    assert "| 10/23 146P | 0.90 | over | 10/23 144P | past |" in line
+    blank = {**event, "contract": "", "premium": None, "contracts": []}
+    assert claim_alerts.cash_fit(blank) == "quote"
+    assert "quote failed" in claim_alerts.live_notice(blank)
+
+
+def test_a_blank_live_contract_is_quoted_again():
+    live = Path("/tmp/autobonk-live-blank.md")
+    contracts = Path("/tmp/autobonk-live-contracts.md")
+    contracts.unlink(missing_ok=True)
+    live.write_text(
+        "# Live plans\n\n"
+        "Thursday 2026-10-22 is the first live session.\n\n"
+        "| Time | Ticker | Action | Side | Level | Fill | Reason | Contract | Premium | Cash |\n"
+        "|------|--------|--------|------|-------|------|--------|----------|---------|------|\n"
+        "| 2026-10-22 08:30 PT | SPCX | entry | put | 150.00 | 149.80 | retest |  | | none |\n"
+    )
+
+    def fake(ticker, side, stock, start, first, far):
+        return [
+            {"role": "chosen", "contract": "10/23 146P", "premium": 0.90, "book": "fits"},
+            {
+                "role": "cash",
+                "contract": "10/23 144P",
+                "premium": 0.49,
+                "book": "fits",
+                "halfway": "past",
+            },
+        ]
+
+    original = claim_alerts.quote_contracts
+    claim_alerts.quote_contracts = fake
+    try:
+        filled = claim_alerts.fill_missing_contracts(
+            [{"ticker": "SPCX", "price": 150, "side": "lose", "allows": "short", "targets": [146.6, 138.6]}],
+            live,
+            contracts,
+        )
+    finally:
+        claim_alerts.quote_contracts = original
+
+    text = live.read_text()
+    assert filled
+    assert "Under $0.50" in text
+    assert "| 10/23 146P | 0.90 | over | 10/23 144P | past |" in text
+    assert "| none |" not in text
+    saved = contracts.read_text()
+    assert "10/23 146P" in saved
+    assert "10/23 144P" in saved
+    assert "cash" in saved
+
+
 def test_the_nearest_otm_call_under_the_cap_is_taken_when_the_target_can_reach_it():
     quotes = [
         {"strike": 345, "debit": 1.25},
@@ -611,6 +707,8 @@ def test_without_a_target_the_chosen_contract_is_none():
     by_role = {row["role"]: row["contract"] for row in rows}
     assert by_role["chosen"] == "none"
     assert by_role["dte"] == "10/20 150C"
+    chosen = next(row for row in rows if row["role"] == "chosen")
+    assert chosen["why"] == "no-target"
 
 
 def test_an_entry_records_each_contract_rule():
