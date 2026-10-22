@@ -7,3 +7,5 @@ __pycache__/
 *.pyc
 charts/inbox/
 alerts/state.json
+.vercel
+.env*
