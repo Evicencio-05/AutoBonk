@@ -38,7 +38,7 @@ Append only the closes whose reason is fade to `alerts/fade_forward.md`. Score s
 
 ## Lessons
 
-What repeated, and which earlier day it showed up on. Call it a pattern only when the same feature is in more than one confirmed taken trade, and say which of those trades worked. A paper row is not a taken trade. One review does not edit `rules/ta_rules.md`.
+The first goal in `learning/goals.yaml` is sniping the bottom on contracts. Say whether a paper entry bought that bottom. The number is stock points on the entry candle, not a priced premium. What repeated, and which earlier day it showed up on. Call it a pattern only when the same feature is in more than one confirmed taken trade, and say which of those trades worked. A paper row is not a taken trade. One review does not edit `rules/ta_rules.md`.
 
 ## Unchanged
 
