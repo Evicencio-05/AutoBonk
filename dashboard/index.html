@@ -140,6 +140,7 @@ try {
     gap: 10px 12px; align-items: end; }
   .knobs label { display: flex; flex-direction: column; gap: 4px; min-width: 0;
     font-size: 0.72rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
+  .knobs label[hidden] { display: none !important; }
   label { font-size: 0.85rem; font-weight: 800; color: var(--ink); }
   input, select, button { font: inherit; color: var(--ink); background: var(--field);
     border: 2px solid var(--line); border-radius: 10px; padding: 4px 8px; max-width: 100%; }
@@ -183,13 +184,15 @@ try {
 <p>Change the entry, the exit, and the buffers, then run the test.
 The report is stock points on finished 10-minute closes: net profit, gross profit,
 gross loss, profit factor, max drawdown, win rate, and the average trade.
-Recent sessions uses the levels below. Saved sessions replays each day's own book with these same variables.
+The armed menu is when this book started. It applies to recent sessions.
+Saved sessions keep each day's own armed time.
+The calendar keeps closes on those dates for both.
 Live, Never exit, Near the next level, and Named stop are scored beside this test.
 This does not place an order and it does not rewrite the paper tape.</p>
 <p class="knobs" id="strategy-fields">
-<label>Armed <input id="armed-at" value="2026-10-22T06:24:52-07:00"></label>
+<label>Armed <select id="armed-at"><option value="2026-10-22T06:24:52-07:00" selected>This book · 2026-10-22 6:24 AM PT</option><option value="2026-10-16T08:27:30-07:00">2026-10-16 book · 2026-10-16 8:27 AM PT</option><option value="2026-10-15T06:30:00-07:00">2026-10-15 book · 2026-10-15 6:30 AM PT</option><option value="2026-10-14T06:30:00-07:00">2026-10-14 book · 2026-10-14 6:30 AM PT</option></select></label>
 <label>Bars <select id="bars-source"><option value="recent">recent sessions</option><option value="saved">saved sessions</option></select></label>
-<label>Recent range <select id="bar-range"><option value="5d">5 days</option><option value="1mo" selected>1 month</option></select></label>
+<label>From <input id="range-from" type="date" value="2026-09-22"></label><label>To <input id="range-to" type="date" value="2026-10-22"></label>
 <label>Entry <select id="entry"><option value='retest' selected>retest</option><option value='fade'>fade</option></select></label><label>Exit rule <select id="exit-rule"><option value='target' selected>close through the far target</option><option value='stop'>named stop</option></select></label><label>Wick touch <input id="touch" value="0.15"></label><label>SMA band <input id="sma-band" value="1.0"></label><label>Chase <input id="chase" value="0.5"></label><label>ATR fraction <input id="break-atr" value="0.5"></label>
 <label>Near a level <input id="profit-near" value="0.15"></label>
 <label>Exit test <select id="exit-test"><option value="live">use the exit rule</option><option value="never">never exit</option><option value="near">near the next level</option><option value="named">named stop</option><option value="custom">custom</option></select></label>
@@ -851,13 +854,16 @@ function renderReport(body) {
   const report = body.report || body.runs[body.runs.length - 1];
   const windowInfo = body.window || {};
   const intro = document.createElement("p");
+  const asked = windowInfo.from_day && windowInfo.to_day
+    ? ("Calendar " + windowInfo.from_day + " to " + windowInfo.to_day + ". ")
+    : "";
   const from = windowInfo.from && windowInfo.to ? (windowInfo.from + " to " + windowInfo.to + ". ") : "";
   const days = windowInfo.days && windowInfo.days.length ? (windowInfo.days.length + " saved sessions. ") : "";
   const missing = windowInfo.missing && windowInfo.missing.length
     ? (" No bars for " + windowInfo.missing.join(", ") + ".")
     : "";
   const note = windowInfo.note ? (" " + windowInfo.note) : "";
-  intro.textContent = days + from + windowInfo.bars + " finished 10-minute bars. " +
+  intro.textContent = asked + days + from + windowInfo.bars + " finished 10-minute bars. " +
     (windowInfo.source ? ("Source: " + windowInfo.source + ". ") : "") +
     missing + note;
   wrap.appendChild(intro);
@@ -924,7 +930,8 @@ function payload() {
     armed_at: document.getElementById("armed-at").value,
     levels: collectLevels(),
     bars: document.getElementById("bars-source").value,
-    range: document.getElementById("bar-range").value,
+    from: document.getElementById("range-from").value,
+    to: document.getElementById("range-to").value,
     touch: num("touch"),
     chase: num("chase"),
     sma_band: num("sma-band"),

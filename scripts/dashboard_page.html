@@ -140,6 +140,7 @@ try {
     gap: 10px 12px; align-items: end; }
   .knobs label { display: flex; flex-direction: column; gap: 4px; min-width: 0;
     font-size: 0.72rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
+  .knobs label[hidden] { display: none !important; }
   label { font-size: 0.85rem; font-weight: 800; color: var(--ink); }
   input, select, button { font: inherit; color: var(--ink); background: var(--field);
     border: 2px solid var(--line); border-radius: 10px; padding: 4px 8px; max-width: 100%; }
@@ -528,13 +529,16 @@ function renderReport(body) {
   const report = body.report || body.runs[body.runs.length - 1];
   const windowInfo = body.window || {};
   const intro = document.createElement("p");
+  const asked = windowInfo.from_day && windowInfo.to_day
+    ? ("Calendar " + windowInfo.from_day + " to " + windowInfo.to_day + ". ")
+    : "";
   const from = windowInfo.from && windowInfo.to ? (windowInfo.from + " to " + windowInfo.to + ". ") : "";
   const days = windowInfo.days && windowInfo.days.length ? (windowInfo.days.length + " saved sessions. ") : "";
   const missing = windowInfo.missing && windowInfo.missing.length
     ? (" No bars for " + windowInfo.missing.join(", ") + ".")
     : "";
   const note = windowInfo.note ? (" " + windowInfo.note) : "";
-  intro.textContent = days + from + windowInfo.bars + " finished 10-minute bars. " +
+  intro.textContent = asked + days + from + windowInfo.bars + " finished 10-minute bars. " +
     (windowInfo.source ? ("Source: " + windowInfo.source + ". ") : "") +
     missing + note;
   wrap.appendChild(intro);
@@ -601,7 +605,8 @@ function payload() {
     armed_at: document.getElementById("armed-at").value,
     levels: collectLevels(),
     bars: document.getElementById("bars-source").value,
-    range: document.getElementById("bar-range").value,
+    from: document.getElementById("range-from").value,
+    to: document.getElementById("range-to").value,
     touch: num("touch"),
     chase: num("chase"),
     sma_band: num("sma-band"),

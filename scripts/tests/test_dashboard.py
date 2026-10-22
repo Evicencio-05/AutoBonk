@@ -1,6 +1,7 @@
 """The dashboard renders files it is given and does not open the network."""
 
 import importlib.util
+from datetime import date, datetime
 from pathlib import Path
 
 _SPEC = importlib.util.spec_from_file_location(
@@ -346,3 +347,84 @@ drills:
     assert page.index("Sniping the bottom on contracts") < page.index("<h2>Journal</h2>")
     assert "not an order" in page
     assert "place order" not in page.lower()
+
+
+def test_armed_is_a_menu_and_the_range_is_a_calendar():
+    root = Path("/tmp/autobonk-dashboard-armed")
+    (root / "alerts").mkdir(parents=True, exist_ok=True)
+    (root / "bench" / "fixtures").mkdir(parents=True, exist_ok=True)
+    (root / "alerts" / "levels.yaml").write_text(
+        'armed_at: "2026-10-22T06:24:52-07:00"\nlevels: []\n'
+    )
+    (root / "bench" / "fixtures" / "2026-10-16-levels.yaml").write_text(
+        'armed_at: "2026-10-16T08:27:30-07:00"\nlevels: []\n'
+    )
+
+    page = dashboard.render(root)
+    backtest = page.split("id='backtest'", 1)[1].split("<section", 1)[0]
+
+    assert '<select id="armed-at">' in backtest
+    assert '<input id="armed-at"' not in backtest
+    assert 'value="2026-10-22T06:24:52-07:00" selected' in backtest
+    assert "This book · 2026-10-22 6:24 AM PT" in backtest
+    assert "2026-10-16 book · 2026-10-16 8:27 AM PT" in backtest
+    assert 'id="range-from" type="date"' in backtest
+    assert 'id="range-to" type="date"' in backtest
+    assert 'id="bar-range"' not in backtest
+
+
+def test_the_calendar_keeps_closes_inside_the_dates():
+    early = int(datetime.fromisoformat("2026-10-14T07:00:00-07:00").timestamp())
+    late = int(datetime.fromisoformat("2026-10-16T07:00:00-07:00").timestamp())
+    bars = {
+        "AAPL": [
+            _bar(early - 600, 10, 10, 10, 10),
+            _bar(late - 600, 11, 11, 11, 11),
+        ]
+    }
+
+    result = dashboard.backtest_payload(
+        _strategy_payload(**{"from": "2026-10-16", "to": "2026-10-16"}),
+        bars,
+    )
+
+    assert result["window"]["bars"] == 1
+    assert result["window"]["from_day"] == "2026-10-16"
+    assert result["window"]["to_day"] == "2026-10-16"
+    assert result["window"]["from"].startswith("2026-10-16")
+
+
+def test_saved_sessions_follow_the_calendar():
+    result = dashboard.backtest_payload(
+        {
+            "bars": "saved",
+            "levels": [],
+            "exit_test": "live",
+            "from": "2026-10-16",
+            "to": "2026-10-16",
+        }
+    )
+
+    assert result["window"]["days"] == ["2026-10-16"]
+    assert result["window"]["from_day"] == "2026-10-16"
+    assert result["window"]["to_day"] == "2026-10-16"
+
+
+def test_the_calendar_rejects_an_end_before_the_start():
+    try:
+        dashboard.backtest_payload(
+            _strategy_payload(**{"from": "2026-10-16", "to": "2026-10-14"}),
+            {"AAPL": _replay_bars()},
+        )
+    except ValueError as exc:
+        assert "on or before" in str(exc)
+    else:
+        raise AssertionError("a backwards calendar was accepted")
+
+
+def test_a_short_calendar_asks_yahoo_for_five_days():
+    today = date(2026, 10, 22)
+    assert dashboard._yahoo_span(date(2026, 10, 20), today) == "5d"
+    assert dashboard._yahoo_span(date(2026, 10, 1), today) == "1mo"
+    assert "about one month" in dashboard._calendar_note((date(2026, 9, 1), today), today)
+    assert dashboard._calendar_note((date(2026, 10, 1), today), today) == ""
