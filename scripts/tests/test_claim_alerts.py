@@ -550,7 +550,7 @@ def test_the_ladder_keeps_walking_past_the_one_dollar_strike():
     assert claim_alerts._has_cash_strike([{"debit": 0.90}, {"debit": 0.49}]) is True
 
 
-def test_the_cash_strike_is_shown_and_does_not_replace_the_chosen_strike():
+def test_next_day_names_the_cash_strike_and_keeps_the_dollar_strike():
     session = date(2026, 10, 22)
     friday = date(2026, 10, 23)
     quotes = [
@@ -570,29 +570,53 @@ def test_the_cash_strike_is_shown_and_does_not_replace_the_chosen_strike():
     assert by_role["cash"]["premium"] == 0.49
     assert by_role["cash"]["halfway"] == "past"
     assert by_role["cheap"]["contract"] == "10/23 139P"
+    close_at = int(datetime(2026, 10, 22, 8, 30, tzinfo=ZoneInfo("America/Los_Angeles")).timestamp())
+    contract, premium = claim_alerts.named_live_contract(rows, close_at)
+    assert contract == "10/23 144P"
+    assert premium == 0.49
+    assert claim_alerts.halfway_blocks(rows, close_at) == "past"
     event = {
         "kind": "entry",
         "ticker": "SPCX",
         "side": "put",
         "level": 150.0,
         "reason": "retest",
-        "close_at": int(datetime(2026, 10, 22, 8, 30, tzinfo=ZoneInfo("America/Los_Angeles")).timestamp()),
+        "close_at": close_at,
         "fill": 149.80,
-        "contract": "10/23 146P",
-        "premium": 0.90,
+        "contract": contract,
+        "premium": premium,
         "contracts": rows,
         "bar": {"o": 148.81, "h": 149.91, "l": 148.28, "c": 149.80, "purple": 26.75, "yellow": 26.89},
     }
     notice = claim_alerts.live_notice(event)
-    assert "over $50" in notice
-    assert "10/23 144P" in notice
-    assert "past halfway" in notice
-    assert "keeps the $1 strike" in notice
+    assert "The live contract is 10/23 144P at $0.49." in notice
+    assert "The $1 strike 10/23 146P at $0.90 stays on the row." in notice
+    assert "does not refuse a next-day strike" in notice
     line = claim_alerts.live_line(event)
-    assert "| 10/23 146P | 0.90 | over | 10/23 144P | past |" in line
+    assert "| 10/23 144P | 0.49 | fits | 10/23 146P | 0.90 | 10/23 144P | 0.49 | past |" in line
     blank = {**event, "contract": "", "premium": None, "contracts": []}
     assert claim_alerts.cash_fit(blank) == "quote"
     assert "quote failed" in claim_alerts.live_notice(blank)
+
+
+def test_zero_dte_halfway_blocks_the_cash_strike():
+    session = date(2026, 10, 22)
+    quotes = [
+        {"strike": 150, "debit": 2.38},
+        {"strike": 146, "debit": 0.90},
+        {"strike": 144, "debit": 0.49},
+        {"strike": 139, "debit": 0.11},
+    ]
+    rows = claim_alerts.assemble_contracts(
+        session, {session: quotes}, "put", 149.80, 146.6, 138.6
+    )
+    close_at = int(datetime(2026, 10, 22, 8, 30, tzinfo=ZoneInfo("America/Los_Angeles")).timestamp())
+    by_role = {row["role"]: row for row in rows}
+    assert by_role["cash"]["contract"] == "10/22 144P"
+    assert by_role["cash"]["halfway"] == "past"
+    contract, _premium = claim_alerts.named_live_contract(rows, close_at)
+    assert contract == "10/22 146P"
+    assert claim_alerts.halfway_blocks(rows, close_at) == "blocks"
 
 
 def test_a_blank_live_contract_is_quoted_again():
@@ -632,8 +656,8 @@ def test_a_blank_live_contract_is_quoted_again():
 
     text = live.read_text()
     assert filled
-    assert "Under $0.50" in text
-    assert "| 10/23 146P | 0.90 | over | 10/23 144P | past |" in text
+    assert "$1 strike" in text
+    assert "| 10/23 144P | 0.49 | fits | 10/23 146P | 0.90 | 10/23 144P | 0.49 | past |" in text
     assert "| none |" not in text
     saved = contracts.read_text()
     assert "10/23 146P" in saved
@@ -1596,3 +1620,84 @@ def test_a_missed_exit_premium_is_filled_on_the_next_check():
     assert rows["chosen"]["price"] == "3.03"
     assert rows["chosen"]["return"] == "+236.7%"
     assert rows["cash"]["price"] == "1.99"
+
+
+def test_an_exit_marks_the_dollar_strike_and_the_cash_strike():
+    event = {
+        "kind": "exit",
+        "ticker": "SPCX",
+        "side": "put",
+        "level": 150.0,
+        "reason": "clock",
+        "close_at": int(datetime(2026, 10, 22, 12, 50, tzinfo=ZoneInfo("America/Los_Angeles")).timestamp()),
+        "fill": 144.92,
+        "contract": "10/23 144P",
+        "premium": 1.99,
+        "dollar_contract": "10/23 146P",
+        "dollar_premium": 3.03,
+        "cash_contract": "10/23 144P",
+        "cash_premium": 1.99,
+        "bar": {"o": 145.10, "h": 145.20, "l": 144.80, "c": 144.92},
+    }
+    line = claim_alerts.live_line(event)
+    assert "| 10/23 144P | 1.99 |  | 10/23 146P | 3.03 | 10/23 144P | 1.99 |  |" in line
+
+
+def _atr_bar(start, open_, high, low, close, atr=1.0):
+    bar = _bar(start, open_, high, low, close)
+    bar["atr"] = atr
+    return bar
+
+
+def test_bounce_and_trend_are_paper_timings():
+    level = {
+        "ticker": "AAA",
+        "price": 100,
+        "allows": "both",
+        "targets": [99],
+        "up_targets": [102],
+    }
+    bounce_bars = [
+        _atr_bar(0, 100.40, 100.50, 100.20, 100.30),
+        _atr_bar(600, 100.30, 100.40, 99.90, 100.20),
+        _atr_bar(1200, 100.20, 100.70, 100.10, 100.55),
+        _atr_bar(1800, 100.55, 103.20, 100.50, 103.00),
+    ]
+    bounce = claim_alerts.regime_trades(bounce_bars, [level], kind="bounce")
+    assert len(bounce) == 1
+    assert bounce[0]["side"] == "call"
+    assert bounce[0]["fill"] == 100.20
+    assert bounce[0]["reason"] == "target"
+    assert claim_alerts.bounce_side(bounce_bars[3], 100) is None
+
+    trend_bars = [
+        _atr_bar(0, 100.00, 100.20, 99.80, 100.00),
+        _atr_bar(600, 100.00, 101.40, 99.90, 101.20),
+        _atr_bar(1200, 100.40, 101.80, 100.30, 101.60),
+        _atr_bar(1800, 101.60, 103.00, 101.40, 102.80),
+    ]
+    trend = claim_alerts.regime_trades(trend_bars, [level], kind="trend")
+    assert len(trend) == 1
+    assert trend[0]["retested"] is False
+    assert trend[0]["reason"] == "target"
+    assert trend[0]["fill"] == 100.40
+
+    chased = [
+        _atr_bar(0, 100.00, 100.20, 99.80, 100.00),
+        _atr_bar(600, 100.00, 101.40, 99.90, 101.20),
+        _atr_bar(1200, 101.20, 101.80, 101.00, 101.60),
+    ]
+    assert claim_alerts.regime_trades(chased, [level], kind="trend") == []
+
+    clock = int(datetime(2026, 10, 22, 12, 40, tzinfo=ZoneInfo("America/Los_Angeles")).timestamp())
+    returned = [
+        _atr_bar(clock - 1800, 100.00, 100.20, 99.80, 100.00),
+        _atr_bar(clock - 1200, 100.00, 101.40, 99.90, 101.20),
+        _atr_bar(clock - 600, 100.40, 101.20, 100.30, 101.00),
+        _atr_bar(clock, 101.00, 101.10, 99.90, 100.40),
+        _atr_bar(clock + 600, 100.40, 100.50, 100.20, 100.30),
+    ]
+    back = claim_alerts.regime_trades(returned, [level], kind="trend")
+    assert len(back) == 1
+    assert back[0]["retested"] is True
+    assert back[0]["reason"] == "clock"
