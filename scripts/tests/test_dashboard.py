@@ -251,3 +251,41 @@ def test_saved_sessions_score_each_posted_book():
     assert "equity" in stats
     assert len(stats["equity"]) == stats["trades"]
     assert result["report"]["trades"][0]["contract"] in ("", None)
+
+
+def test_the_first_lesson_is_sniping_the_contract_bottom():
+    root = Path("/tmp/autobonk-dashboard-lesson")
+    (root / "alerts").mkdir(parents=True, exist_ok=True)
+    (root / "learning" / "lessons").mkdir(parents=True, exist_ok=True)
+    (root / "alerts" / "levels.yaml").write_text(
+        'armed_at: "2026-10-16T08:27:30-07:00"\nlevels: []\n'
+    )
+    (root / "learning" / "goals.yaml").write_text(
+        """
+goals:
+  - id: snipe-bottom
+    title: Sniping the bottom on contracts
+    says: Buy calls on a red candle and puts on a green candle.
+"""
+    )
+    (root / "learning" / "lessons" / "snipe-bottom.md").write_text(
+        "# Sniping the bottom on contracts\n\nThis is the first goal. It is not an order.\n"
+    )
+    (root / "learning" / "drills.yaml").write_text(
+        """
+drills:
+  - ticker: SPCX
+    session: "2026-10-16"
+    side: put
+    level: 146.5
+    ideal_buy: "09:20"
+    ideal_sell: "12:10"
+"""
+    )
+
+    page = dashboard.render(root)
+
+    assert "Sniping the bottom on contracts" in page
+    assert page.index("Sniping the bottom on contracts") < page.index("<h2>Journal</h2>")
+    assert "not an order" in page
+    assert "place order" not in page.lower()

@@ -6,7 +6,8 @@ Open this project at `/home/evice/repos/AutoBonk`.
 
 1. `rules/ta_rules.md`. Do not invent rules.
 2. `learning/journal.md`. A pattern exists only after the same feature shows up in more than one trade the operator confirmed and that was actually taken.
-3. `alerts/levels.yaml`. This is the live book. Charts in `charts/inbox/` are not the live book until a levels file is written from the note.
+3. `learning/goals.yaml`. The first goal is sniping the bottom on contracts. A goal is a lesson. It is not a live rule.
+4. `alerts/levels.yaml`. This is the live book. Charts in `charts/inbox/` are not the live book until a levels file is written from the note.
 
 ## What runs
 

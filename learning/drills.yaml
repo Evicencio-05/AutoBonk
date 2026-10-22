@@ -11,4 +11,5 @@ drills:
     ideal_buy: "09:20"
     ideal_sell: "12:10"
     contract: "ATM or ITM put, 0DTE or the next expiration. Cut before the cash close."
+    goal: snipe-bottom
     why: "The 09:10 green did not push. The 09:20 green was the strength, still under 146.5. The 12:10 red was the weakness, before 142.6 and before the close."

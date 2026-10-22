@@ -371,10 +371,23 @@ def _training(root: Path) -> str:
         if line.startswith("- ")
         and any(
             label in line
-            for label in ("Confirmed buy", "Confirmed sell", "Buy miss", "Sell miss")
+            for label in (
+                "Confirmed buy",
+                "Confirmed sell",
+                "Buy miss",
+                "Sell miss",
+                "Contract bottom",
+                "versus the bottom",
+            )
         )
     ]
-    blocks = ["<p>One observation. Not a live alert.</p>"]
+    blocks = []
+    goal = _first_goal(root)
+    if goal:
+        blocks.append(
+            f"<p><b>{_esc(goal.get('title'))}</b> {_esc(' '.join(str(goal.get('says') or '').split()))}</p>"
+        )
+    blocks.append("<p>One observation. Not a live alert.</p>")
     for drill in drills:
         blocks.append(
             "<table><thead><tr>"
@@ -547,11 +560,30 @@ def _sheet(text: str, empty: str) -> str:
     return f"<pre class='sheet'>{_esc(body)}</pre>"
 
 
+def _first_goal(root: Path) -> dict | None:
+    path = root / "learning" / "goals.yaml"
+    if not path.is_file():
+        return None
+    goals = (yaml.safe_load(path.read_text()) or {}).get("goals") or []
+    return goals[0] if goals else None
+
+
 def _lessons(root: Path) -> str:
+    lessons_dir = root / "learning" / "lessons"
+    lessons = sorted(lessons_dir.glob("*.md")) if lessons_dir.is_dir() else []
     reviews = sorted((root / "learning" / "reviews").glob("*.md")) if (root / "learning" / "reviews").is_dir() else []
-    if not reviews:
-        return "<p>No written lesson yet.</p>"
+    if not lessons and not reviews:
+        goal = _first_goal(root)
+        if goal is None:
+            return "<p>No written lesson yet.</p>"
+        return (
+            f"<h3>{_esc(goal.get('title'))}</h3>"
+            f"<p>{_esc(' '.join(str(goal.get('says') or '').split()))}</p>"
+            "<p>This is the first goal. It is not a pattern and it is not an order.</p>"
+        )
     blocks = []
+    for path in lessons:
+        blocks.append(_sheet(path.read_text(), ""))
     for path in reversed(reviews):
         blocks.append(f"<h3>{_esc(path.stem)}</h3>" + _sheet(path.read_text(), ""))
     return "".join(blocks)
@@ -658,13 +690,13 @@ This does not place an order and it does not rewrite the paper tape.</p>
 <label>Take profit <select id="take-mode"><option value="target">close through the far target</option><option value="near">near the next level</option><option value="none">never</option></select></label>
 <label>Clock <select id="flatten-mode"><option value="clock">12:50 PT</option><option value="none">do not flatten</option></select></label>
 </p>
-<p><button type="button" id="run-backtest">Run backtest</button>
+<p class="actions"><button type="button" id="run-backtest">Run backtest</button>
 <button type="button" id="save-book">Save book</button></p>
 <details>
 <summary>Levels in this test ({count})</summary>
-<table data-nosort><thead><tr><th>Ticker</th><th>Price</th><th>Allows</th><th>Targets</th><th>Up targets</th><th>Stop</th><th>Note</th></tr></thead>
+<table class="editor levels" data-nosort><thead><tr><th>Ticker</th><th>Price</th><th>Allows</th><th>Targets</th><th>Up targets</th><th>Stop</th><th>Note</th></tr></thead>
 <tbody id="level-rows">{level_rows}</tbody></table>
-<p><button type="button" id="add-level">Add level</button></p>
+<p class="actions"><button type="button" id="add-level">Add level</button></p>
 </details>
 <div id="backtest-out"><p>Run the test to see net profit, drawdown, and win rate for these variables.</p></div>
 <script id="desk-data" type="application/json">{payload}</script>
@@ -953,10 +985,14 @@ def save_book(root: Path, payload: dict) -> None:
     path.write_text(yaml.safe_dump({"armed_at": armed, "levels": levels}, sort_keys=False))
 
 
+def _contain_tables(part: str) -> str:
+    return part.replace("<table", "<div class='sheet-scroll'><table").replace("</table>", "</table></div>")
+
+
 def _page(sections: list[tuple[str, str, str]]) -> str:
 
     body = "".join(
-        f"<section id='{anchor}'><h2>{html.escape(title)}</h2>{part}</section>"
+        f"<section id='{anchor}'><h2>{html.escape(title)}</h2>{_contain_tables(part)}</section>"
         for title, part, anchor in sections
     )
     by_anchor = {anchor: title for title, _part, anchor in sections}
