@@ -91,3 +91,56 @@ def test_the_first_goal_is_sniping_the_contract_bottom():
     assert "not an order" in lesson
     assert "0.43 stock points" in lesson
     assert "not a priced premium" in lesson
+
+
+def test_the_live_retest_buys_the_confirmed_spcx_bottom():
+    """The 09:10 green did not tag 146.5. The retest buys the 09:20 push."""
+    import json
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    root = Path(__file__).resolve().parents[2]
+    zone = ZoneInfo("America/Los_Angeles")
+    claim_spec = importlib.util.spec_from_file_location(
+        "claim_alerts",
+        root / "scripts" / "claim_alerts.py",
+    )
+    claim = importlib.util.module_from_spec(claim_spec)
+    claim_spec.loader.exec_module(claim)
+
+    raw = json.loads((root / "bench/fixtures/2026-10-16-bars.json").read_text())
+    bars = claim.add_indicators(
+        [
+            {
+                "close_at": int(bar["close_at"]),
+                "o": float(bar["o"]),
+                "h": float(bar["h"]),
+                "l": float(bar["l"]),
+                "c": float(bar["c"]),
+            }
+            for bar in raw["tickers"]["SPCX"]
+        ]
+    )
+    nine_ten = datetime(2026, 10, 16, 9, 10, tzinfo=zone).timestamp()
+    nine_twenty = datetime(2026, 10, 16, 9, 20, tzinfo=zone).timestamp()
+    flat = next(bar for bar in bars if bar["close_at"] == nine_ten)
+    pushed = next(bar for bar in bars if bar["close_at"] == nine_twenty)
+    assert flat["h"] < 146.5 - 0.15
+    assert pushed["h"] >= 146.5 - 0.15
+    assert abs((pushed["c"] - flat["c"]) - 0.43) < 0.02
+
+    armed = int(datetime.fromisoformat("2026-10-16T08:27:30-07:00").timestamp())
+    events = claim.replay(
+        bars,
+        [{"ticker": "SPCX", "price": 146.5, "allows": "both", "targets": [142.6]}],
+        armed,
+        claim.live_settings(),
+    )
+    entries = [event for event in events if event["kind"] == "entry"]
+
+    assert len(entries) == 1
+    assert entries[0]["side"] == "put"
+    assert entries[0]["reason"] == "retest"
+    assert entries[0]["bar"]["close_at"] == nine_twenty
+    assert abs(entries[0]["fill"] - pushed["c"]) < 0.02
+    assert claim.live_settings()["entry"] == "retest"
