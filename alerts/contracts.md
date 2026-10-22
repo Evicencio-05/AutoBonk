@@ -44,8 +44,8 @@ The chosen row is the contract the checker would take. Same-day expiration is el
 | 2026-10-21 07:30 PT | AMZN | 260.50 | first | none |  |  |  | exit |
 | 2026-10-21 07:30 PT | AMZN | 260.50 | cheap | 10/21 255P | 0.07 | 0.04 | -42.9% | exit |
 | 2026-10-21 07:30 PT | AMZN | 260.50 | week | none |  |  |  | exit |
-| 2026-10-22 08:30 PT | SPCX | 150.00 | chosen | 10/23 146P | 0.90 |  |  | open |
-| 2026-10-22 08:30 PT | SPCX | 150.00 | dte | none |  |  |  | open |
-| 2026-10-22 08:30 PT | SPCX | 150.00 | first | 10/23 150P | 2.38 |  |  | open |
-| 2026-10-22 08:30 PT | SPCX | 150.00 | cheap | 10/23 139P | 0.11 |  |  | open |
-| 2026-10-22 08:30 PT | SPCX | 150.00 | cash | 10/23 144P | 0.49 |  |  | open |
+| 2026-10-22 08:30 PT | SPCX | 150.00 | chosen | 10/23 146P | 0.90 | 3.03 | +236.7% | exit |
+| 2026-10-22 08:30 PT | SPCX | 150.00 | dte | none |  |  |  | exit |
+| 2026-10-22 08:30 PT | SPCX | 150.00 | first | 10/23 150P | 2.38 | 5.70 | +139.5% | exit |
+| 2026-10-22 08:30 PT | SPCX | 150.00 | cheap | 10/23 139P | 0.11 | 0.51 | +363.6% | exit |
+| 2026-10-22 08:30 PT | SPCX | 150.00 | cash | 10/23 144P | 0.49 | 1.99 | +306.1% | exit |

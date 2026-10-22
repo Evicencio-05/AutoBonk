@@ -6,7 +6,9 @@ bar. A claim or a lose is a close beyond the level by half the 14-period ATR.
 A close inside that band has not broken the level. That same close flips
 the level: a lost support is resistance, and a claimed resistance is support.
 A wick within 15 cents only counts as the touch. The fill is the next bar's open.
-A 0DTE contract is out at 12:45 PT on expiration. SPX is not cut at 12:45.
+A 0DTE contract is out at 12:45 PT on expiration. SPX and SPCX are not cut at 12:45.
+An open row whose 12:50 bar has passed is closed on a later check. That close
+does not add an entry from an old book.
 RSI is printed and does not block.
 
   python3 scripts/claim_alerts.py check
@@ -1694,6 +1696,7 @@ def paper_rows(text: str) -> list[dict]:
                 "side": padded[3],
                 "level": padded[4],
                 "fill": padded[5],
+                "reason": padded[6],
                 "contract": padded[7],
                 "premium": float(premium) if premium else None,
             }
@@ -1788,7 +1791,7 @@ def quote_paper(events: list[dict], levels: list[dict], path: Path = PAPER_PATH)
                 symbol = None if match is None else _contract_symbol(match)
                 if symbol and contract != "none":
                     start = event["close_at"] - TEN_MIN
-                    price = option_price(fetch_option_minutes(symbol), start, "close")
+                    price = option_price(fetch_option_minutes(symbol, span="10d"), start, "close")
                     if price is not None:
                         premium = round(price, 2)
             event = {**event, "contract": contract, "premium": premium}
@@ -1935,7 +1938,7 @@ def record_contracts(events: list[dict], path: Path = CONTRACTS_PATH) -> None:
                 continue
             symbol = _row_symbol(row)
             if symbol:
-                price = option_price(fetch_option_minutes(symbol), start, "close")
+                price = option_price(fetch_option_minutes(symbol, span="10d"), start, "close")
                 if price is not None:
                     row["price"] = f"{price:.2f}"
                     row["return"] = format_return(row["entry"], row["price"])
@@ -2054,6 +2057,8 @@ def live_notice(event: dict) -> str:
     text = format_live(event)
     if text.endswith(" Not an order."):
         text = text[: -len(" Not an order.")]
+    if event.get("kind") == "exit":
+        return text + " Live session. Not an order."
     return (
         text
         + f" Live session. {_live_cash_sentence(event)} Waiting for confirm. Not an order."
@@ -2226,14 +2231,29 @@ def append_paper(events: list[dict], path: Path = PAPER_PATH) -> None:
             + PAPER_HEADER
         )
     text = path.read_text()
-    addition = "\n".join(lines) + "\n"
     blotter, separator, marks = text.partition("\n## Open marks\n")
+    known = set()
+    for line in blotter.splitlines():
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if len(cells) >= 5 and cells[0] not in ("Time", ""):
+            known.add((cells[0], cells[1], cells[2], cells[4]))
+    fresh = []
+    for line in lines:
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        key = (cells[0], cells[1], cells[2], cells[4])
+        if key in known:
+            continue
+        known.add(key)
+        fresh.append(line)
+    if not fresh:
+        return
+    addition = "\n".join(fresh) + "\n"
     if separator:
         path.write_text(blotter.rstrip() + "\n" + addition + "\n## Open marks\n" + marks)
     else:
         with path.open("a") as handle:
             handle.write(addition)
-    _store_rows("paper", lines, path, PAPER_PATH)
+    _store_rows("paper", fresh, path, PAPER_PATH)
 
 
 def refresh_dashboard() -> None:
@@ -2465,7 +2485,9 @@ def fill_missing_contracts(
         symbol = _contract_symbol({**row, "contract": contract})
         if symbol and contract != "none":
             exit_at = int(_row_clock(exit_row["time"]).timestamp())
-            price = option_price(fetch_option_minutes(symbol), exit_at - TEN_MIN, "close")
+            price = option_price(
+                fetch_option_minutes(symbol, span="10d"), exit_at - TEN_MIN, "close"
+            )
             if price is not None:
                 exit_premium = round(price, 2)
         if live_table:
@@ -2490,6 +2512,119 @@ def fill_missing_contracts(
         rewritten += "\n"
     path.write_text(rewritten + separator + marks)
     record_contracts(events, contracts_path)
+    return True
+
+
+def _window_close(symbol: str, moment: int) -> float | None:
+    """The option print on the exit bar. A missed tape is left for the next check."""
+    try:
+        price = option_price(fetch_option_minutes(symbol, span="10d"), moment - TEN_MIN, "close")
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError):
+        return None
+    if price is None:
+        return None
+    return round(float(price), 2)
+
+
+def repair_exit_premiums(
+    path: Path = PAPER_PATH,
+    contracts_path: Path = CONTRACTS_PATH,
+    option_mark=None,
+) -> bool:
+    """Fill an exit premium the first quote missed. A priced cell stays put."""
+    if not path.is_file():
+        return False
+    marker = _window_close if option_mark is None else option_mark
+    text = path.read_text()
+    blotter, separator, marks = text.partition("\n## Open marks\n")
+    lines = blotter.splitlines()
+    width = 12 if "| Cash |" in blotter else 9
+    parsed = paper_rows(blotter)
+    opens: list[dict] = []
+    pairs = []
+    table_lines = [index for index, line in enumerate(lines) if line.startswith("|")]
+    row_index = 0
+    for index in table_lines:
+        cells = [cell.strip() for cell in lines[index].strip().strip("|").split("|")]
+        if not cells or cells[0] in ("Time", "") or set(cells[0]) <= {"-"}:
+            continue
+        if row_index >= len(parsed):
+            break
+        row = parsed[row_index]
+        row_index += 1
+        if row["action"] == "entry":
+            opens.append(row)
+            continue
+        for spot, entry in enumerate(opens):
+            if (
+                entry["ticker"] == row["ticker"]
+                and entry["side"] == row["side"]
+                and entry["level"] == row["level"]
+            ):
+                pairs.append((entry, row, index))
+                opens.pop(spot)
+                break
+    changed = False
+    priced: list[tuple[dict, dict, float]] = []
+    for entry, exit_row, index in pairs:
+        if exit_row.get("premium") is not None:
+            continue
+        contract = exit_row.get("contract") or ""
+        if contract in ("", "none"):
+            continue
+        symbol = _contract_symbol(exit_row)
+        if not symbol:
+            continue
+        try:
+            moment = int(_row_clock(exit_row["time"]).timestamp())
+            price = marker(symbol, moment)
+        except (urllib.error.URLError, TimeoutError, OSError, ValueError):
+            continue
+        if price is None:
+            continue
+        premium = round(float(price), 2)
+        cells = [cell.strip() for cell in lines[index].strip().strip("|").split("|")]
+        cells = (cells + [""] * width)[:width]
+        cells[8] = f"{premium:.2f}"
+        lines[index] = "| " + " | ".join(cells) + " |"
+        exit_row["premium"] = premium
+        priced.append((entry, exit_row, premium))
+        changed = True
+    if priced and contracts_path.is_file():
+        rows = contract_rows(contracts_path.read_text())
+        contracts_changed = False
+        for entry, exit_row, _premium in priced:
+            moment = int(_row_clock(exit_row["time"]).timestamp())
+            for row in rows:
+                if row["state"] not in ("open", "exit") or row["price"]:
+                    continue
+                if (
+                    row["time"] != entry["time"]
+                    or row["ticker"] != entry["ticker"]
+                    or row["level"] != entry["level"]
+                ):
+                    continue
+                symbol = _row_symbol(row)
+                if not symbol:
+                    continue
+                try:
+                    price = marker(symbol, moment)
+                except (urllib.error.URLError, TimeoutError, OSError, ValueError):
+                    continue
+                if price is None:
+                    continue
+                row["price"] = f"{round(float(price), 2):.2f}"
+                row["return"] = format_return(row["entry"], row["price"])
+                contracts_changed = True
+        if contracts_changed:
+            contracts_path.write_text(_contracts_text(rows))
+            changed = True
+    if not changed:
+        return False
+    rewritten = "\n".join(lines)
+    if blotter.endswith("\n"):
+        rewritten += "\n"
+    path.write_text(rewritten + separator + marks)
     return True
 
 
@@ -2527,7 +2662,7 @@ def _contract_ok(pending: dict, bar: dict, levels: list[dict], taken: set[str], 
 
 def _is_spx(ticker: str) -> bool:
     name = (ticker or "").upper().strip().lstrip("^$")
-    return name in {"SPX", "SPXW"}
+    return name in {"SPX", "SPXW", "SPCX"}
 
 
 def contract_expiration(row: dict) -> date | None:
@@ -2596,16 +2731,22 @@ def _position_row(event: dict) -> dict:
     if not when:
         when = datetime.fromtimestamp(event["close_at"], PT).strftime("%Y-%m-%d %H:%M PT")
     fill = event.get("fill")
-    return {
+    row = {
         "time": when,
         "ticker": event["ticker"],
         "action": "entry",
         "side": event["side"],
         "level": f"{float(event['level']):.2f}",
         "fill": "" if fill is None else f"{float(fill):.2f}",
+        "reason": event.get("reason") or "",
         "contract": event.get("contract") or "",
         "premium": event.get("premium"),
     }
+    if "last" in event:
+        row["last"] = event.get("last")
+    if "next" in event:
+        row["next"] = event.get("next")
+    return row
 
 
 def _mark_premiums(text: str) -> dict[str, str]:
@@ -2702,6 +2843,187 @@ def _expiry_event(entry: dict, deadline: datetime, marks: dict, stock_bar, optio
         "contract": entry.get("contract") or "",
         "premium": _premium_for(entry, moment, marks, option_mark),
     }
+
+
+def session_flat(when: datetime) -> datetime:
+    """The 12:50 PT bar that cuts a trade still open into the cash close."""
+    return when.replace(hour=12, minute=50, second=0, microsecond=0)
+
+
+def _target_key(entry: dict) -> str:
+    return (
+        f"{entry['ticker']}|{entry['side']}|{float(entry['level']):.2f}|{entry['time']}"
+    )
+
+
+def _remember_targets(events: list[dict], path: Path = STATE_PATH) -> None:
+    """Keep the posted targets with the entry. A later book must not move them."""
+    book = _read_state(path).get("targets")
+    if not isinstance(book, dict):
+        book = {}
+    changed = False
+    for event in events:
+        if event.get("kind") != "entry" or (
+            "last" not in event and "next" not in event
+        ):
+            continue
+        when = datetime.fromtimestamp(event["close_at"], PT).strftime("%Y-%m-%d %H:%M PT")
+        key = f"{event['ticker']}|{event['side']}|{float(event['level']):.2f}|{when}"
+        book[key] = {"last": event.get("last"), "next": event.get("next")}
+        changed = True
+    if not changed:
+        return
+    payload = _read_state(path)
+    payload["targets"] = book
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2) + "\n")
+
+
+def _recall_targets(entry: dict, path: Path = STATE_PATH) -> dict | None:
+    book = _read_state(path).get("targets")
+    if not isinstance(book, dict):
+        return None
+    found = book.get(_target_key(entry))
+    return found if isinstance(found, dict) else None
+
+
+def _targets_for(entry: dict, levels: list[dict], path: Path = STATE_PATH) -> tuple:
+    """Last target, then the next number. Remembered targets win over today's book."""
+    if "last" in entry or "next" in entry:
+        return entry.get("last"), entry.get("next")
+    remembered = _recall_targets(entry, path)
+    if remembered is not None:
+        return remembered.get("last"), remembered.get("next")
+    first, far = _target_pair(
+        levels,
+        {
+            "ticker": entry["ticker"],
+            "side": entry["side"],
+            "level": float(entry["level"]),
+        },
+    )
+    return far, first
+
+
+def _still_open(rows: list[dict], events: list[dict]) -> list[dict]:
+    """Rows that this run has not already closed."""
+    opens = _open_entries(rows)
+    for event in events:
+        if event.get("kind") == "entry":
+            opens.append(_position_row(event))
+        elif event.get("kind") == "exit":
+            _pop_open(opens, event)
+    return opens
+
+
+def session_bars(ticker: str, moment: int) -> list[dict]:
+    """Finished 10-minute bars through `moment`. Empty when the tape cannot be read."""
+    try:
+        fetched = fetch_five_minute(ticker, span="10d")
+    except (SystemExit, OSError, urllib.error.URLError):
+        return []
+    return [
+        bar
+        for bar in add_indicators(ten_minute_bars(fetched, moment + 1))
+        if bar["close_at"] <= moment and in_session(bar["close_at"])
+    ]
+
+
+def _walk_exit(position: dict, entry_at: int, bars: list[dict], settings: dict) -> dict | None:
+    """The first reclaim, last target, or 12:50 bar after the fill."""
+    flat_at = int(session_flat(datetime.fromtimestamp(entry_at, PT)).timestamp())
+    day = datetime.fromtimestamp(entry_at, PT).date()
+    for bar in bars:
+        if bar["close_at"] < entry_at or bar["close_at"] > flat_at:
+            continue
+        if not in_session(bar["close_at"]):
+            continue
+        if datetime.fromtimestamp(bar["close_at"], PT).date() != day:
+            continue
+        found: list[dict] = []
+        if _finish(position, bar, found, bar["close_at"] != entry_at, settings):
+            event = found[0]
+            event["fill"] = bar["c"]
+            return event
+    return None
+
+
+def settle_open_entries(
+    rows: list[dict],
+    levels: list[dict],
+    moment: int,
+    stock_bars=None,
+    settings: dict | None = None,
+    path: Path = STATE_PATH,
+) -> list[dict]:
+    """Close an entry the current book no longer replays, once its session is over.
+
+    A contract that expires at or before the 12:50 bar stays with the expiration
+    close. A `none` contract and a later expiration still leave at 12:50, or
+    earlier when the level is reclaimed or the last target is lost. The first
+    target does not close the trade. This does not add an entry.
+    """
+    settings = live_settings() if settings is None else settings
+    bars_for = session_bars if stock_bars is None else stock_bars
+    events = []
+    for entry in _open_entries(rows):
+        try:
+            opened = _row_clock(entry["time"])
+        except (ValueError, KeyError):
+            continue
+        flat = session_flat(opened)
+        flat_at = int(flat.timestamp())
+        if moment < flat_at:
+            continue
+        deadline = contract_deadline(entry)
+        if (
+            deadline is not None
+            and int(deadline.timestamp()) <= flat_at
+            and moment >= int(deadline.timestamp())
+        ):
+            continue
+        last, nxt = _targets_for(entry, levels, path)
+        position = {
+            "ticker": entry["ticker"],
+            "side": entry["side"],
+            "level": float(entry["level"]),
+            "last": last,
+            "next": nxt,
+            "stop": None,
+            "reason": entry.get("reason") or "retest",
+            "bar": {"close_at": int(opened.timestamp())},
+            "note": "",
+            "flip": "",
+        }
+        try:
+            bars = bars_for(entry["ticker"], flat_at)
+        except (SystemExit, OSError, urllib.error.URLError, ValueError):
+            continue
+        event = _walk_exit(position, int(opened.timestamp()), bars or [], settings)
+        if event is None:
+            continue
+        event["contract"] = entry.get("contract") or ""
+        event["premium"] = None
+        event["kept"] = True
+        events.append(event)
+    return events
+
+
+def _context_for(events: list[dict], levels: list[dict], armed_at: datetime) -> None:
+    """Nearby levels come from the book that was armed that day."""
+    armed_day = armed_at.date()
+    same = []
+    older = []
+    for event in events:
+        day = datetime.fromtimestamp(event["close_at"], PT).date()
+        if day == armed_day:
+            same.append(event)
+        else:
+            older.append(event)
+    if same:
+        append_context(same, levels)
+    if older:
+        append_context(older, [])
 
 
 def apply_contract_exits(
@@ -2859,6 +3181,29 @@ def check(now: int | None = None, notify: bool = False) -> list[str]:
         stock_bar=_stock_bar_at,
         option_mark=_option_mark_at,
     )
+    cached: dict[str, list[dict]] = {}
+
+    def bars_for(ticker: str, at: int) -> list[dict]:
+        if ticker not in cached:
+            cached[ticker] = session_bars(ticker, moment)
+        return [bar for bar in cached[ticker] if bar["close_at"] <= at]
+
+    settled_paper = settle_open_entries(
+        _still_open(paper_rows(paper_text), final_paper),
+        spec["levels"],
+        moment,
+        bars_for,
+    )
+    settled_live = settle_open_entries(
+        _still_open(paper_rows(live_text), final_live),
+        spec["levels"],
+        moment,
+        bars_for,
+    )
+    if settled_paper:
+        final_paper.extend(quote_paper(settled_paper, spec["levels"]))
+    if settled_live:
+        final_live.extend(quote_paper(settled_live, spec["levels"], path=LIVE_PATH))
     messages = []
     quiet = []
     paper = []
@@ -2870,9 +3215,10 @@ def check(now: int | None = None, notify: bool = False) -> list[str]:
             fired.add(identity)
         routed = route_event(event, moment)
         save_state(fired, no_contract=blocked, taken=taken)
-        if routed == "drop" and event.get("reason") != "expiry":
+        kept = event.get("kept") is True
+        if routed == "drop" and event.get("reason") != "expiry" and not kept:
             return
-        if routed != "drop":
+        if routed != "drop" or kept:
             line = live_notice(event) if live_row else format_live(event)
             if routed == "alert":
                 if notify:
@@ -2900,23 +3246,28 @@ def check(now: int | None = None, notify: bool = False) -> list[str]:
         append_log(logged)
     if live:
         append_live(live)
-        append_context(live, spec["levels"])
+        _context_for(live, spec["levels"], spec["armed_at"])
         record_contracts(live)
     if paper:
         append_paper(paper)
-        append_context(paper, spec["levels"])
+        _context_for(paper, spec["levels"], spec["armed_at"])
         record_contracts(paper)
-        for event in paper:
-            if route_event(event, moment) == "alert":
-                notify_paper(event)
+    _remember_targets(live + paper)
+    for event in paper:
+        if route_event(event, moment) == "alert":
+            notify_paper(event)
     repaired = fill_missing_contracts(spec["levels"])
     repaired_live = fill_missing_contracts(spec["levels"], LIVE_PATH)
+    repaired_premium = repair_exit_premiums(PAPER_PATH)
+    repaired_premium_live = repair_exit_premiums(LIVE_PATH)
     comparison = close_expired_contracts(moment)
     if (
         paper
         or live
         or repaired
         or repaired_live
+        or repaired_premium
+        or repaired_premium_live
         or comparison
         or refresh_open_marks(now=moment)
         or refresh_contract_marks(now=moment)

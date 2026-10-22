@@ -78,3 +78,7 @@
 - PLTR put watch 200.00 at 2026-10-22 09:10 PT. Candle green O 198.46 H 199.36 L 198.17 C 199.22. RSI purple 51.51 yellow 49.28. Purple crossed above 50. Not a fill. Not an order.
 - TSLA put watch 382.75 at 2026-10-22 09:20 PT. Candle green O 380.92 H 381.79 L 380.35 C 381.54. RSI purple 53.90 yellow 65.81. The 20 SMA is on the level. Not a fill. Not an order.
 - AAPL put skip 346.50 at 2026-10-22 09:30 PT. Candle green O 345.86 H 346.40 L 345.85 C 346.26. RSI purple 66.67 yellow 54.67. The next number was tagged and did not hold. Not an order.
+- SPCX call exit 146.50 at 2026-10-19 12:50 PT. Candle green O 147.13 H 147.60 L 147.10 C 147.30. RSI purple 40.25 yellow 38.93. 12:50 bar, cut before the cash close. Not an order.
+- AMZN call exit 261.00 at 2026-10-19 12:50 PT. Candle green O 263.18 H 263.40 L 262.96 C 263.32. RSI purple 67.42 yellow 63.67. 12:50 bar, cut before the cash close. Not an order.
+- TSLA call exit 370.00 at 2026-10-20 12:50 PT. Candle red O 375.17 H 375.44 L 374.84 C 375.11. RSI purple 57.06 yellow 58.34. 12:50 bar, cut before the cash close. Not an order.
+- SPCX put exit 150.00 at 2026-10-22 12:50 PT. Candle red O 145.31 H 145.71 L 144.60 C 144.92. RSI purple 30.37 yellow 23.98. 12:50 bar, cut before the cash close. Live session. Not an order.

@@ -1323,3 +1323,276 @@ def test_a_closed_contract_drops_its_open_mark():
     marks = path.read_text().split("## Open marks", 1)[1]
     assert "342.5C" not in marks
     assert "1.40" not in marks
+
+
+def _pt(year, month, day, hour, minute):
+    return int(
+        datetime(year, month, day, hour, minute, tzinfo=ZoneInfo("America/Los_Angeles")).timestamp()
+    )
+
+
+def _stamp(close_at, close, atr=None):
+    bar = _bar(close_at - 600, close, close + 0.2, close - 0.2, close)
+    if atr is not None:
+        bar["atr"] = atr
+    return bar
+
+
+def _open_row(**overrides):
+    row = {
+        "time": "2026-10-19 09:40 PT",
+        "ticker": "AMZN",
+        "action": "entry",
+        "side": "call",
+        "level": "261.00",
+        "fill": "263.03",
+        "reason": "sma",
+        "contract": "none",
+        "premium": None,
+    }
+    row.update(overrides)
+    return row
+
+
+def test_spcx_is_not_cut_at_twelve_forty_five():
+    entry = _open_contract(
+        ticker="SPCX",
+        contract="10/22 146P",
+        time="2026-10-22 08:30 PT",
+        fill="149.80",
+    )
+
+    deadline = claim_alerts.contract_deadline(entry)
+
+    assert deadline == datetime(2026, 10, 22, 13, 15, tzinfo=ZoneInfo("America/Los_Angeles"))
+
+
+def test_a_none_contract_closes_on_the_twelve_fifty_bar():
+    entry_at = _pt(2026, 10, 19, 9, 40)
+    clock = _pt(2026, 10, 19, 12, 50)
+    bars = [
+        _stamp(entry_at, 263.03),
+        _stamp(clock, 263.32),
+    ]
+
+    exits = claim_alerts.settle_open_entries(
+        [_open_row()],
+        [],
+        clock,
+        lambda ticker, at: bars,
+    )
+
+    assert len(exits) == 1
+    assert exits[0]["reason"] == "clock"
+    assert exits[0]["close_at"] == clock
+    assert exits[0]["fill"] == 263.32
+    assert exits[0]["kept"] is True
+    assert "12:50" in claim_alerts.format_live(exits[0])
+
+
+def test_a_reclaim_closes_before_the_clock():
+    entry_at = _pt(2026, 10, 19, 9, 40)
+    reclaim = _pt(2026, 10, 19, 10, 10)
+    clock = _pt(2026, 10, 19, 12, 50)
+    bars = [
+        _stamp(entry_at, 263.03),
+        _stamp(reclaim, 260.40),
+        _stamp(clock, 263.32),
+    ]
+
+    exits = claim_alerts.settle_open_entries(
+        [_open_row()],
+        [],
+        clock + 60,
+        lambda ticker, at: bars,
+    )
+
+    assert len(exits) == 1
+    assert exits[0]["reason"] == "reclaim"
+    assert exits[0]["close_at"] == reclaim
+
+
+def test_the_last_target_closes_and_the_first_does_not():
+    entry_at = _pt(2026, 10, 19, 9, 40)
+    tagged = _pt(2026, 10, 19, 10, 0)
+    clock = _pt(2026, 10, 19, 12, 50)
+    levels = [{"ticker": "AMZN", "price": 261, "allows": "long", "targets": [263.15, 265]}]
+    held = [
+        _stamp(entry_at, 263.03),
+        _stamp(tagged, 264.00),
+        _stamp(clock, 264.20),
+    ]
+    lost = [
+        _stamp(entry_at, 263.03),
+        _stamp(tagged, 265.40),
+        _stamp(clock, 266.00),
+    ]
+
+    still_open = claim_alerts.settle_open_entries(
+        [_open_row()], levels, clock, lambda ticker, at: held
+    )
+    closed = claim_alerts.settle_open_entries(
+        [_open_row()], levels, clock, lambda ticker, at: lost
+    )
+
+    assert still_open[0]["reason"] == "clock"
+    assert closed[0]["reason"] == "target"
+    assert closed[0]["close_at"] == tagged
+
+
+def test_a_close_inside_the_band_has_not_reclaimed():
+    entry_at = _pt(2026, 10, 19, 9, 40)
+    inside = _pt(2026, 10, 19, 10, 10)
+    clock = _pt(2026, 10, 19, 12, 50)
+    bars = [
+        _stamp(entry_at, 263.03, atr=2),
+        _stamp(inside, 260.10, atr=2),
+        _stamp(clock, 262.00, atr=2),
+    ]
+
+    exits = claim_alerts.settle_open_entries(
+        [_open_row()],
+        [],
+        clock,
+        lambda ticker, at: bars,
+    )
+
+    assert exits[0]["reason"] == "clock"
+    assert exits[0]["close_at"] == clock
+
+
+def test_an_open_trade_stays_open_before_the_twelve_fifty_bar():
+    moment = _pt(2026, 10, 19, 12, 40)
+
+    assert (
+        claim_alerts.settle_open_entries(
+            [_open_row()],
+            [],
+            moment,
+            lambda ticker, at: [_stamp(moment, 263)],
+        )
+        == []
+    )
+
+
+def test_a_closed_row_is_not_exited_again():
+    rows = [
+        _open_row(),
+        {
+            "time": "2026-10-19 10:10 PT",
+            "ticker": "AMZN",
+            "action": "exit",
+            "side": "call",
+            "level": "261.00",
+            "fill": "260.40",
+            "reason": "reclaim",
+            "contract": "none",
+            "premium": None,
+        },
+    ]
+
+    assert (
+        claim_alerts.settle_open_entries(
+            rows,
+            [],
+            _pt(2026, 10, 19, 13, 0),
+            lambda ticker, at: [],
+        )
+        == []
+    )
+
+
+def test_a_same_day_expiration_stays_with_the_cutoff():
+    row = _open_row(contract="10/19 265C")
+
+    assert (
+        claim_alerts.settle_open_entries(
+            [row],
+            [],
+            _pt(2026, 10, 19, 13, 0),
+            lambda ticker, at: [_stamp(_pt(2026, 10, 19, 12, 50), 263)],
+        )
+        == []
+    )
+
+
+def test_a_later_expiration_still_leaves_at_the_clock():
+    row = _open_row(contract="10/20 265C", ticker="SPCX", side="put", level="150.00")
+    clock = _pt(2026, 10, 19, 12, 50)
+    bars = [
+        _stamp(_pt(2026, 10, 19, 9, 40), 149.80),
+        _stamp(clock, 144.92),
+    ]
+
+    exits = claim_alerts.settle_open_entries(
+        [row],
+        [{"ticker": "SPCX", "price": 150, "allows": "short", "targets": [146.6, 138.6]}],
+        clock,
+        lambda ticker, at: bars,
+    )
+
+    assert exits[0]["reason"] == "clock"
+    assert exits[0]["ticker"] == "SPCX"
+    assert "Waiting for confirm" not in claim_alerts.live_notice(exits[0])
+    assert "12:50" in claim_alerts.live_notice(exits[0])
+
+
+def test_a_repeated_paper_exit_is_not_written_twice():
+    path = Path("/tmp/autobonk-paper-dedupe.md")
+    path.write_text(
+        "# Paper trades\n\n"
+        + claim_alerts.PAPER_HEADER
+        + "| 2026-10-19 09:40 PT | AMZN | entry | call | 261.00 | 263.03 | sma | none | |\n"
+    )
+    event = {
+        "kind": "exit",
+        "ticker": "AMZN",
+        "side": "call",
+        "level": 261.0,
+        "reason": "clock",
+        "close_at": _pt(2026, 10, 19, 12, 50),
+        "bar": _stamp(_pt(2026, 10, 19, 12, 50), 263.32),
+        "fill": 263.32,
+        "contract": "none",
+        "premium": None,
+    }
+
+    claim_alerts.append_paper([event], path)
+    claim_alerts.append_paper([event], path)
+
+    text = path.read_text()
+    assert text.count("| 2026-10-19 12:50 PT | AMZN | exit | call | 261.00 |") == 1
+
+
+def test_a_missed_exit_premium_is_filled_on_the_next_check():
+    path = Path("/tmp/autobonk-exit-premium.md")
+    contracts = Path("/tmp/autobonk-exit-premium-contracts.md")
+    path.write_text(
+        "# Live\n\n"
+        "| Time | Ticker | Action | Side | Level | Fill | Reason | Contract | Premium | Cash | Under $0.50 | Halfway |\n"
+        "|------|--------|--------|------|-------|------|--------|----------|---------|------|-------------|---------|\n"
+        "| 2026-10-22 08:30 PT | SPCX | entry | put | 150.00 | 149.80 | retest | 10/23 146P | 0.90 | over | 10/23 144P | past |\n"
+        "| 2026-10-22 12:50 PT | SPCX | exit | put | 150.00 | 144.92 | clock | 10/23 146P | |  |  |  |\n"
+    )
+    contracts.write_text(
+        claim_alerts.CONTRACTS_HEADER
+        + "| 2026-10-22 08:30 PT | SPCX | 150.00 | chosen | 10/23 146P | 0.90 |  |  | exit |\n"
+        + "| 2026-10-22 08:30 PT | SPCX | 150.00 | cash | 10/23 144P | 0.49 |  |  | exit |\n"
+    )
+    symbol = claim_alerts.option_symbol("SPCX", date(2026, 10, 23), 146, "put")
+    cash = claim_alerts.option_symbol("SPCX", date(2026, 10, 23), 144, "put")
+
+    def marker(name, moment):
+        del moment
+        return {symbol: 3.03, cash: 1.99}.get(name)
+
+    assert claim_alerts.repair_exit_premiums(path, contracts, marker)
+    assert not claim_alerts.repair_exit_premiums(path, contracts, marker)
+
+    text = path.read_text()
+    assert "| 10/23 146P | 3.03 |" in text
+    assert "over" in text
+    rows = {row["role"]: row for row in claim_alerts.contract_rows(contracts.read_text())}
+    assert rows["chosen"]["price"] == "3.03"
+    assert rows["chosen"]["return"] == "+236.7%"
+    assert rows["cash"]["price"] == "1.99"

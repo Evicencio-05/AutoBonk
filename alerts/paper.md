@@ -43,6 +43,9 @@ Premiums on these rows are the Robinhood 10-minute print for the contract under 
 | 2026-10-21 12:45 PT | AAPL | exit | call | 340.00 | 343.88 | expiry | 10/21 345C | 0.20 |
 | 2026-10-21 12:45 PT | AAPL | exit | call | 340.00 | 343.88 | expiry | 10/21 342.5C | 1.82 |
 | 2026-10-21 12:45 PT | AMZN | exit | put | 260.50 | 262.37 | expiry | 10/21 257.5P | 0.05 |
+| 2026-10-19 12:50 PT | SPCX | exit | call | 146.50 | 147.30 | clock | none |  |
+| 2026-10-19 12:50 PT | AMZN | exit | call | 261.00 | 263.32 | clock | none |  |
+| 2026-10-20 12:50 PT | TSLA | exit | call | 370.00 | 375.11 | clock | none |  |
 
 ## Open marks
 
