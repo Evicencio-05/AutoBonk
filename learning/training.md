@@ -1,5 +1,6 @@
 # Intraday training
 
+The first goal is Sniping the bottom on contracts.
 Each drill is a play whose candles the operator confirmed. A live read uses finished 10-minute bars only. One drill is an observation, not a pattern and not an order.
 
 ## SPCX 2026-10-16 put
@@ -13,5 +14,9 @@ Contract: ATM or ITM put, 0DTE or the next expiration. Cut before the cash close
 - Confirmed sell: 12:10 red open 144.13 close 143.29 push -0.84 purple 28.2
 - First red after the buy: 09:30 red open 146.22 close 146.01 push -0.21 purple 42.2
 - Sell miss: 16 bars early, 2.72 of the drop left behind
+- Contract bottom: 09:20 green open 145.88 close 146.22 push +0.34 purple 43.4
+- Confirmed buy versus the bottom: 0.00 stock points
+- First color versus the bottom: 0.43 stock points
 
 The feed did contain the confirmed candles. The miss is taking the first green or the first red.
+The confirmed buy is the bottom of the contract. The first color left 0.43 stock points, which is the put more expensive.

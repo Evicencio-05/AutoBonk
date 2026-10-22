@@ -21,7 +21,9 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 DRILLS_PATH = ROOT / "learning" / "drills.yaml"
+GOALS_PATH = ROOT / "learning" / "goals.yaml"
 TRAINING_PATH = ROOT / "learning" / "training.md"
+LESSONS_DIR = ROOT / "learning" / "lessons"
 PT = ZoneInfo("America/Los_Angeles")
 FIVE_MIN = 300
 TEN_MIN = 600
@@ -94,6 +96,85 @@ def _color(bar: dict) -> str:
     return "flat"
 
 
+def _cross_at(bars: list[dict], side: str, level: float, buy_at: int) -> int | None:
+    """Last close through the level at or before the confirmed buy."""
+    found = None
+    for index in range(1, len(bars)):
+        previous, bar = bars[index - 1], bars[index]
+        if bar["close_at"] > buy_at:
+            break
+        if side == "put" and previous["close"] >= level > bar["close"]:
+            found = bar["close_at"]
+        if side == "call" and previous["close"] <= level < bar["close"]:
+            found = bar["close_at"]
+    return found
+
+
+def _entry_bars(bars: list[dict], side: str, level: float, trigger_at: int, buy_at: int) -> list[dict]:
+    """Candles that buy the contract, through the confirmed buy.
+
+    A put is bought on a green candle still under the level.
+    A call is bought on a red candle still above the level.
+    """
+    color = "green" if side == "put" else "red"
+    picked = []
+    for bar in bars:
+        if bar["close_at"] <= trigger_at or bar["close_at"] > buy_at:
+            continue
+        if _color(bar) != color:
+            continue
+        if side == "put" and bar["close"] < level:
+            picked.append(bar)
+        if side == "call" and bar["close"] > level:
+            picked.append(bar)
+    return picked
+
+
+def _bottom_bar(side: str, legal: list[dict]) -> dict:
+    """The cheap contract. A put bottom is the high close. A call bottom is the low close."""
+    if side == "put":
+        return max(legal, key=lambda bar: (bar["close"], -bar["close_at"]))
+    return min(legal, key=lambda bar: (bar["close"], bar["close_at"]))
+
+
+def _premium_left(side: str, bottom_close: float, close: float) -> float:
+    """Stock points that made the contract more expensive than the bottom."""
+    if side == "put":
+        return bottom_close - close
+    return close - bottom_close
+
+
+def score_bottom(bars: list[dict], side: str, level: float, buy_at: int) -> dict:
+    """How far the entry sits from the bottom of the contract.
+
+    The score is stock points on the entry candle. That is where the
+    contract is bought. It is not a priced premium. Later bars are not
+    used to pick an earlier candle.
+    """
+    if side not in ("call", "put"):
+        raise ValueError(f"unknown side {side}")
+    trigger_at = _cross_at(bars, side, level, buy_at)
+    if trigger_at is None:
+        raise ValueError("no claim or lose before the confirmed buy")
+    legal = _entry_bars(bars, side, level, trigger_at, buy_at)
+    if not legal:
+        raise ValueError("no entry candle through the confirmed buy")
+    ideal = next(bar for bar in bars if bar["close_at"] == buy_at)
+    if ideal["close_at"] not in {bar["close_at"] for bar in legal}:
+        raise ValueError("confirmed buy is not an entry candle")
+    bottom = _bottom_bar(side, legal)
+    naive = legal[0]
+    return {
+        "trigger_at": trigger_at,
+        "naive": naive,
+        "ideal": ideal,
+        "bottom": bottom,
+        "naive_left": _premium_left(side, bottom["close"], naive["close"]),
+        "ideal_left": _premium_left(side, bottom["close"], ideal["close"]),
+        "sniped": bottom["close_at"] == buy_at,
+    }
+
+
 def score_put(bars: list[dict], level: float, buy_at: int, sell_at: int) -> dict:
     """Compare the first green and first red with the confirmed candles.
 
@@ -101,15 +182,10 @@ def score_put(bars: list[dict], level: float, buy_at: int, sell_at: int) -> dict
     A put sell is a red candle after the buy. Later bars are not used to
     pick an earlier candle.
     """
-    lose_at = None
-    for index in range(1, len(bars)):
-        previous, bar = bars[index - 1], bars[index]
-        if previous["close"] >= level > bar["close"] and bar["close_at"] <= buy_at:
-            lose_at = bar["close_at"]
+    lose_at = _cross_at(bars, "put", level, buy_at)
     if lose_at is None:
         raise ValueError("no lose before the confirmed buy")
-    after_lose = [bar for bar in bars if bar["close_at"] > lose_at and bar["close"] < level]
-    greens = [bar for bar in after_lose if _color(bar) == "green"]
+    greens = _entry_bars(bars, "put", level, lose_at, buy_at)
     if not greens:
         raise ValueError("no green candle after the lose")
     naive_buy = greens[0]
@@ -130,6 +206,40 @@ def score_put(bars: list[dict], level: float, buy_at: int, sell_at: int) -> dict
         "ideal_sell": ideal_sell,
         "sell_bars_early": _bars_between(bars, naive_sell["close_at"], sell_at),
         "sell_price_gap": naive_sell["close"] - ideal_sell["close"],
+    }
+
+
+def score_call(bars: list[dict], level: float, buy_at: int, sell_at: int) -> dict:
+    """Compare the first red and first green with the confirmed candles.
+
+    A call buy is a red candle after the claim, still above the level.
+    A call sell is a green candle after the buy. Later bars are not used
+    to pick an earlier candle.
+    """
+    claim_at = _cross_at(bars, "call", level, buy_at)
+    if claim_at is None:
+        raise ValueError("no claim before the confirmed buy")
+    reds = _entry_bars(bars, "call", level, claim_at, buy_at)
+    if not reds:
+        raise ValueError("no red candle after the claim")
+    naive_buy = reds[0]
+    ideal_buy = next(bar for bar in bars if bar["close_at"] == buy_at)
+    after_buy = [bar for bar in bars if bar["close_at"] > buy_at]
+    greens = [bar for bar in after_buy if _color(bar) == "green"]
+    if not greens:
+        raise ValueError("no green candle after the confirmed buy")
+    naive_sell = greens[0]
+    ideal_sell = next(bar for bar in bars if bar["close_at"] == sell_at)
+    return {
+        "claim_at": claim_at,
+        "naive_buy": naive_buy,
+        "ideal_buy": ideal_buy,
+        "buy_bars_early": _bars_between(bars, naive_buy["close_at"], buy_at),
+        "buy_price_gap": naive_buy["close"] - ideal_buy["close"],
+        "naive_sell": naive_sell,
+        "ideal_sell": ideal_sell,
+        "sell_bars_early": _bars_between(bars, naive_sell["close_at"], sell_at),
+        "sell_price_gap": ideal_sell["close"] - naive_sell["close"],
     }
 
 
@@ -172,9 +282,64 @@ def _fmt(bar: dict) -> str:
     )
 
 
-def render(drill: dict, scored: dict) -> str:
+def _snipe_line(side: str, bottom: dict) -> str:
+    kind = "put" if side == "put" else "call"
+    if bottom["sniped"] and bottom["naive"]["close_at"] == bottom["ideal"]["close_at"]:
+        return (
+            "The confirmed buy is the bottom of the contract. "
+            "The first entry candle is that buy."
+        )
+    if bottom["sniped"]:
+        return (
+            "The confirmed buy is the bottom of the contract. "
+            f"The first color left {bottom['naive_left']:.2f} stock points, "
+            f"which is the {kind} more expensive."
+        )
+    if bottom["ideal_left"] == 0:
+        return (
+            "The confirmed buy matched the bottom price. "
+            "An earlier candle already printed it."
+        )
+    if bottom["naive"]["close_at"] == bottom["bottom"]["close_at"]:
+        return (
+            "The first entry candle is the bottom. "
+            f"The confirmed buy is {bottom['ideal_left']:.2f} stock points off it."
+        )
+    return (
+        f"The confirmed buy is {bottom['ideal_left']:.2f} stock points off the bottom. "
+        f"The first color left {bottom['naive_left']:.2f} stock points, "
+        f"which is the {kind} more expensive."
+    )
+
+
+def render(drill: dict, scored: dict, bottom: dict) -> str:
     buy_gap = scored["buy_price_gap"]
     sell_gap = scored["sell_price_gap"]
+    side = drill["side"]
+    if side == "put":
+        buy_name = "First green after the lose"
+        sell_name = "First red after the buy"
+        buy_miss = (
+            f"- Buy miss: {scored['buy_bars_early']} bar early, "
+            f"{buy_gap:.2f} less stock-price strength"
+        )
+        sell_miss = (
+            f"- Sell miss: {scored['sell_bars_early']} bars early, "
+            f"{sell_gap:.2f} of the drop left behind"
+        )
+        color_line = "The miss is taking the first green or the first red."
+    else:
+        buy_name = "First red after the claim"
+        sell_name = "First green after the buy"
+        buy_miss = (
+            f"- Buy miss: {scored['buy_bars_early']} bar early, "
+            f"{buy_gap:.2f} more stock-price paid"
+        )
+        sell_miss = (
+            f"- Sell miss: {scored['sell_bars_early']} bars early, "
+            f"{sell_gap:.2f} of the rally left behind"
+        )
+        color_line = "The miss is taking the first red or the first green."
     return "\n".join(
         [
             f"## {drill['ticker']} {drill['session']} {drill['side']}",
@@ -183,37 +348,89 @@ def render(drill: dict, scored: dict) -> str:
             f"Contract: {drill['contract']}",
             "",
             f"- Confirmed buy: {_fmt(scored['ideal_buy'])}",
-            f"- First green after the lose: {_fmt(scored['naive_buy'])}",
-            (
-                f"- Buy miss: {scored['buy_bars_early']} bar early, "
-                f"{buy_gap:.2f} less stock-price strength"
-            ),
+            f"- {buy_name}: {_fmt(scored['naive_buy'])}",
+            buy_miss,
             f"- Confirmed sell: {_fmt(scored['ideal_sell'])}",
-            f"- First red after the buy: {_fmt(scored['naive_sell'])}",
-            (
-                f"- Sell miss: {scored['sell_bars_early']} bars early, "
-                f"{sell_gap:.2f} of the drop left behind"
-            ),
+            f"- {sell_name}: {_fmt(scored['naive_sell'])}",
+            sell_miss,
+            f"- Contract bottom: {_fmt(bottom['bottom'])}",
+            f"- Confirmed buy versus the bottom: {bottom['ideal_left']:.2f} stock points",
+            f"- First color versus the bottom: {bottom['naive_left']:.2f} stock points",
             "",
-            "The feed did contain the confirmed candles. The miss is taking the first green or the first red.",
+            "The feed did contain the confirmed candles. " + color_line,
+            _snipe_line(side, bottom),
             "",
         ]
     )
 
 
+def render_lesson(goal: dict, blocks: list[str]) -> str:
+    body = [
+        f"# {goal['title']}",
+        "",
+        "This is the first goal. A goal is a lesson. It is not a pattern and it is not an order.",
+        "",
+        " ".join(goal["says"].split()),
+        "",
+        "The number is stock points on the entry candle. That is where the contract is bought. It is not a priced premium.",
+        "",
+    ]
+    body.extend(blocks)
+    return "\n".join(body)
+
+
+def render_snipe_block(drill: dict, bottom: dict) -> str:
+    return "\n".join(
+        [
+            f"## {drill['ticker']} {drill['session']} {drill['side']}",
+            "",
+            drill["why"],
+            f"Contract: {drill['contract']}",
+            "",
+            f"- Bottom: {_fmt(bottom['bottom'])}",
+            f"- Confirmed buy: {_fmt(bottom['ideal'])}",
+            f"- First entry candle: {_fmt(bottom['naive'])}",
+            f"- First candle off the bottom: {bottom['naive_left']:.2f} stock points",
+            "",
+            _snipe_line(drill["side"], bottom),
+            "One drill is an observation.",
+            "",
+        ]
+    )
+
+
+def first_goal(spec: dict) -> dict:
+    goals = spec.get("goals") or []
+    if not goals:
+        raise SystemExit("learning/goals.yaml has no goal")
+    return goals[0]
+
+
+def _score_side(drill: dict, session: list[dict], buy_at: int, sell_at: int) -> dict:
+    level = float(drill["level"])
+    if drill["side"] == "put":
+        return score_put(session, level, buy_at, sell_at)
+    if drill["side"] == "call":
+        return score_call(session, level, buy_at, sell_at)
+    raise SystemExit(f"{drill['id']} has no entry color")
+
+
 def score_drills() -> str:
     spec = yaml.safe_load(DRILLS_PATH.read_text())
+    goal = first_goal(yaml.safe_load(GOALS_PATH.read_text()))
+    if goal["id"] != "snipe-bottom":
+        raise SystemExit(f"{goal['id']} is not the snipe-bottom goal")
     sections = [
         "# Intraday training",
         "",
+        f"The first goal is {goal['title']}.",
         "Each drill is a play whose candles the operator confirmed. "
         "A live read uses finished 10-minute bars only. "
         "One drill is an observation, not a pattern and not an order.",
         "",
     ]
+    lesson_blocks = []
     for drill in spec["drills"]:
-        if drill["side"] != "put":
-            raise SystemExit(f"{drill['id']} is not a put drill yet")
         now = int(datetime.now(PT).timestamp())
         bars = ten_minute_bars(fetch_five_minute(drill["ticker"]), now)
         add_rsi(bars)
@@ -223,15 +440,17 @@ def score_drills() -> str:
             if datetime.fromtimestamp(bar["close_at"], PT).date().isoformat()
             == drill["session"]
         ]
-        scored = score_put(
-            session,
-            float(drill["level"]),
-            _clock(drill["ideal_buy"], drill["session"]),
-            _clock(drill["ideal_sell"], drill["session"]),
-        )
-        sections.append(render(drill, scored))
+        buy_at = _clock(drill["ideal_buy"], drill["session"])
+        sell_at = _clock(drill["ideal_sell"], drill["session"])
+        bottom = score_bottom(session, drill["side"], float(drill["level"]), buy_at)
+        scored = _score_side(drill, session, buy_at, sell_at)
+        sections.append(render(drill, scored, bottom))
+        if drill.get("goal", goal["id"]) == goal["id"]:
+            lesson_blocks.append(render_snipe_block(drill, bottom))
     text = "\n".join(sections)
     TRAINING_PATH.write_text(text)
+    LESSONS_DIR.mkdir(parents=True, exist_ok=True)
+    (LESSONS_DIR / f"{goal['id']}.md").write_text(render_lesson(goal, lesson_blocks))
     return text
 
 

@@ -1,0 +1,12 @@
+# The lesson engine teaches one goal at a time.
+# A goal is not a live rule, not a pattern, and not an order.
+# The first goal is sniping the bottom on the contract.
+goals:
+  - id: snipe-bottom
+    title: Sniping the bottom on contracts
+    says: >
+      Buy calls on a red candle and puts on a green candle.
+      The bottom of a call is the lowest stock close on a red candle
+      through the confirmed buy. The bottom of a put is the highest
+      stock close on a green candle through the confirmed buy.
+      The first color is not the bottom when a later candle pushes farther.
