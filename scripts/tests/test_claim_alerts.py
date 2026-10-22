@@ -409,13 +409,17 @@ def test_the_nearest_otm_call_under_the_cap_is_taken_when_the_target_can_reach_i
     assert chosen["otm"] is True
 
 
-def test_a_strike_past_the_target_is_not_the_contract():
+def test_an_over_cap_strike_the_target_can_reach_is_paper():
     quotes = [
         {"strike": 262.5, "debit": 1.17},
         {"strike": 265, "debit": 0.27},
     ]
 
-    assert claim_alerts.choose_contract(262.98, "call", quotes, 263.15) is None
+    chosen = claim_alerts.choose_contract(262.98, "call", quotes, 263.15)
+
+    assert chosen["strike"] == 262.5
+    assert chosen["book"] == "paper"
+    assert claim_alerts.choose_contract(262.98, "call", quotes[1:], 263.15) is None
 
 
 def test_same_day_is_chosen_when_the_strike_stays_inside_the_far_target():
@@ -438,7 +442,9 @@ def test_same_day_is_chosen_when_the_strike_stays_inside_the_far_target():
     by_role = {row["role"]: row["contract"] for row in rows}
     assert by_role["chosen"] == "10/20 347.5C"
     assert "dte" not in by_role
-    assert by_role["first"] == "none"
+    assert by_role["first"] == "10/20 345C"
+    first = next(row for row in rows if row["role"] == "first")
+    assert first["book"] == "paper"
     assert by_role["cheap"] == "10/20 350C"
     assert by_role["week"] == "10/23 347.5C"
     assert claim_alerts.format_return("0.52", "5.65") == "+986.5%"

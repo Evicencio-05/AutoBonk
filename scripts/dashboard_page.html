@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>AutoBonk</title>
+<script>
+try {
+  if (localStorage.getItem("autobonk-theme") === "dark") {
+    document.documentElement.setAttribute("data-theme", "dark");
+  }
+} catch (error) {}
+</script>
+<style>
+  :root {
+    color-scheme: light;
+    --desk: #2a2118;
+    --glow: #f3c56b;
+    --card: #fff8ec;
+    --ink: #2a2118;
+    --muted: #3d3428;
+    --line: #2a2118;
+    --shadow: #e2a23a;
+    --rule: #eadcc4;
+    --th: #7a6a55;
+    --link: #8a4b08;
+    --field: #fff;
+    --sheet: #fff;
+    --call: #1f7a4d;
+    --put: #a33b4a;
+    --bar: #3a2d22;
+    --brand: #fff8ec;
+    --status: #f6e7c8;
+    --pill: #fff8ec;
+    --pill-ink: #2a2118;
+    --current: #f3c56b;
+    --group: #f0c27a;
+  }
+  html[data-theme="dark"] {
+    color-scheme: dark;
+    --desk: #100e0c;
+    --glow: #5c4318;
+    --card: #241c16;
+    --ink: #f6efe4;
+    --muted: #e4d8c8;
+    --line: #e2a23a;
+    --shadow: #6b4a16;
+    --rule: #3d3228;
+    --th: #cbbba4;
+    --link: #f0c27a;
+    --field: #1a1511;
+    --sheet: #1a1511;
+    --call: #7dcea0;
+    --put: #f0a0a0;
+    --bar: #1a1511;
+    --brand: #f6efe4;
+    --status: #d9cbb6;
+    --pill: #2c241c;
+    --pill-ink: #f6efe4;
+    --current: #e2a23a;
+    --group: #e2a23a;
+  }
+  body { margin: 0; background:
+      radial-gradient(circle at 12% -10%, var(--glow) 0, transparent 32%),
+      var(--desk); color: var(--ink);
+    font: 16px/1.45 "Nunito", "Segoe UI", system-ui, sans-serif; }
+  .topbar { position: sticky; top: 0; z-index: 20; display: flex; flex-wrap: wrap;
+    align-items: center; gap: 10px 16px; padding: 10px 18px;
+    background: var(--bar); border-bottom: 3px solid var(--line); }
+  .brand { font-family: "Iowan Old Style", Palatino, Georgia, serif; font-size: 1.6rem;
+    font-weight: 700; letter-spacing: -0.03em; color: var(--brand); text-decoration: none; }
+  .stamp { display: inline-block; margin-left: 8px; padding: 2px 8px; border: 3px solid var(--brand);
+    border-radius: 10px; transform: rotate(-6deg); font-size: 0.72rem; font-weight: 800; }
+  .status { margin: 0; color: var(--status); font-size: 0.85rem; }
+  nav { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; flex: 1; }
+  .nav-group { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .nav-group span { color: var(--group); font-size: 0.72rem; font-weight: 800;
+    letter-spacing: 0.06em; text-transform: uppercase; }
+  nav a { color: var(--pill-ink); background: var(--pill); text-decoration: none; font-weight: 800;
+    border: 3px solid var(--line); border-radius: 999px; padding: 3px 10px;
+    box-shadow: 3px 3px 0 var(--shadow); }
+  nav a.is-current { background: var(--current); color: #1a140f; }
+  #theme-toggle { margin-left: auto; }
+  main { max-width: 1180px; margin: 0 auto; padding: 18px 22px 64px; }
+  h2 { font-size: 0.78rem; font-weight: 800; letter-spacing: 0.08em;
+    text-transform: uppercase; margin: 0 0 12px; color: var(--ink); }
+  h3 { font-family: "Iowan Old Style", Palatino, Georgia, serif; margin: 16px 0 6px; color: var(--ink); }
+  section { background: var(--card); color: var(--ink); border: 3px solid var(--line); border-radius: 18px;
+    box-shadow: 7px 7px 0 var(--shadow); padding: 16px 18px 8px; margin: 0 0 16px;
+    scroll-margin-top: 108px; }
+  p, li { color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 8px 10px; vertical-align: top;
+    border-bottom: 1px solid var(--rule); color: var(--ink); }
+  th { color: var(--th); font-size: 0.75rem; font-weight: 800;
+    letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer; }
+  th[aria-sort="ascending"]::after { content: " \2191"; }
+  th[aria-sort="descending"]::after { content: " \2193"; }
+  td.ticker { font-weight: 800; }
+  td.call, td.up { color: var(--call); font-weight: 800; }
+  td.put, td.down { color: var(--put); font-weight: 800; }
+  a { color: var(--link); }
+  .knobs { display: flex; flex-wrap: wrap; gap: 10px 14px; }
+  label { font-size: 0.85rem; font-weight: 800; color: var(--ink); }
+  input, select, button { font: inherit; color: var(--ink); background: var(--field);
+    border: 2px solid var(--line); border-radius: 10px; padding: 4px 8px; }
+  button { font-weight: 800; background: var(--current); color: #1a140f;
+    box-shadow: 3px 3px 0 var(--line); cursor: pointer; }
+  pre.sheet { white-space: pre-wrap; background: var(--sheet); color: var(--ink);
+    border-radius: 12px; padding: 12px; max-height: 420px; overflow: auto; }
+  #backtest-out { margin-top: 8px; }
+</style>
+</head>
+<body>
+<header class="topbar">
+<a class="brand" href="#trades">AutoBonk <span class="stamp">BONK</span></a>
+<nav>__NAV__</nav>
+<button type="button" id="theme-toggle" aria-pressed="false">Dark</button>
+<p class="status">Paper session. A row on this page is not an order.</p>
+<p class="status" id="loaded">Loaded</p>
+</header>
+<main>
+__BODY__
+</main>
+<script>
+document.getElementById("loaded").textContent = "Loaded " + new Intl.DateTimeFormat("en-US", {
+  timeZone: "America/Los_Angeles",
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true,
+  timeZoneName: "short"
+}).format(new Date());
+
+function applyTheme(theme) {
+  const dark = theme === "dark";
+  if (dark) document.documentElement.setAttribute("data-theme", "dark");
+  else document.documentElement.removeAttribute("data-theme");
+  const toggle = document.getElementById("theme-toggle");
+  if (!toggle) return;
+  toggle.textContent = dark ? "Light" : "Dark";
+  toggle.setAttribute("aria-pressed", dark ? "true" : "false");
+}
+
+const themeToggle = document.getElementById("theme-toggle");
+if (themeToggle) {
+  applyTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light");
+  themeToggle.addEventListener("click", () => {
+    const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    try { localStorage.setItem("autobonk-theme", next); } catch (error) {}
+    applyTheme(next);
+  });
+}
+
+const navLinks = Array.from(document.querySelectorAll("nav a[href^='#']"));
+const navSections = navLinks
+  .map((link) => document.getElementById(link.getAttribute("href").slice(1)))
+  .filter(Boolean);
+function markCurrent(id) {
+  navLinks.forEach((link) => {
+    const on = link.getAttribute("href") === "#" + id;
+    link.classList.toggle("is-current", on);
+    if (on) link.setAttribute("aria-current", "location");
+    else link.removeAttribute("aria-current");
+  });
+}
+if (navSections.length && "IntersectionObserver" in window) {
+  const seen = new IntersectionObserver((entries) => {
+    const visible = entries
+      .filter((entry) => entry.isIntersecting)
+      .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+    if (visible) markCurrent(visible.target.id);
+  }, { rootMargin: "-120px 0px -55% 0px", threshold: [0.15, 0.4] });
+  navSections.forEach((section) => seen.observe(section));
+}
+const firstOnPage = navSections.slice().sort((a, b) => a.offsetTop - b.offsetTop)[0];
+if (location.hash) markCurrent(location.hash.slice(1));
+else if (firstOnPage) markCurrent(firstOnPage.id);
+
+function sortKey(text) {
+  const raw = text.replace(/\s+mark$/i, "").trim();
+  if (raw === "" || raw.toLowerCase() === "open" || raw.toLowerCase() === "none") {
+    return { empty: true, n: 0, t: "" };
+  }
+  const numeric = raw.replace(/[$,%]/g, "");
+  if (/^[+-]?\d+(?:\.\d+)?$/.test(numeric)) {
+    return { empty: false, n: Number(numeric), t: raw.toLowerCase() };
+  }
+  return { empty: false, n: NaN, t: raw.toLowerCase() };
+}
+
+function compareKeys(a, b) {
+  if (a.empty && b.empty) return 0;
+  if (a.empty) return 1;
+  if (b.empty) return -1;
+  if (!Number.isNaN(a.n) && !Number.isNaN(b.n)) return a.n - b.n;
+  if (a.t < b.t) return -1;
+  if (a.t > b.t) return 1;
+  return 0;
+}
+
+function applySort(table, col, dir) {
+  const body = table.tBodies[0];
+  if (!body) return;
+  const pinned = [];
+  const rows = [];
+  Array.from(body.rows).forEach((row) => {
+    if (row.hasAttribute("data-stay")) pinned.push(row);
+    else rows.push(row);
+  });
+  rows.sort((left, right) => {
+    const a = sortKey(left.cells[col] ? left.cells[col].textContent : "");
+    const b = sortKey(right.cells[col] ? right.cells[col].textContent : "");
+    if (a.empty || b.empty) return compareKeys(a, b);
+    return compareKeys(a, b) * dir;
+  });
+  rows.concat(pinned).forEach((row) => body.appendChild(row));
+  Array.from(table.tHead.rows[0].cells).forEach((th, index) => {
+    th.setAttribute("aria-sort", index === col ? (dir > 0 ? "ascending" : "descending") : "none");
+  });
+}
+
+document.querySelectorAll("section").forEach((section) => {
+  const name = section.querySelector("h2").textContent;
+  section.querySelectorAll("table").forEach((table, index) => {
+    if (!table.tHead || table.hasAttribute("data-nosort")) return;
+    const key = "autobonk-sort:" + name + ":" + index;
+    Array.from(table.tHead.rows[0].cells).forEach((th, col) => {
+      th.tabIndex = 0;
+      const sort = () => {
+        const dir = th.getAttribute("aria-sort") === "ascending" ? -1 : 1;
+        applySort(table, col, dir);
+        sessionStorage.setItem(key, JSON.stringify({ col: col, dir: dir }));
+      };
+      th.addEventListener("click", sort);
+      th.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          sort();
+        }
+      });
+    });
+    let saved = null;
+    try {
+      saved = JSON.parse(sessionStorage.getItem(key) || "null");
+    } catch (error) {
+      saved = null;
+    }
+    if (saved && Number.isInteger(saved.col)) {
+      applySort(table, saved.col, saved.dir === -1 ? -1 : 1);
+    }
+  });
+});
+
+function money(value) {
+  if (value === null || value === undefined || Number.isNaN(value)) return "";
+  const rounded = Math.round(value * 100) / 100;
+  const text = Math.abs(rounded).toFixed(Math.abs(rounded % 1) < 0.001 ? 0 : 2);
+  if (rounded > 0) return "+$" + text;
+  if (rounded < 0) return "-$" + text;
+  return "$0";
+}
+
+function points(value) {
+  if (value === null || value === undefined) return "";
+  return (value > 0 ? "+" : "") + Number(value).toFixed(2);
+}
+
+function factor(stats) {
+  if (!stats || stats.trades === 0) return "—";
+  if (stats.profit_factor === null) return stats.net > 0 ? "no losses" : "0.00";
+  return Number(stats.profit_factor).toFixed(2);
+}
+
+function percent(value) {
+  if (value === null || value === undefined) return "";
+  return (value > 0 ? "+" : "") + (Number(value) * 100).toFixed(1) + "%";
+}
+
+function cell(row, text, className) {
+  const td = document.createElement("td");
+  td.textContent = text;
+  if (className) td.className = className;
+  row.appendChild(td);
+  return td;
+}
+
+function renderRuns(runs) {
+  const wrap = document.createElement("div");
+  const table = document.createElement("table");
+  const head = document.createElement("tr");
+  ["Preset", "Book", "Trades", "Net points", "Return", "Profit factor", "Option net", "Option factor"].forEach((name) => {
+    const th = document.createElement("th");
+    th.textContent = name;
+    head.appendChild(th);
+  });
+  const thead = document.createElement("thead");
+  thead.appendChild(head);
+  table.appendChild(thead);
+  const body = document.createElement("tbody");
+  runs.forEach((run) => {
+    ["fits", "paper"].forEach((book) => {
+      const stock = run.summary[book].stock;
+      const option = run.summary[book].option;
+      const row = document.createElement("tr");
+      cell(row, run.name);
+      cell(row, book, book === "paper" ? "put" : "call");
+      cell(row, String(stock.trades));
+      cell(row, points(stock.net), stock.net < 0 ? "down" : "up");
+      cell(row, percent(stock.return));
+      cell(row, factor(stock));
+      cell(row, money(option.net));
+      cell(row, factor(option));
+      body.appendChild(row);
+    });
+  });
+  table.appendChild(body);
+  wrap.appendChild(table);
+  const custom = runs[runs.length - 1];
+  const heading = document.createElement("h3");
+  heading.textContent = custom.name + " trades";
+  wrap.appendChild(heading);
+  custom.trades.forEach((trade) => {
+    const card = document.createElement("p");
+    const inputs = trade.inputs || {};
+    const candle = inputs.candle || {};
+    card.textContent = [
+      trade.time, trade.ticker, trade.side, "level " + Number(trade.level).toFixed(2),
+      trade.contract || "no contract", trade.book || "left out",
+      "fill " + Number(trade.fill).toFixed(2),
+      trade.exit_reason, Number(trade.exit_close).toFixed(2),
+      points(trade.points) + " stock",
+      money(trade.option_dollars),
+      candle.color ? (candle.color + " O" + candle.o.toFixed(2) + " H" + candle.h.toFixed(2) + " L" + candle.l.toFixed(2) + " C" + candle.c.toFixed(2)) : "",
+      inputs.purple == null ? "" : ("purple " + Number(inputs.purple).toFixed(2)),
+      inputs.yellow == null ? "" : ("yellow " + Number(inputs.yellow).toFixed(2)),
+      inputs.atr == null ? "" : ("ATR " + Number(inputs.atr).toFixed(2) + " band " + Number(inputs.band).toFixed(2)),
+      inputs.nearby || "",
+      inputs.volume == null ? "" : (inputs.volume.toLocaleString() + " shares")
+    ].filter(Boolean).join(" · ");
+    wrap.appendChild(card);
+  });
+  if (custom.summary.no_contract) {
+    const note = document.createElement("p");
+    note.textContent = custom.summary.no_contract + " trades have no contract and are not in the factors.";
+    wrap.appendChild(note);
+  }
+  return wrap;
+}
+
+function rowValues(row) {
+  const read = (name) => row.querySelector("[name=" + name + "]").value.trim();
+  return {
+    ticker: read("ticker").toUpperCase(),
+    price: read("price"),
+    allows: row.querySelector("[name=allows]").value,
+    targets: read("targets"),
+    up_targets: read("up_targets"),
+    stop: read("stop"),
+    note: read("note")
+  };
+}
+
+function collectLevels() {
+  return Array.from(document.querySelectorAll("#level-rows tr")).map((row) => {
+    const values = rowValues(row);
+    const split = (text) => text.split(",").map((item) => item.trim()).filter(Boolean).map(Number);
+    const level = {
+      ticker: values.ticker,
+      price: values.price === "" ? "" : Number(values.price),
+      allows: values.allows,
+      targets: split(values.targets),
+      note: values.note
+    };
+    if (values.up_targets) level.up_targets = split(values.up_targets);
+    if (values.stop) level.stop = Number(values.stop);
+    return level;
+  }).filter((level) => level.ticker && level.price !== "");
+}
+
+function collectPremiums() {
+  const premiums = {};
+  document.querySelectorAll("#premium-rows tr").forEach((row) => {
+    const read = (name) => row.querySelector("[name=" + name + "]").value.trim();
+    const ticker = read("ticker").toUpperCase();
+    const level = read("level");
+    if (!ticker || !level) return;
+    const key = ticker + "|" + row.querySelector("[name=side]").value + "|" + Number(level).toFixed(2);
+    premiums[key] = {
+      contract: read("contract"),
+      entry: read("entry") === "" ? null : Number(read("entry")),
+      exit: read("exit") === "" ? null : Number(read("exit"))
+    };
+  });
+  return premiums;
+}
+
+function payload() {
+  const num = (id) => Number(document.getElementById(id).value);
+  return {
+    armed_at: document.getElementById("armed-at").value,
+    levels: collectLevels(),
+    touch: num("touch"),
+    chase: num("chase"),
+    break_atr: num("break-atr"),
+    profit_near: num("profit-near"),
+    threshold: num("threshold"),
+    custom: {
+      stop_mode: document.getElementById("stop-mode").value,
+      take: document.getElementById("take-mode").value,
+      flatten: document.getElementById("flatten-mode").value
+    },
+    premiums: collectPremiums()
+  };
+}
+
+function bindDesk() {
+  const run = document.getElementById("run-backtest");
+  if (!run) return;
+  document.getElementById("add-level").addEventListener("click", () => {
+    const body = document.getElementById("level-rows");
+    const copy = body.rows[0].cloneNode(true);
+    copy.querySelectorAll("input").forEach((input) => { input.value = ""; });
+    body.appendChild(copy);
+  });
+  document.getElementById("add-premium").addEventListener("click", () => {
+    const body = document.getElementById("premium-rows");
+    const copy = body.rows[0].cloneNode(true);
+    copy.querySelectorAll("input").forEach((input) => { input.value = ""; });
+    body.appendChild(copy);
+  });
+  run.addEventListener("click", async () => {
+    const out = document.getElementById("backtest-out");
+    out.textContent = "Computing from the bars.";
+    try {
+      const response = await fetch("/api/backtest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload())
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || "The backtest failed.");
+      out.replaceChildren(renderRuns(body.runs));
+    } catch (error) {
+      out.textContent = error.message + " Start the desk with python3 scripts/dashboard.py serve.";
+    }
+  });
+  document.getElementById("save-book").addEventListener("click", async () => {
+    const out = document.getElementById("backtest-out");
+    const response = await fetch("/api/book", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ armed_at: document.getElementById("armed-at").value, levels: collectLevels() })
+    });
+    const body = await response.json();
+    out.textContent = response.ok ? "Saved the book. That does not place an order." : (body.error || "The book was not saved.");
+  });
+}
+bindDesk();
+</script>
+</body>
+</html>

@@ -106,6 +106,12 @@ VARIABLES = {
         "allowed": ("retest", "fade"),
         "decision": "entry",
     },
+    "break_atr": {
+        "type": "float",
+        "default": BREAK_ATR,
+        "allowed": None,
+        "decision": "exit",
+    },
 }
 
 
@@ -275,16 +281,20 @@ def _atr(bars: list[dict], length: int) -> list[float | None]:
     return out
 
 
-def _break_buffer(bar: dict) -> float:
+def _break_buffer(bar: dict, settings: dict | None = None) -> float:
     """How far a close must clear a level before it is a break or a claim.
 
-    Half the 14-period ATR. A bar without an average keeps the old test,
-    so a one-tick close through still counts until the average exists.
+    Half the 14-period ATR unless a backtest passes another fraction.
+    A bar without an average keeps the old test, so a one-tick close
+    through still counts until the average exists.
     """
     atr = bar.get("atr")
     if not atr:
         return 0.0
-    return BREAK_ATR * float(atr)
+    fraction = BREAK_ATR
+    if settings is not None and settings.get("break_atr") is not None:
+        fraction = float(settings["break_atr"])
+    return fraction * float(atr)
 
 
 def _sma(values: list[float | None], length: int) -> list[float | None]:
@@ -590,18 +600,18 @@ def _intent(level: dict, side: str, bar: dict, reason: str, levels: list[dict] |
     }
 
 
-def _through_last(position: dict, bar: dict) -> bool:
+def _through_last(position: dict, bar: dict, settings: dict | None = None) -> bool:
     last = position["last"]
     if last is None:
         return False
-    band = _break_buffer(bar)
+    band = _break_buffer(bar, settings)
     if position["side"] == "put":
         return bar["c"] < last - band
     return bar["c"] > last + band
 
 
-def _reclaimed(position: dict, bar: dict) -> bool:
-    band = _break_buffer(bar)
+def _reclaimed(position: dict, bar: dict, settings: dict | None = None) -> bool:
+    band = _break_buffer(bar, settings)
     if position["side"] == "put":
         return bar["c"] > position["level"] + band
     return bar["c"] < position["level"] - band
@@ -622,7 +632,9 @@ def _event(kind: str, pending: dict, bar: dict, reason: str, fill: float | None)
     }
 
 
-def _next_failed(seen: list[dict], pending: dict, touch: float) -> bool:
+def _next_failed(
+    seen: list[dict], pending: dict, touch: float, settings: dict | None = None
+) -> bool:
     """The next number was tagged and closed back. A later close through clears it.
 
     Fade keeps its own entry. A level with no next number is free.
@@ -636,7 +648,7 @@ def _next_failed(seen: list[dict], pending: dict, touch: float) -> bool:
     for bar in seen:
         if bar["close_at"] > pending["bar"]["close_at"]:
             break
-        band = _break_buffer(bar)
+        band = _break_buffer(bar, settings)
         if pending["side"] == "call":
             if bar["c"] > nxt + band:
                 failed = False
@@ -693,7 +705,7 @@ def replay(
             continue
         if not _is_clock(bar["close_at"]):
             pending = _signal(prev, bar, levels, chosen)
-            if pending and _next_failed(seen, pending, chosen["touch"]):
+            if pending and _next_failed(seen, pending, chosen["touch"], chosen):
                 events.append(_event("skip", pending, bar, "next", None))
                 pending = None
             for watch in _sma_watches(prev2, prev, bar, levels, chosen):
@@ -722,7 +734,7 @@ def _resolve_fill(
     if abs(fill - anchor) > settings["chase"]:
         events.append(_event("skip", pending, bar, "chase", fill))
         return None
-    if _reclaimed(pending, bar):
+    if _reclaimed(pending, bar, settings):
         events.append(_event("skip", pending, bar, "reclaim", fill))
         return None
     if settings["exit"] == "stop" and pending.get("stop") is None:
@@ -745,6 +757,38 @@ def _through_stop(position: dict, bar: dict) -> bool:
     return bar["c"] < stop
 
 
+def _near_level(position: dict, bar: dict, distance: float) -> bool:
+    """Price has come within `distance` of the next target. The far one is the fallback."""
+    target = position.get("next")
+    if target is None:
+        target = position.get("last")
+    if target is None:
+        return False
+    if position["side"] == "put":
+        return bar["l"] <= float(target) + distance
+    return bar["h"] >= float(target) - distance
+
+
+def _custom_exit(
+    position: dict, bar: dict, include_reclaim: bool, settings: dict
+) -> str | None:
+    """A what-if exit. The live checker does not set these keys."""
+    stop_mode = settings.get("stop_mode") or "reclaim"
+    take = settings.get("take") or "target"
+    flatten = settings.get("flatten") or "clock"
+    if stop_mode == "reclaim" and include_reclaim and _reclaimed(position, bar, settings):
+        return "reclaim"
+    if stop_mode == "named" and _through_stop(position, bar):
+        return "stop"
+    if take == "target" and _through_last(position, bar, settings):
+        return "target"
+    if take == "near" and _near_level(position, bar, float(settings.get("profit_near") or 0)):
+        return "near"
+    if flatten == "clock" and _is_clock(bar["close_at"]):
+        return "clock"
+    return None
+
+
 def _finish(
     position: dict,
     bar: dict,
@@ -752,14 +796,20 @@ def _finish(
     include_reclaim: bool,
     settings: dict,
 ) -> bool:
+    if any(key in settings for key in ("stop_mode", "take", "flatten")):
+        reason = _custom_exit(position, bar, include_reclaim, settings)
+        if reason is None:
+            return False
+        events.append(_event("exit", position, bar, reason, None))
+        return True
     if position.get("reason") == "fade" and settings["exit"] == "target":
         # Invalidation is a close back through the level. The wick stop is
         # outside that, so it only fires when the level close has not.
-        if include_reclaim and _reclaimed(position, bar):
+        if include_reclaim and _reclaimed(position, bar, settings):
             reason = "reclaim"
         elif _through_stop(position, bar):
             reason = "stop"
-        elif _through_last(position, bar):
+        elif _through_last(position, bar, settings):
             reason = "target"
         elif _is_clock(bar["close_at"]):
             reason = "clock"
@@ -772,9 +822,9 @@ def _finish(
             reason = "clock"
         else:
             return False
-    elif include_reclaim and _reclaimed(position, bar):
+    elif include_reclaim and _reclaimed(position, bar, settings):
         reason = "reclaim"
-    elif _through_last(position, bar):
+    elif _through_last(position, bar, settings):
         reason = "target"
     elif _is_clock(bar["close_at"]):
         reason = "clock"
@@ -896,9 +946,9 @@ def _rsi_text(bar: dict) -> str:
     return f"RSI purple {left} yellow {right}."
 
 
-def fetch_five_minute(ticker: str) -> list[tuple]:
+def fetch_five_minute(ticker: str, span: str = "5d") -> list[tuple]:
     query = urllib.parse.urlencode(
-        {"interval": "5m", "range": "5d", "includePrePost": "true"}
+        {"interval": "5m", "range": span, "includePrePost": "true"}
     )
     url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}?{query}"
     request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
@@ -1005,14 +1055,7 @@ def _last_hour(start: int) -> bool:
     return close.hour * 60 + close.minute >= 12 * 60
 
 
-def choose_contract(
-    stock: float,
-    side: str,
-    quotes: list[dict],
-    far_target: float | None,
-    limit_otm: bool = False,
-) -> dict | None:
-    """The ATM or ITM contract at or under $100. Else the nearest OTM the target can still reach."""
+def _ordered_quotes(stock: float, side: str, quotes: list[dict]) -> tuple[list[dict], list[dict]]:
     if side == "call":
         in_the_money = sorted(
             (row for row in quotes if row["strike"] <= stock),
@@ -1033,11 +1076,24 @@ def choose_contract(
             key=lambda row: row["strike"],
             reverse=True,
         )
+    return in_the_money, out_the_money
+
+
+def _pick_contract(
+    stock: float,
+    side: str,
+    quotes: list[dict],
+    far_target: float | None,
+    limit_otm: bool,
+    cap: float | None,
+) -> dict | None:
+    in_the_money, out_the_money = _ordered_quotes(stock, side, quotes)
     for row in in_the_money:
-        if row["debit"] <= CONTRACT_CAP:
-            return {**row, "otm": False}
+        if cap is not None and row["debit"] > cap:
+            continue
+        return {**row, "otm": False}
     for row in out_the_money:
-        if row["debit"] > CONTRACT_CAP:
+        if cap is not None and row["debit"] > cap:
             continue
         if far_target is not None and side == "call" and row["strike"] > far_target:
             continue
@@ -1046,6 +1102,28 @@ def choose_contract(
         if limit_otm and _too_far_otm(stock, side, row["strike"], far_target):
             continue
         return {**row, "otm": True}
+    return None
+
+
+def choose_contract(
+    stock: float,
+    side: str,
+    quotes: list[dict],
+    far_target: float | None,
+    limit_otm: bool = False,
+) -> dict | None:
+    """The contract for this fill. Over the $100 cap, it is still the contract and it is paper.
+
+    ATM or ITM at or under the cap comes first, then the nearest OTM the target
+    can still reach. When nothing is under the cap, the same search ignores the
+    cap and the trade is paper.
+    """
+    picked = _pick_contract(stock, side, quotes, far_target, limit_otm, CONTRACT_CAP)
+    if picked is not None:
+        return {**picked, "book": "fits"}
+    picked = _pick_contract(stock, side, quotes, far_target, limit_otm, None)
+    if picked is not None:
+        return {**picked, "book": "paper"}
     return None
 
 
@@ -1119,10 +1197,12 @@ def assemble_contracts(
                 "role": role,
                 "contract": label,
                 "premium": round(float(picked["debit"]), 2),
+                "book": picked.get("book") or "fits",
             }
         )
 
     chosen_day = None
+    paper_day = None
     if far is not None:
         for day in sorted(ladders):
             if day < session or (late and day == session):
@@ -1132,12 +1212,28 @@ def assemble_contracts(
             def pick(price, direction, quotes, ceiling, limit=limit):
                 return choose_contract(price, direction, quotes, ceiling, limit_otm=limit)
 
+            picked = pick(stock, side, ladders[day], far)
+            if picked is None:
+                continue
+            if picked.get("book") == "paper":
+                if paper_day is None:
+                    paper_day = day
+                continue
             before = len(rows)
             add("chosen", day, far, pick)
             if any(row["role"] == "chosen" and row["contract"] != "none" for row in rows[before:]):
                 chosen_day = day
                 break
             del rows[before:]
+    if chosen_day is None and paper_day is not None:
+        limit = paper_day == session
+
+        def pick_paper(price, direction, quotes, ceiling, limit=limit):
+            return choose_contract(price, direction, quotes, ceiling, limit_otm=limit)
+
+        add("chosen", paper_day, far, pick_paper)
+        if any(row["role"] == "chosen" and row["contract"] != "none" for row in rows):
+            chosen_day = paper_day
     if chosen_day is None:
         rows.insert(0, {"role": "chosen", "contract": "none", "premium": None})
     chosen_is_none = rows[0]["contract"] == "none"

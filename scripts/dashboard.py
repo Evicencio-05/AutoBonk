@@ -1,18 +1,29 @@
 #!/usr/bin/env python3
-"""Write a read-only dashboard from the files already in the repo.
+"""The AutoBonk desk. The page reads the repo. The server scores exits from bars.
 
   python3 scripts/dashboard.py
+  python3 scripts/dashboard.py serve
 
-Opens nothing, places no order, and does not call the network.
+Nothing here places an order. A backtest does not rewrite the paper tape.
 """
 
 from __future__ import annotations
 
 import html
 import json
+import sys
+import urllib.error
+from datetime import datetime
 from pathlib import Path
 
 import yaml
+
+_SCRIPTS = Path(__file__).resolve().parent
+if str(_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS))
+
+import desk  # noqa: E402
+import claim_alerts  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "dashboard" / "index.html"
@@ -20,14 +31,20 @@ OUT = ROOT / "dashboard" / "index.html"
 
 def render(root: Path) -> str:
     return _page(
-        _paper(root),
-        _contracts(root),
-        _live_book(root),
-        _alerts(root),
-        _journal(root),
-        _training(root),
-        _bench(root),
-        _archives(root),
+        [
+            ("Backtest", _studio(root), "backtest"),
+            ("Paper", _paper(root), "trades"),
+            ("Contracts", _contracts(root), "contracts"),
+            ("Live book", _live_book(root), "book"),
+            ("Lessons", _lessons(root), "lessons"),
+            ("Rules", _rules(root), "rules"),
+            ("Journal", _journal(root), "journal"),
+            ("Training", _training(root), "training"),
+            ("Fade", _fade(root), "fade"),
+            ("Alerts", _alerts(root), "alerts"),
+            ("Bench", _bench(root), "bench"),
+            ("Archives", _archives(root), "archives"),
+        ]
     )
 
 
@@ -204,7 +221,9 @@ def _paper(root: Path) -> str:
         f"</tr></thead><tbody>{''.join(trade_rows)}"
         f"<tr data-stay><td colspan='7'>Day</td><td class='num{total_class}'>{_esc(total_text)}</td></tr>"
         "</tbody></table>"
+        + _tape_books(trades)
         + "".join(notes)
+        + _context(root)
         + "<table><thead><tr>"
         "<th>Time</th><th>Ticker</th><th>Action</th><th>Side</th>"
         "<th>Level</th><th>Fill</th><th>Reason</th><th>Contract</th><th>Premium</th>"
@@ -444,154 +463,393 @@ def _archives(root: Path) -> str:
     )
 
 
-def _page(*sections: str) -> str:
-    titles = (
-        "Paper",
-        "Contracts",
-        "Live book",
-        "Alerts",
-        "Journal",
-        "Training",
-        "Bench",
-        "Archives",
+def _factor_text(values: list[float]) -> str:
+    stats = desk.score_points(values)
+    if stats["trades"] == 0:
+        return "—"
+    if stats["profit_factor"] is None:
+        return "no losses" if stats["net"] > 0 else "0.00"
+    return f"{stats['profit_factor']:.2f}"
+
+
+def _tape_books(trades: list[dict]) -> str:
+    """Profit factor of the tape, split by the $1 threshold. Computed from the rows."""
+    fits_points = []
+    paper_points = []
+    fits_option = []
+    paper_option = []
+    missing = 0
+    for trade in trades:
+        entry = trade["entry"]
+        premium = _premium(entry.get("premium"))
+        book = desk.classify_contract(entry.get("contract"), premium, claim_alerts.CONTRACT_CAP)
+        if book is None:
+            missing += 1
+            continue
+        points = None
+        if trade["exit"] is not None:
+            try:
+                fill = float(entry["fill"])
+                close = float(trade["exit"]["fill"])
+            except (TypeError, ValueError):
+                fill = None
+            if fill is not None:
+                points = (fill - close) if entry["side"] == "put" else (close - fill)
+        option = _profit(trade)
+        if book == "paper":
+            if points is not None:
+                paper_points.append(points)
+            if option is not None:
+                paper_option.append(option)
+        else:
+            if points is not None:
+                fits_points.append(points)
+            if option is not None:
+                fits_option.append(option)
+    return (
+        "<p>A trade needs a contract. A premium over $1 is paper. "
+        f"Fits stock profit factor {_factor_text(fits_points)}. "
+        f"Fits option profit factor {_factor_text(fits_option)}. "
+        f"Paper stock profit factor {_factor_text(paper_points)}. "
+        f"Paper option profit factor {_factor_text(paper_option)}. "
+        f"{missing} rows have no contract and are not in either factor. "
+        "These factors are computed from the tape.</p>"
     )
-    body = "".join(
-        f"<section><h2>{title}</h2>{html_part}</section>"
-        for title, html_part in zip(titles, sections)
+
+
+def _context(root: Path) -> str:
+    text = _read(root / "alerts" / "context.md")
+    body = []
+    for cells in _table_rows(text):
+        if cells[0] == "Time":
+            continue
+        padded = (cells + [""] * 14)[:14]
+        body.append("<tr>" + "".join(f"<td>{_esc(cell)}</td>" for cell in padded) + "</tr>")
+    if not body:
+        return ""
+    return (
+        "<h3>What went into each row</h3>"
+        "<p>The signal candle on an entry, the exit candle on an exit. "
+        "Purple is the 14 RSI. Yellow is its 14 SMA. "
+        "The number after an average or a level is the close minus that price.</p>"
+        "<table><thead><tr>"
+        "<th>Time</th><th>Ticker</th><th>Action</th><th>Side</th><th>Level</th><th>Fill</th>"
+        "<th>Candle</th><th>Purple</th><th>Yellow</th><th>SMA20</th><th>SMA50</th>"
+        "<th>SMA200</th><th>Nearby</th><th>Volume</th>"
+        f"</tr></thead><tbody>{''.join(body)}</tbody></table>"
     )
-    return f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta http-equiv="refresh" content="60">
-<title>AutoBonk</title>
-<style>
-  body {{ margin: 0; background: #101218; color: #e7e4dc;
-    font: 15px/1.45 "Segoe UI", system-ui, sans-serif; }}
-  main {{ max-width: 1180px; margin: 0 auto; padding: 28px 24px 48px; }}
-  header {{ margin: 0 0 18px; }}
-  h1 {{ font-size: 1.5rem; font-weight: 650; letter-spacing: -0.02em; margin: 0; }}
-  .status {{ margin: 6px 0 0; color: #9aa3b2; }}
-  h2 {{ font-size: 0.78rem; font-weight: 650; letter-spacing: 0.08em;
-    text-transform: uppercase; margin: 0 0 12px; color: #9aa3b2; }}
-  h3 {{ font-size: 0.95rem; margin: 14px 0 6px; color: #f3efe6; }}
-  section {{ background: #181b22; border: 1px solid #2a3040; border-radius: 12px;
-    padding: 16px 18px 8px; margin: 0 0 14px; }}
-  p, li {{ color: #c9c3b8; }}
-  table {{ width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }}
-  th, td {{ text-align: left; padding: 8px 10px; vertical-align: top;
-    border-bottom: 1px solid #2a3040; }}
-  th {{ color: #8b95a8; font-size: 0.75rem; font-weight: 650;
-    letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer; }}
-  th[aria-sort="ascending"]::after {{ content: " \\2191"; color: #e7e4dc; }}
-  th[aria-sort="descending"]::after {{ content: " \\2193"; color: #e7e4dc; }}
-  td.ticker {{ font-weight: 700; color: #f7f4ee; }}
-  td.call, td.up {{ color: #8fbf9f; }}
-  td.put, td.down {{ color: #d7a0a0; }}
-  a {{ color: #9ecbff; }}
-</style>
-</head>
-<body>
-<main>
-<header>
-<h1>AutoBonk</h1>
-<p class="status">Paper session. A row on this page is not an order.</p>
-<p class="status" id="loaded">Loaded</p>
-</header>
-{body}
-</main>
-<script>
-document.getElementById("loaded").textContent = "Loaded " + new Intl.DateTimeFormat("en-US", {{
-  timeZone: "America/Los_Angeles",
-  month: "short",
-  day: "numeric",
-  hour: "numeric",
-  minute: "2-digit",
-  hour12: true,
-  timeZoneName: "short"
-}}).format(new Date());
 
-function sortKey(text) {{
-  const raw = text.replace(/\\s+mark$/i, "").trim();
-  if (raw === "" || raw.toLowerCase() === "open" || raw.toLowerCase() === "none") {{
-    return {{ empty: true, n: 0, t: "" }};
-  }}
-  const numeric = raw.replace(/[$,%]/g, "");
-  if (/^[+-]?\\d+(?:\\.\\d+)?$/.test(numeric)) {{
-    return {{ empty: false, n: Number(numeric), t: raw.toLowerCase() }};
-  }}
-  return {{ empty: false, n: NaN, t: raw.toLowerCase() }};
-}}
 
-function compareKeys(a, b) {{
-  if (a.empty && b.empty) return 0;
-  if (a.empty) return 1;
-  if (b.empty) return -1;
-  if (!Number.isNaN(a.n) && !Number.isNaN(b.n)) return a.n - b.n;
-  if (a.t < b.t) return -1;
-  if (a.t > b.t) return 1;
-  return 0;
-}}
+def _sheet(text: str, empty: str) -> str:
+    body = text.strip()
+    if not body:
+        return f"<p>{_esc(empty)}</p>"
+    return f"<pre class='sheet'>{_esc(body)}</pre>"
 
-function applySort(table, col, dir) {{
-  const body = table.tBodies[0];
-  if (!body) return;
-  const pinned = [];
-  const rows = [];
-  Array.from(body.rows).forEach((row) => {{
-    if (row.hasAttribute("data-stay")) pinned.push(row);
-    else rows.push(row);
-  }});
-  rows.sort((left, right) => {{
-    const a = sortKey(left.cells[col] ? left.cells[col].textContent : "");
-    const b = sortKey(right.cells[col] ? right.cells[col].textContent : "");
-    if (a.empty || b.empty) return compareKeys(a, b);
-    return compareKeys(a, b) * dir;
-  }});
-  rows.concat(pinned).forEach((row) => body.appendChild(row));
-  Array.from(table.tHead.rows[0].cells).forEach((th, index) => {{
-    th.setAttribute("aria-sort", index === col ? (dir > 0 ? "ascending" : "descending") : "none");
-  }});
-}}
 
-document.querySelectorAll("section").forEach((section) => {{
-  const name = section.querySelector("h2").textContent;
-  section.querySelectorAll("table").forEach((table, index) => {{
-    if (!table.tHead) return;
-    const key = "autobonk-sort:" + name + ":" + index;
-    Array.from(table.tHead.rows[0].cells).forEach((th, col) => {{
-      th.tabIndex = 0;
-      const sort = () => {{
-        const dir = th.getAttribute("aria-sort") === "ascending" ? -1 : 1;
-        applySort(table, col, dir);
-        sessionStorage.setItem(key, JSON.stringify({{ col: col, dir: dir }}));
-      }};
-      th.addEventListener("click", sort);
-      th.addEventListener("keydown", (event) => {{
-        if (event.key === "Enter" || event.key === " ") {{
-          event.preventDefault();
-          sort();
-        }}
-      }});
-    }});
-    let saved = null;
-    try {{
-      saved = JSON.parse(sessionStorage.getItem(key) || "null");
-    }} catch (error) {{
-      saved = null;
-    }}
-    if (saved && Number.isInteger(saved.col)) {{
-      applySort(table, saved.col, saved.dir === -1 ? -1 : 1);
-    }}
-  }});
-}});
-</script>
-</body>
-</html>
+def _lessons(root: Path) -> str:
+    reviews = sorted((root / "learning" / "reviews").glob("*.md")) if (root / "learning" / "reviews").is_dir() else []
+    if not reviews:
+        return "<p>No written lesson yet.</p>"
+    blocks = []
+    for path in reversed(reviews):
+        blocks.append(f"<h3>{_esc(path.stem)}</h3>" + _sheet(path.read_text(), ""))
+    return "".join(blocks)
+
+
+def _rules(root: Path) -> str:
+    return (
+        "<p>The live checker still enters on a retest. A close has to clear a level by half "
+        "the 14-period ATR. The other exits on the backtest desk are scores, not a new live rule.</p>"
+        + _sheet(_read(root / "rules" / "ta_rules.md"), "No rules in this copy.")
+    )
+
+
+def _fade(root: Path) -> str:
+    return _sheet(
+        _read(root / "alerts" / "fade_forward.md"),
+        "No fade record. The live checker stays on the retest.",
+    )
+
+
+def _level_inputs(level: dict) -> str:
+    targets = ", ".join(str(price) for price in (level.get("targets") or []))
+    ups = ", ".join(str(price) for price in (level.get("up_targets") or []))
+    stop = "" if level.get("stop") is None else level.get("stop")
+    allows = level.get("allows") or "long"
+    options = "".join(
+        f"<option value='{name}'{' selected' if name == allows else ''}>{name}</option>"
+        for name in ("long", "short", "both")
+    )
+    return (
+        "<tr>"
+        f"<td><input name='ticker' value='{_esc(level.get('ticker') or '')}'></td>"
+        f"<td><input name='price' value='{_esc(level.get('price') or '')}'></td>"
+        f"<td><select name='allows'>{options}</select></td>"
+        f"<td><input name='targets' value='{_esc(targets)}'></td>"
+        f"<td><input name='up_targets' value='{_esc(ups)}'></td>"
+        f"<td><input name='stop' value='{_esc(stop)}'></td>"
+        f"<td><input name='note' value='{_esc(level.get('note') or '')}'></td>"
+        "</tr>"
+    )
+
+
+def _premium_inputs(row: dict) -> str:
+    side = row.get("side") or "call"
+    options = "".join(
+        f"<option value='{name}'{' selected' if name == side else ''}>{name}</option>"
+        for name in ("call", "put")
+    )
+    return (
+        "<tr>"
+        f"<td><input name='ticker' value='{_esc(row.get('ticker') or '')}'></td>"
+        f"<td><select name='side'>{options}</select></td>"
+        f"<td><input name='level' value='{_esc(row.get('level') or '')}'></td>"
+        f"<td><input name='contract' value='{_esc(row.get('contract') or '')}'></td>"
+        f"<td><input name='entry' value='{_esc(row.get('entry') or '')}'></td>"
+        f"<td><input name='exit' value='{_esc(row.get('exit') or '')}'></td>"
+        "</tr>"
+    )
+
+
+def _known_premiums(root: Path) -> list[dict]:
+    rows = []
+    for cells in _table_rows(_read(root / "alerts" / "contracts.md")):
+        if cells[0] == "Time" or len(cells) < 9 or cells[3] != "chosen":
+            continue
+        if cells[4] in ("", "none"):
+            continue
+        side = "call" if cells[4].endswith("C") else "put" if cells[4].endswith("P") else "call"
+        exit_premium = cells[6] if cells[8] == "exit" else ""
+        rows.append(
+            {
+                "ticker": cells[1],
+                "side": side,
+                "level": cells[2],
+                "contract": cells[4],
+                "entry": cells[5],
+                "exit": exit_premium,
+            }
+        )
+    return rows
+
+
+def _studio(root: Path) -> str:
+    path = root / "alerts" / "levels.yaml"
+    data = yaml.safe_load(path.read_text()) if path.is_file() else {}
+    data = data or {}
+    armed = data.get("armed_at") or ""
+    if hasattr(armed, "isoformat"):
+        armed = armed.isoformat()
+    levels = data.get("levels") or []
+    level_rows = "".join(_level_inputs(level) for level in levels) or _level_inputs({})
+    premium_rows = "".join(_premium_inputs(row) for row in _known_premiums(root)) or _premium_inputs({})
+    payload = json.dumps({"armed_at": armed}).replace("<", "\\u003c")
+    return f"""
+<p>Change the levels, the buffers, the exit, and the contract premiums, then run the backtest.
+Stock points, returns, and profit factor are computed from the 10-minute closes.
+Option dollars use the premiums in the form, and they are not a quote at a new exit.
+A premium over the threshold is paper. A row with no contract is left out of both factors.
+This does not place an order and it does not rewrite the paper tape.</p>
+<p class="knobs">
+<label>Armed <input id="armed-at" value="{_esc(armed)}"></label>
+<label>Touch <input id="touch" value="0.15"></label>
+<label>Chase <input id="chase" value="0.50"></label>
+<label>ATR fraction <input id="break-atr" value="0.5"></label>
+<label>Near a level <input id="profit-near" value="0.15"></label>
+<label>Premium threshold <input id="threshold" value="1"></label>
+<label>Stop <select id="stop-mode"><option value="reclaim">reclaim</option><option value="named">named stop</option><option value="none">none</option></select></label>
+<label>Take profit <select id="take-mode"><option value="target">close through the far target</option><option value="near">near the next level</option><option value="none">never</option></select></label>
+<label>Clock <select id="flatten-mode"><option value="clock">12:50 PT</option><option value="none">do not flatten</option></select></label>
+</p>
+<table data-nosort><thead><tr><th>Ticker</th><th>Price</th><th>Allows</th><th>Targets</th><th>Up targets</th><th>Stop</th><th>Note</th></tr></thead>
+<tbody id="level-rows">{level_rows}</tbody></table>
+<p><button type="button" id="add-level">Add level</button></p>
+<table data-nosort><thead><tr><th>Ticker</th><th>Side</th><th>Level</th><th>Contract</th><th>Entry premium</th><th>Exit premium</th></tr></thead>
+<tbody id="premium-rows">{premium_rows}</tbody></table>
+<p><button type="button" id="add-premium">Add contract</button>
+<button type="button" id="run-backtest">Run backtest</button>
+<button type="button" id="save-book">Save book</button></p>
+<div id="backtest-out"><p>The four presets are Live, Never exit, Near the next level, and Named stop. Custom uses the menus above.</p></div>
+<script id="desk-data" type="application/json">{payload}</script>
 """
 
 
-def main() -> None:
+def _parse_levels(rows: list[dict]) -> list[dict]:
+    levels = []
+    for row in rows:
+        ticker = str(row.get("ticker") or "").strip().upper()
+        if not ticker or row.get("price") in (None, ""):
+            continue
+        allows = row.get("allows") or "long"
+        if allows not in ("long", "short", "both"):
+            raise ValueError("allows must be long, short, or both")
+        level = {
+            "ticker": ticker,
+            "price": float(row["price"]),
+            "allows": allows,
+            "targets": [float(price) for price in (row.get("targets") or [])],
+            "note": row.get("note") or "",
+        }
+        if row.get("up_targets"):
+            level["up_targets"] = [float(price) for price in row["up_targets"]]
+        if row.get("stop") not in (None, ""):
+            level["stop"] = float(row["stop"])
+        levels.append(level)
+    return levels
+
+
+def _premium_map(rows: dict) -> dict:
+    cleaned = {}
+    for key, row in (rows or {}).items():
+        if not isinstance(row, dict):
+            continue
+        entry = row.get("entry")
+        exit_premium = row.get("exit")
+        cleaned[key] = {
+            "contract": row.get("contract") or "",
+            "entry": None if entry in (None, "") else float(entry),
+            "exit": None if exit_premium in (None, "") else float(exit_premium),
+        }
+    return cleaned
+
+
+def _armed_stamp(text: str) -> int:
+    if not text:
+        return 0
+    when = datetime.fromisoformat(str(text))
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=claim_alerts.PT)
+    return int(when.timestamp())
+
+
+def _fetch_bars(tickers: list[str]) -> dict[str, list[dict]]:
+    moment = int(datetime.now(claim_alerts.PT).timestamp())
+    found = {}
+    for ticker in tickers:
+        raw = claim_alerts.fetch_five_minute(ticker, "1mo")
+        bars = claim_alerts.add_indicators(claim_alerts.ten_minute_bars(raw, moment))
+        found[ticker] = [bar for bar in bars if claim_alerts.in_session(bar["close_at"])]
+    return found
+
+
+def backtest_payload(payload: dict, bars_by_ticker: dict | None = None) -> dict:
+    levels = _parse_levels(payload.get("levels") or [])
+    if bars_by_ticker is None:
+        bars_by_ticker = _fetch_bars(sorted({level["ticker"] for level in levels}))
+    custom = payload.get("custom") or {}
+    runs = desk.run_presets(
+        bars_by_ticker,
+        levels,
+        _armed_stamp(payload.get("armed_at") or ""),
+        touch=float(payload.get("touch", 0.15)),
+        chase=float(payload.get("chase", 0.50)),
+        break_atr=float(payload.get("break_atr", 0.5)),
+        profit_near=float(payload.get("profit_near", 0.15)),
+        threshold=float(payload.get("threshold", 1)),
+        premiums=_premium_map(payload.get("premiums") or {}),
+        custom={
+            "stop_mode": custom.get("stop_mode") or "reclaim",
+            "take": custom.get("take") or "target",
+            "flatten": custom.get("flatten") or "clock",
+        },
+    )
+    return {"runs": runs}
+
+
+def save_book(root: Path, payload: dict) -> None:
+    levels = _parse_levels(payload.get("levels") or [])
+    armed = str(payload.get("armed_at") or "")
+    path = root / "alerts" / "levels.yaml"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(yaml.safe_dump({"armed_at": armed, "levels": levels}, sort_keys=False))
+
+
+def _page(sections: list[tuple[str, str, str]]) -> str:
+
+    body = "".join(
+        f"<section id='{anchor}'><h2>{html.escape(title)}</h2>{part}</section>"
+        for title, part, anchor in sections
+    )
+    by_anchor = {anchor: title for title, _part, anchor in sections}
+    groups = (
+        ("Trades", ("trades", "contracts")),
+        ("Lessons", ("lessons", "journal", "training")),
+        ("Rules", ("rules",)),
+        ("Backtest", ("backtest",)),
+        ("Rest", ("book", "fade", "alerts", "bench", "archives")),
+    )
+    used = {anchor for _label, anchors in groups for anchor in anchors}
+    nav_groups = []
+    for label, anchors in groups:
+        links = "".join(
+            f"<a href='#{anchor}'>{html.escape(by_anchor[anchor])}</a>"
+            for anchor in anchors
+            if anchor in by_anchor
+        )
+        if links:
+            nav_groups.append(f"<div class='nav-group'><span>{html.escape(label)}</span>{links}</div>")
+    leftover = "".join(
+        f"<a href='#{anchor}'>{html.escape(title)}</a>"
+        for title, _part, anchor in sections
+        if anchor not in used
+    )
+    if leftover:
+        nav_groups.append(f"<div class='nav-group'><span>Rest</span>{leftover}</div>")
+    nav = "".join(nav_groups)
+    template = Path(__file__).with_name("dashboard_page.html").read_text()
+    return template.replace("__NAV__", nav).replace("__BODY__", body)
+
+
+def serve(host: str = "127.0.0.1", port: int = 8765) -> None:
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    class Handler(BaseHTTPRequestHandler):
+        def _send(self, status: int, kind: str, body: bytes) -> None:
+            self.send_response(status)
+            self.send_header("Content-Type", kind)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_GET(self) -> None:
+            if self.path.split("?", 1)[0] != "/":
+                self.send_error(404)
+                return
+            self._send(200, "text/html; charset=utf-8", render(ROOT).encode())
+
+        def do_POST(self) -> None:
+            path = self.path.split("?", 1)[0]
+            length = int(self.headers.get("Content-Length") or 0)
+            try:
+                payload = json.loads(self.rfile.read(length) or b"{}")
+                if path == "/api/backtest":
+                    result = backtest_payload(payload)
+                elif path == "/api/book":
+                    save_book(ROOT, payload)
+                    result = {"saved": True}
+                else:
+                    self.send_error(404)
+                    return
+                status = 200
+            except (ValueError, KeyError, TypeError, SystemExit, OSError, urllib.error.URLError) as exc:
+                result = {"error": str(exc)}
+                status = 400
+            self._send(status, "application/json", json.dumps(result).encode())
+
+        def log_message(self, fmt: str, *args) -> None:
+            return
+
+    print(f"http://{host}:{port}")
+    ThreadingHTTPServer((host, port), Handler).serve_forever()
+
+
+def main(argv: list[str] | None = None) -> None:
+    args = sys.argv[1:] if argv is None else argv
+    if args[:1] == ["serve"]:
+        port = int(args[1]) if len(args) > 1 else 8765
+        serve(port=port)
+        return
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(render(ROOT))
     print(OUT)

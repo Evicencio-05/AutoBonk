@@ -49,7 +49,9 @@ None.
     assert "not an order" in page
     assert page.index("<h2>Paper</h2>") < page.index("<h2>Live book</h2>")
     assert 'id="loaded"' in page
-    assert "<button" not in page
+    assert "place order" not in page.lower()
+    assert "<h2>Lessons</h2>" in page
+    assert "<h2>Rules</h2>" in page
 
 
 def test_a_paper_row_renders_above_the_live_book():
@@ -76,7 +78,7 @@ levels: []
     assert "Paper" in page
     assert "class='side call'" in page
     assert page.index("<h2>Paper</h2>") < page.index("<h2>Live book</h2>")
-    assert "<button" not in page
+    assert "place order" not in page.lower()
 
 
 def test_a_closed_trade_shows_its_profit_and_the_day():
@@ -112,7 +114,8 @@ def test_a_closed_trade_shows_its_profit_and_the_day():
     assert "No contract comparison yet." in page
     assert "data-stay" in page
     assert "autobonk-sort:" in page
-    assert "<button" not in page
+    assert "place order" not in page.lower()
+    assert "profit factor" in page
 
 
 def test_a_contract_comparison_shows_the_percent_return():
