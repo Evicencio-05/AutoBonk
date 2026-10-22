@@ -263,6 +263,17 @@ def test_the_strategy_desk_edits_variables_and_hides_contracts():
     assert 'id="exit-rule"' in backtest
     assert 'id="sma-band"' in backtest
     assert 'id="bars-source"' in backtest
+    assert 'id="range-touch" type="checkbox"' in backtest
+    assert 'id="touch-low"' in backtest
+    assert 'id="touch-high"' in backtest
+    assert 'id="range-sma_band"' in backtest
+    assert 'id="sma-band-low"' in backtest
+    assert 'id="range-chase"' in backtest
+    assert 'id="range-break_atr"' in backtest
+    assert 'id="range-profit_near"' in backtest
+    assert 'id="profit-near-high"' in backtest
+    assert 'id="range-steps"' in backtest
+    assert 'id="bounds-touch" hidden' in backtest
     assert "max drawdown" in backtest
     assert "win rate" in backtest
     assert "premium-rows" not in backtest
@@ -420,6 +431,69 @@ def test_the_calendar_rejects_an_end_before_the_start():
         assert "on or before" in str(exc)
     else:
         raise AssertionError("a backwards calendar was accepted")
+
+
+def test_a_range_check_graphs_ten_values_of_one_buffer():
+    bars = {"AAPL": _replay_bars()}
+    payload = _strategy_payload(
+        ranges=[{"name": "touch", "low": 0, "high": 0.45}],
+        steps=10,
+    )
+
+    result = dashboard.backtest_payload(payload, bars)
+    sweep = result["sweeps"][0]
+
+    assert sweep["name"] == "touch"
+    assert sweep["label"] == "Wick touch"
+    assert sweep["steps"] == 10
+    assert len(sweep["points"]) == 10
+    assert sweep["points"][0]["value"] == 0
+    assert sweep["points"][-1]["value"] == 0.45
+    matched = next(point for point in sweep["points"] if point["value"] == 0.15)
+    assert round(matched["net"], 2) == round(result["report"]["summary"]["strategy"]["net"], 2)
+    assert "sweeps" not in dashboard.backtest_payload(_strategy_payload(), bars)
+
+
+def test_two_ranges_keep_their_own_graphs():
+    bars = {"AAPL": _replay_bars()}
+    result = dashboard.backtest_payload(
+        _strategy_payload(
+            ranges=[
+                {"name": "sma_band", "low": 0, "high": 2},
+                {"name": "profit_near", "low": 0, "high": 0.5},
+            ],
+            steps=12,
+        ),
+        bars,
+    )
+
+    assert [row["name"] for row in result["sweeps"]] == ["sma_band", "profit_near"]
+    assert all(len(row["points"]) == 12 for row in result["sweeps"])
+    assert result["sweeps"][0]["points"][0]["value"] == 0
+    assert result["sweeps"][0]["points"][-1]["value"] == 2
+
+
+def test_steps_outside_ten_to_twenty_are_rejected():
+    bars = {"AAPL": _replay_bars()}
+    for steps in (9, 21, 10.5):
+        try:
+            dashboard.backtest_payload(
+                _strategy_payload(ranges=[{"name": "chase", "low": 0, "high": 1}], steps=steps),
+                bars,
+            )
+        except ValueError as exc:
+            assert "10" in str(exc)
+        else:
+            raise AssertionError(f"{steps} steps were accepted")
+    try:
+        dashboard.backtest_payload(
+            _strategy_payload(ranges=[{"name": "touch", "low": 1, "high": 0}], steps=10),
+            bars,
+        )
+    except ValueError as exc:
+        assert "at or below" in str(exc)
+    else:
+        raise AssertionError("a backwards range was accepted")
 
 
 def test_a_short_calendar_asks_yahoo_for_five_days():
