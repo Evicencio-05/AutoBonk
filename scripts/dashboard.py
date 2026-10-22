@@ -13,7 +13,7 @@ import html
 import json
 import sys
 import urllib.error
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import yaml
@@ -816,6 +816,65 @@ def _strategy_fields() -> str:
     )
 
 
+def _as_iso(value) -> str:
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    return str(value or "")
+
+
+def _clock(text: str) -> str:
+    when = datetime.fromisoformat(str(text))
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=claim_alerts.PT)
+    when = when.astimezone(claim_alerts.PT)
+    clock = when.strftime("%I:%M %p").lstrip("0")
+    return f"{when.strftime('%Y-%m-%d')} {clock} PT"
+
+
+def _armed_choices(root: Path) -> list[tuple[str, str]]:
+    """The live book's armed time, then each saved book's armed time."""
+    live = ""
+    path = root / "alerts" / "levels.yaml"
+    if path.is_file():
+        data = yaml.safe_load(path.read_text()) or {}
+        live = _as_iso(data.get("armed_at") or "")
+    choices: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    if live:
+        choices.append((live, f"This book · {_clock(live)}"))
+        seen.add(live)
+    folder = root / "bench" / "fixtures"
+    if folder.is_dir():
+        for levels_path in sorted(folder.glob("*-levels.yaml"), reverse=True):
+            day = levels_path.name[: -len("-levels.yaml")]
+            data = yaml.safe_load(levels_path.read_text()) or {}
+            stamp = _as_iso(data.get("armed_at") or "")
+            if not stamp or stamp in seen:
+                continue
+            seen.add(stamp)
+            choices.append((stamp, f"{day} book · {_clock(stamp)}"))
+    if not choices:
+        choices.append(("", "Not set"))
+    return choices
+
+
+def _armed_field(root: Path) -> str:
+    options = []
+    for index, (value, label) in enumerate(_armed_choices(root)):
+        selected = " selected" if index == 0 else ""
+        options.append(f'<option value="{_esc(value)}"{selected}>{_esc(label)}</option>')
+    return f'<label>Armed <select id="armed-at">{"".join(options)}</select></label>'
+
+
+def _calendar_fields() -> str:
+    today = datetime.now(claim_alerts.PT).date()
+    start = today - timedelta(days=30)
+    return (
+        f'<label>From <input id="range-from" type="date" value="{start.isoformat()}"></label>'
+        f'<label>To <input id="range-to" type="date" value="{today.isoformat()}"></label>'
+    )
+
+
 def _studio(root: Path) -> str:
     path = root / "alerts" / "levels.yaml"
     data = yaml.safe_load(path.read_text()) if path.is_file() else {}
@@ -831,13 +890,15 @@ def _studio(root: Path) -> str:
 <p>Change the entry, the exit, and the buffers, then run the test.
 The report is stock points on finished 10-minute closes: net profit, gross profit,
 gross loss, profit factor, max drawdown, win rate, and the average trade.
-Recent sessions uses the levels below. Saved sessions replays each day's own book with these same variables.
+The armed menu is when this book started. It applies to recent sessions.
+Saved sessions keep each day's own armed time.
+The calendar keeps closes on those dates for both.
 Live, Never exit, Near the next level, and Named stop are scored beside this test.
 This does not place an order and it does not rewrite the paper tape.</p>
 <p class="knobs" id="strategy-fields">
-<label>Armed <input id="armed-at" value="{_esc(armed)}"></label>
+{_armed_field(root)}
 <label>Bars <select id="bars-source"><option value="recent">recent sessions</option><option value="saved">saved sessions</option></select></label>
-<label>Recent range <select id="bar-range"><option value="5d">5 days</option><option value="1mo" selected>1 month</option></select></label>
+{_calendar_fields()}
 {_strategy_fields()}
 <label>Near a level <input id="profit-near" value="0.15"></label>
 <label>Exit test <select id="exit-test"><option value="live">use the exit rule</option><option value="never">never exit</option><option value="near">near the next level</option><option value="named">named stop</option><option value="custom">custom</option></select></label>
@@ -895,6 +956,59 @@ def _premium_map(rows: dict) -> dict:
             "exit": None if exit_premium in (None, "") else float(exit_premium),
         }
     return cleaned
+
+
+def _day_bounds(payload: dict) -> tuple[date, date] | None:
+    start_text = str(payload.get("from") or "").strip()
+    end_text = str(payload.get("to") or "").strip()
+    if not start_text and not end_text:
+        return None
+    if not start_text or not end_text:
+        raise ValueError("from and to are both required")
+    try:
+        start = date.fromisoformat(start_text)
+        end = date.fromisoformat(end_text)
+    except ValueError as exc:
+        raise ValueError("from and to must be YYYY-MM-DD") from exc
+    if start > end:
+        raise ValueError("from must be on or before to")
+    return start, end
+
+
+def _covers(close_at: int, bounds: tuple[date, date] | None) -> bool:
+    if bounds is None:
+        return True
+    start, end = bounds
+    day = datetime.fromtimestamp(int(close_at), claim_alerts.PT).date()
+    return start <= day <= end
+
+
+def _clip_bars(bars_by_ticker: dict, bounds: tuple[date, date] | None) -> dict:
+    if bounds is None:
+        return bars_by_ticker
+    return {
+        ticker: [bar for bar in bars if _covers(bar["close_at"], bounds)]
+        for ticker, bars in bars_by_ticker.items()
+    }
+
+
+def _mark_calendar(window: dict, bounds: tuple[date, date] | None) -> dict:
+    if bounds is not None:
+        window["from_day"] = bounds[0].isoformat()
+        window["to_day"] = bounds[1].isoformat()
+    return window
+
+
+def _yahoo_span(start: date, today: date) -> str:
+    if (today - start).days <= 5:
+        return "5d"
+    return "1mo"
+
+
+def _calendar_note(bounds: tuple[date, date] | None, today: date) -> str:
+    if bounds is None or (today - bounds[0]).days <= 31:
+        return ""
+    return "Recent prices cover about one month. Older calendar dates have no bars."
 
 
 def _armed_stamp(text: str) -> int:
@@ -1067,10 +1181,19 @@ def _saved_days(root: Path) -> list[dict]:
     return days
 
 
-def _saved_payload(payload: dict, kwargs: dict, note: str = "") -> dict:
+def _saved_payload(
+    payload: dict,
+    kwargs: dict,
+    note: str = "",
+    bounds: tuple[date, date] | None = None,
+) -> dict:
     days = _saved_days(ROOT)
+    if bounds is not None:
+        start, end = bounds
+        days = [day for day in days if start <= date.fromisoformat(day["day"]) <= end]
     if not days:
-        window = _window({}, "saved", note or "No saved sessions.")
+        message = note or ("No saved sessions in that calendar." if bounds else "No saved sessions.")
+        window = _mark_calendar(_window({}, "saved", message), bounds)
         runs = desk.run_presets({}, [], 0, **kwargs)
         return _pack(runs, window)
     day_runs = [
@@ -1098,17 +1221,19 @@ def _saved_payload(payload: dict, kwargs: dict, note: str = "") -> dict:
                 **desk.performance(trades, ordered),
             }
         )
-    window = _window(ordered, "saved", note)
+    window = _mark_calendar(_window(ordered, "saved", note), bounds)
     window["days"] = [day["day"] for day in days]
     return _pack(runs, window)
 
 
 def backtest_payload(payload: dict, bars_by_ticker: dict | None = None) -> dict:
     kwargs = _preset_kwargs(payload)
+    bounds = _day_bounds(payload)
     source = payload.get("bars") or "recent"
     if bars_by_ticker is not None:
+        bars_by_ticker = _clip_bars(bars_by_ticker, bounds)
         levels = _parse_levels(payload.get("levels") or [])
-        window = _window(bars_by_ticker, "given")
+        window = _mark_calendar(_window(bars_by_ticker, "given"), bounds)
         runs = desk.run_presets(
             bars_by_ticker,
             levels,
@@ -1117,17 +1242,19 @@ def backtest_payload(payload: dict, bars_by_ticker: dict | None = None) -> dict:
         )
         return _pack(runs, window)
     if source == "saved":
-        return _saved_payload(payload, kwargs)
+        return _saved_payload(payload, kwargs, bounds=bounds)
     if source != "recent":
         raise ValueError("bars must be recent or saved")
     levels = _parse_levels(payload.get("levels") or [])
     tickers = sorted({level["ticker"] for level in levels})
+    today = datetime.now(claim_alerts.PT).date()
+    span = "1mo" if bounds is None else _yahoo_span(bounds[0], today)
     try:
-        bars = _fetch_bars(tickers, payload.get("range") or "1mo")
+        bars = _clip_bars(_fetch_bars(tickers, span), bounds)
     except (SystemExit, OSError, urllib.error.URLError) as exc:
         note = f"Recent prices were unavailable ({exc}). Saved sessions were used."
-        return _saved_payload(payload, kwargs, note)
-    window = _window(bars, "recent")
+        return _saved_payload(payload, kwargs, note, bounds)
+    window = _mark_calendar(_window(bars, "recent", _calendar_note(bounds, today)), bounds)
     runs = desk.run_presets(bars, levels, _armed_stamp(payload.get("armed_at") or ""), **kwargs)
     return _pack(runs, window)
 
