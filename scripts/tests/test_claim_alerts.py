@@ -159,15 +159,107 @@ def test_green_retest_after_a_break_signals_a_put():
     assert text.endswith("Not an order.")
 
 
-def test_red_hold_of_a_short_only_level_is_not_a_call():
-    level = {"ticker": "NVDA", "price": 213.50, "allows": "short", "targets": [209]}
+def test_a_claimed_resistance_flips_to_a_call():
+    levels = [
+        {"ticker": "NVDA", "price": 213.50, "allows": "short", "targets": [209]},
+        {"ticker": "NVDA", "price": 219.80, "allows": "long", "targets": [225]},
+    ]
     bars = [
-        _bar(0, 216.40, 217.00, 215.20, 216.10),
-        _bar(600, 215.80, 216.20, 213.40, 214.60),
-        _bar(1200, 214.40, 215.10, 213.80, 214.90),
+        _bar(0, 212.80, 213.20, 212.20, 212.60),
+        _bar(600, 212.80, 214.40, 212.60, 214.10),
+        _bar(1200, 214.00, 214.20, 213.40, 213.70),
+        _bar(1800, 213.65, 213.90, 213.40, 213.70),
     ]
 
+    events = claim_alerts.replay(bars, levels)
+
+    assert events[0]["kind"] == "entry"
+    assert events[0]["side"] == "call"
+    assert events[0]["reason"] == "retest"
+    assert events[0]["level"] == 213.50
+    assert events[0]["flip"] == "Resistance flipped to support."
+    assert "Resistance flipped to support." in claim_alerts.format_live(events[0])
+    assert claim_alerts._book_targets(levels[0], "call", levels) == [219.8, 225.0]
+
+
+def test_a_lost_support_flips_to_a_put_and_exits_at_the_lower_number():
+    levels = [
+        {"ticker": "AAPL", "price": 340, "allows": "long", "targets": [345.4]},
+        {"ticker": "AAPL", "price": 333.25, "allows": "long", "targets": [340, 345.4]},
+    ]
+    bars = [
+        _bar(0, 341.00, 341.20, 340.20, 340.60),
+        _bar(600, 340.40, 340.50, 339.10, 339.30),
+        _bar(1200, 339.20, 340.05, 339.00, 339.40),
+        _bar(1800, 339.60, 339.80, 339.20, 339.40),
+        _bar(2400, 339.20, 339.30, 332.50, 332.80),
+    ]
+    for bar in bars:
+        bar["atr"] = 0.70
+
+    events = claim_alerts.replay(bars, levels)
+
+    assert [event["kind"] for event in events] == ["entry", "exit"]
+    assert events[0]["side"] == "put"
+    assert events[0]["reason"] == "retest"
+    assert events[0]["flip"] == "Support flipped to resistance."
+    assert events[1]["reason"] == "target"
+    assert events[1]["close_at"] == 3000
+    assert "Support flipped to resistance." in claim_alerts.format_live(events[0])
+
+
+def test_a_close_inside_half_an_atr_does_not_flip_support():
+    level = {"ticker": "AAPL", "price": 340, "allows": "long", "targets": [345]}
+    bars = [
+        _bar(0, 340.80, 341.00, 340.40, 340.70),
+        _bar(600, 340.50, 340.55, 339.70, 339.80),
+        _bar(1200, 339.70, 340.05, 339.50, 339.75),
+        _bar(1800, 339.70, 339.90, 339.40, 339.60),
+    ]
+    for bar in bars:
+        bar["atr"] = 0.70
+
     assert claim_alerts.replay(bars, [level]) == []
+
+
+def test_a_reclaim_flips_a_lost_support_back_to_a_call():
+    level = {"ticker": "AAPL", "price": 340, "allows": "long", "targets": [345]}
+    bars = [
+        _bar(0, 341.00, 341.20, 339.00, 339.20),
+        _bar(600, 339.40, 341.00, 339.30, 340.80),
+        _bar(1200, 340.70, 340.80, 340.00, 340.20),
+        _bar(1800, 340.15, 340.40, 340.00, 340.20),
+    ]
+    for bar in bars:
+        bar["atr"] = 0.70
+
+    events = claim_alerts.replay(bars, [level])
+
+    assert events[0]["kind"] == "entry"
+    assert events[0]["side"] == "call"
+    assert events[0]["reason"] == "retest"
+    assert events[0]["flip"] == ""
+
+
+def test_a_level_marked_both_plays_either_side_without_a_flip():
+    level = {
+        "ticker": "AAPL",
+        "price": 333.25,
+        "allows": "both",
+        "targets": [330.7],
+        "up_targets": [340],
+    }
+    bars = [
+        _bar(0, 334.20, 334.40, 333.80, 334.00),
+        _bar(600, 333.90, 334.00, 333.20, 333.50),
+        _bar(1200, 333.45, 333.70, 333.30, 333.55),
+    ]
+
+    events = claim_alerts.replay(bars, [level])
+
+    assert events[0]["kind"] == "entry"
+    assert events[0]["side"] == "call"
+    assert events[0]["flip"] == ""
 
 
 def test_next_open_two_dollars_away_is_a_skip():
@@ -518,7 +610,11 @@ def test_a_failed_claim_is_a_put_and_a_failed_break_is_a_call():
     assert faded[0]["kind"] == "entry"
     assert faded[0]["side"] == "put"
     assert faded[0]["reason"] == "fade"
-    assert claim_alerts.replay(claim_bars, [claim_level]) == []
+    live_claim = claim_alerts.replay(claim_bars, [claim_level])
+    assert live_claim[0]["kind"] == "entry"
+    assert live_claim[0]["side"] == "put"
+    assert live_claim[0]["reason"] == "retest"
+    assert live_claim[0]["flip"] == "Support flipped to resistance."
 
     break_level = {"ticker": "NVDA", "price": 100, "allows": "short", "targets": [90]}
     break_bars = [
@@ -532,7 +628,11 @@ def test_a_failed_claim_is_a_put_and_a_failed_break_is_a_call():
     assert faded_break[0]["kind"] == "entry"
     assert faded_break[0]["side"] == "call"
     assert faded_break[0]["reason"] == "fade"
-    assert claim_alerts.replay(break_bars, [break_level]) == []
+    live_break = claim_alerts.replay(break_bars, [break_level])
+    assert live_break[0]["kind"] == "entry"
+    assert live_break[0]["side"] == "call"
+    assert live_break[0]["reason"] == "retest"
+    assert live_break[0]["flip"] == "Resistance flipped to support."
     assert claim_alerts.live_settings()["entry"] == "retest"
 
 
@@ -567,7 +667,12 @@ def test_a_fade_exits_at_the_far_level_or_back_through_the_entry():
     invalidated = claim_alerts.replay(failed, levels, settings=fade)
 
     assert invalidated[1]["reason"] == "reclaim"
-    assert claim_alerts.replay(held, levels) == []
+    live = claim_alerts.replay(held, levels)
+    assert live[0]["kind"] == "entry"
+    assert live[0]["side"] == "put"
+    assert live[0]["reason"] == "retest"
+    assert live[0]["flip"] == "Support flipped to resistance."
+    assert live[1]["reason"] == "target"
 
 
 def test_a_premarket_fill_uses_the_first_print_after_the_option_open():

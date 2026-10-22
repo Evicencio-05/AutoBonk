@@ -3,8 +3,9 @@
 
 Yahoo has no 10-minute bars. Two finished 5-minute bars are one 10-minute
 bar. A claim or a lose is a close beyond the level by half the 14-period ATR.
-A close inside that band has not broken the level. A wick within 15 cents
-only counts as the touch. The fill is the next bar's open.
+A close inside that band has not broken the level. That same close flips
+the level: a lost support is resistance, and a claimed resistance is support.
+A wick within 15 cents only counts as the touch. The fill is the next bar's open.
 RSI is printed and does not block.
 
   python3 scripts/claim_alerts.py check
@@ -339,11 +340,77 @@ def _allows(level: dict) -> str:
     return "long" if level.get("side") == "claim" else "short"
 
 
-def _can(level: dict, side: str) -> bool:
+def _active_allows(level: dict, history: list[dict], settings: dict | None) -> str:
+    """Written side, after each close that claims or loses the level.
+
+    Support (long) becomes resistance after a lose. Resistance (short)
+    becomes support after a claim. A later close the other way flips it
+    back. A level marked both stays both. A close inside the break band
+    does not flip the level.
+    """
     allows = _allows(level)
+    if allows == "both":
+        return "both"
+    price = float(level["price"])
+    role = allows
+    for bar in history:
+        band = _break_buffer(bar, settings)
+        if bar["c"] > price + band and role == "short":
+            role = "long"
+        elif bar["c"] < price - band and role == "long":
+            role = "short"
+    return role
+
+
+def _can(
+    level: dict,
+    side: str,
+    history: list[dict] | None = None,
+    settings: dict | None = None,
+) -> bool:
+    allows = _allows(level) if history is None else _active_allows(level, history, settings)
     if side == "put":
         return allows in ("short", "both")
     return allows in ("long", "both")
+
+
+def _played_flip(level: dict, side: str) -> bool:
+    """True when this side is the one the note did not write.
+
+    A level marked both already plays both sides, so that is not a flip.
+    """
+    allows = _allows(level)
+    if side == "put":
+        return allows == "long"
+    return allows == "short"
+
+
+def _book_targets(level: dict, side: str, levels: list[dict]) -> list[float]:
+    """Posted numbers on this ticker in the trade's direction, nearest first."""
+    price = float(level["price"])
+    ticker = level.get("ticker")
+    found: list[float] = []
+    seen: set[float] = set()
+    for other in levels:
+        if other.get("ticker") != ticker:
+            continue
+        candidates = [float(other["price"])]
+        for key in ("targets", "up_targets"):
+            candidates.extend(float(item) for item in (other.get(key) or []))
+        for candidate in candidates:
+            if abs(candidate - price) < 0.001:
+                continue
+            if side == "put" and candidate >= price:
+                continue
+            if side == "call" and candidate <= price:
+                continue
+            marker = round(candidate, 4)
+            if marker in seen:
+                continue
+            seen.add(marker)
+            found.append(candidate)
+    found.sort(reverse=(side == "put"))
+    return found
 
 
 def _targets(level: dict, side: str) -> list[float]:
@@ -420,7 +487,13 @@ def _coerce(name: str, value, spec: dict):
     return value
 
 
-def _signal(prev: dict | None, bar: dict, levels: list[dict], settings: dict) -> dict | None:
+def _signal(
+    prev: dict | None,
+    bar: dict,
+    levels: list[dict],
+    settings: dict,
+    history: list[dict] | None = None,
+) -> dict | None:
     """Level retest. Fade is the failed claim or the failed break.
 
     A fade put is a claim level that tags and closes back under. A fade call
@@ -429,10 +502,15 @@ def _signal(prev: dict | None, bar: dict, levels: list[dict], settings: dict) ->
     The furthest other level in that direction is the target. The live
     default is the retest, so check() does not take the fade. An SMA hold
     is a watch, not an entry.
+
+    history is every finished bar before this one. A lose flips support to
+    resistance, and a claim flips resistance to support. The fade still uses
+    the side written in the note.
     """
     if prev is None:
         return None
     touch = settings["touch"]
+    prior = history or []
     fade = settings.get("entry") == "fade"
     for level in levels:
         price = float(level["price"])
@@ -454,14 +532,14 @@ def _signal(prev: dict | None, bar: dict, levels: list[dict], settings: dict) ->
             reason = "fade"
         else:
             put_tag = (
-                _can(level, "put")
+                _can(level, "put", prior, settings)
                 and prev["c"] < price
                 and _green(bar)
                 and bar["h"] >= price - touch
                 and bar["c"] < price
             )
             call_tag = (
-                _can(level, "call")
+                _can(level, "call", prior, settings)
                 and prev["c"] > price
                 and _red(bar)
                 and bar["l"] <= price + touch
@@ -480,13 +558,15 @@ def _fresh_sma_hold(
     level: dict,
     side: str,
     settings: dict,
+    history: list[dict],
 ) -> bool:
     """The first bar of an SMA hold. A hold that is still true does not repeat."""
-    if prev is None or not _sma_hold(prev, bar, level, side, settings):
+    if prev is None or not _sma_hold(prev, bar, level, side, settings, history):
         return False
     if prev2 is None:
         return True
-    return not _sma_hold(prev2, prev, level, side, settings)
+    earlier = history[:-1]
+    return not _sma_hold(prev2, prev, level, side, settings, earlier)
 
 
 def _sma_watches(
@@ -495,11 +575,13 @@ def _sma_watches(
     bar: dict,
     levels: list[dict],
     settings: dict,
+    history: list[dict] | None = None,
 ) -> list[dict]:
     found = []
+    prior = history or []
     for level in levels:
         for side in ("put", "call"):
-            if not _fresh_sma_hold(prev2, prev, bar, level, side, settings):
+            if not _fresh_sma_hold(prev2, prev, bar, level, side, settings, prior):
                 continue
             intent = _intent(level, side, bar, "sma")
             intent["note"] = "The 20 SMA is on the level."
@@ -541,10 +623,17 @@ def _rsi_watch(position: dict, prev: dict | None, bar: dict) -> dict | None:
     }
 
 
-def _sma_hold(prev: dict, bar: dict, level: dict, side: str, settings: dict) -> bool:
+def _sma_hold(
+    prev: dict,
+    bar: dict,
+    level: dict,
+    side: str,
+    settings: dict,
+    history: list[dict] | None = None,
+) -> bool:
     average = bar.get("sma")
     price = float(level["price"])
-    if average is None or not _can(level, side):
+    if average is None or not _can(level, side, history, settings):
         return False
     if abs(average - price) > settings["sma_band"]:
         return False
@@ -579,7 +668,17 @@ def _fade_last(level: dict, side: str, levels: list[dict]) -> float | None:
 
 
 def _intent(level: dict, side: str, bar: dict, reason: str, levels: list[dict] | None = None) -> dict:
-    targets = _targets(level, side)
+    flipped = reason != "fade" and _played_flip(level, side)
+    if flipped:
+        targets = _book_targets(level, side, levels or [])
+        flip = (
+            "Support flipped to resistance."
+            if side == "put"
+            else "Resistance flipped to support."
+        )
+    else:
+        targets = _targets(level, side)
+        flip = ""
     stop = level.get("stop")
     last = targets[-1] if targets else None
     nxt = targets[0] if targets else None
@@ -597,6 +696,7 @@ def _intent(level: dict, side: str, bar: dict, reason: str, levels: list[dict] |
         "reason": reason,
         "bar": bar,
         "note": level.get("note") or "",
+        "flip": flip,
     }
 
 
@@ -629,6 +729,7 @@ def _event(kind: str, pending: dict, bar: dict, reason: str, fill: float | None)
         "bar": pending["bar"] if kind == "entry" else bar,
         "fill": fill,
         "note": pending.get("note") or "",
+        "flip": pending.get("flip") or "",
     }
 
 
@@ -680,7 +781,10 @@ def replay(
     prev2 = None
     prev = None
     seen: list[dict] = []
+    history: list[dict] = []
     for bar in bars:
+        prior = history
+        history = history + [bar]
         if bar["close_at"] < armed_at:
             prev2, prev = prev, bar
             continue
@@ -704,11 +808,11 @@ def replay(
             prev2, prev = prev, bar
             continue
         if not _is_clock(bar["close_at"]):
-            pending = _signal(prev, bar, levels, chosen)
+            pending = _signal(prev, bar, levels, chosen, prior)
             if pending and _next_failed(seen, pending, chosen["touch"], chosen):
                 events.append(_event("skip", pending, bar, "next", None))
                 pending = None
-            for watch in _sma_watches(prev2, prev, bar, levels, chosen):
+            for watch in _sma_watches(prev2, prev, bar, levels, chosen, prior):
                 if (
                     pending
                     and watch["side"] == pending["side"]
@@ -923,8 +1027,10 @@ def format_live(event: dict) -> str:
         extra = f" {event['note']} Not a fill."
     else:
         contract = "call" if event["side"] == "call" else "put"
+        flip = event.get("flip") or ""
+        prefix = f" {flip} " if flip else " "
         extra = (
-            f" Fill {event['fill']:.2f}. {contract} debit at most $100. "
+            f"{prefix}Fill {event['fill']:.2f}. {contract} debit at most $100. "
             "OTM is allowed when theta and the target still leave room to gain."
         )
     return f"{head} {_candle(event['bar'])} {_rsi_text(event['bar'])}{extra} Not an order."
@@ -1571,7 +1677,10 @@ def _target_pair(levels: list[dict], event: dict) -> tuple[float | None, float |
             continue
         if abs(float(level["price"]) - float(event["level"])) > 0.001:
             continue
-        targets = _targets(level, event["side"])
+        if _played_flip(level, event["side"]):
+            targets = _book_targets(level, event["side"], levels)
+        else:
+            targets = _targets(level, event["side"])
         if not targets:
             return None, None
         return targets[0], targets[-1]

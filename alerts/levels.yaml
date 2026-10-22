@@ -3,6 +3,7 @@
 # A claim or a lose is still a 10-minute close through the printed price.
 # The 15-cent touch is only for a wick that tags the level.
 # allows: long, short, or both. targets are in order. The first does not close the trade.
+# A lost support flips to resistance. A claimed resistance flips to support.
 # Unnumbered 4h SMAs, the channel, and the trend line are not separate orders.
 # 263.7, 262.5, and 267.5 are location. 225.25 is a warning, not an order.
 armed_at: "2026-10-20T23:05:37-07:00"
