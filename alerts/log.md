@@ -77,3 +77,4 @@
 - TSLA call skip 382.75 at 2026-10-22 08:50 PT. Candle red O 382.84 H 383.72 L 381.99 C 382.46. RSI purple 58.18 yellow 70.00. No strike under $1 was still in front of the far target. Not an order.
 - PLTR put watch 200.00 at 2026-10-22 09:10 PT. Candle green O 198.46 H 199.36 L 198.17 C 199.22. RSI purple 51.51 yellow 49.28. Purple crossed above 50. Not a fill. Not an order.
 - TSLA put watch 382.75 at 2026-10-22 09:20 PT. Candle green O 380.92 H 381.79 L 380.35 C 381.54. RSI purple 53.90 yellow 65.81. The 20 SMA is on the level. Not a fill. Not an order.
+- AAPL put skip 346.50 at 2026-10-22 09:30 PT. Candle green O 345.86 H 346.40 L 345.85 C 346.26. RSI purple 66.67 yellow 54.67. The next number was tagged and did not hold. Not an order.
