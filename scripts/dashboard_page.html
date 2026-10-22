@@ -141,6 +141,16 @@ try {
   .knobs label { display: flex; flex-direction: column; gap: 4px; min-width: 0;
     font-size: 0.72rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
   .knobs label[hidden] { display: none !important; }
+  .range-knob { display: flex; flex-direction: column; gap: 6px;
+    border: 2px solid var(--rule); border-radius: 12px; padding: 8px; }
+  .knobs label.tick { flex-direction: row; align-items: center; gap: 8px;
+    text-transform: none; letter-spacing: 0; font-size: 0.85rem; font-weight: 700; }
+  .knobs label.tick input { width: auto; }
+  .bounds { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .bounds[hidden] { display: none !important; }
+  .range-chart { margin: 4px 0 16px; }
+  .range-chart h3 { margin: 0 0 4px; }
+  .range-plot { width: 100%; height: 220px; display: block; }
   label { font-size: 0.85rem; font-weight: 800; color: var(--ink); }
   input, select, button { font: inherit; color: var(--ink); background: var(--field);
     border: 2px solid var(--line); border-radius: 10px; padding: 4px 8px; max-width: 100%; }
@@ -330,6 +340,11 @@ function money(value) {
   return "$0";
 }
 
+function compact(value) {
+  const text = Number(value).toFixed(4).replace(/0+$/, "").replace(/\.$/, "");
+  return text === "-0" ? "0" : text;
+}
+
 function points(value) {
   if (value === null || value === undefined) return "";
   return (value > 0 ? "+" : "") + Number(value).toFixed(2);
@@ -415,6 +430,81 @@ function overview(report) {
   ];
   cards.forEach((card) => grid.appendChild(metric(card[0], card[1], card[2])));
   return grid;
+}
+
+function rangeChart(sweep) {
+  const wrap = document.createElement("figure");
+  wrap.className = "range-chart";
+  const title = document.createElement("h3");
+  title.textContent = sweep.label;
+  const series = sweep.points || [];
+  const best = series.reduce((pick, point) => {
+    if (!pick || point.net > pick.net) return point;
+    return pick;
+  }, null);
+  const same = series.length > 0 && series.every((point) => point.net === series[0].net);
+  const caption = document.createElement("p");
+  caption.textContent = series.length + " values from " + compact(sweep.low) + " to " + compact(sweep.high) + ". " +
+    (best ? ("Best net " + points(best.net) + " at " + compact(best.value) + ". ") : "") +
+    (same ? "Every value scored the same net. " : "") +
+    "Only this buffer changes.";
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 640 210");
+  svg.setAttribute("class", "range-plot");
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", sweep.label + ". " + caption.textContent);
+  if (!series.length) {
+    wrap.append(title, svg, caption);
+    return wrap;
+  }
+  const nets = series.map((point) => point.net);
+  const min = Math.min(0, ...nets);
+  const max = Math.max(0, ...nets);
+  const span = max - min || 1;
+  const xOf = (index) => series.length === 1 ? 334 : 56 + (index / (series.length - 1)) * 572;
+  const yOf = (value) => 168 - ((value - min) / span) * 150;
+  const axis = document.createElementNS(svg.namespaceURI, "line");
+  axis.setAttribute("x1", "56");
+  axis.setAttribute("x2", "628");
+  axis.setAttribute("y1", String(yOf(0)));
+  axis.setAttribute("y2", String(yOf(0)));
+  axis.setAttribute("stroke", "currentColor");
+  axis.setAttribute("stroke-opacity", "0.35");
+  const coords = series.map((point, index) => xOf(index).toFixed(1) + "," + yOf(point.net).toFixed(1));
+  const path = document.createElementNS(svg.namespaceURI, "polyline");
+  path.setAttribute("fill", "none");
+  path.setAttribute("stroke", "currentColor");
+  path.setAttribute("stroke-width", "2");
+  path.setAttribute("points", coords.join(" "));
+  svg.append(axis, path);
+  const mark = (text, x, y, anchor) => {
+    const node = document.createElementNS(svg.namespaceURI, "text");
+    node.setAttribute("x", String(x));
+    node.setAttribute("y", String(y));
+    node.setAttribute("fill", "currentColor");
+    node.setAttribute("font-size", "12");
+    if (anchor) node.setAttribute("text-anchor", anchor);
+    node.textContent = text;
+    svg.appendChild(node);
+  };
+  mark(points(max), 4, Math.max(14, yOf(max) + 4), null);
+  if (min !== max) mark(points(min), 4, Math.min(180, yOf(min)), null);
+  mark(compact(series[0].value), xOf(0), 196, "start");
+  if (series.length > 1) mark(compact(series[series.length - 1].value), xOf(series.length - 1), 196, "end");
+  series.forEach((point, index) => {
+    const dot = document.createElementNS(svg.namespaceURI, "circle");
+    const chosen = best && point.value === best.value && point.net === best.net;
+    dot.setAttribute("cx", xOf(index).toFixed(1));
+    dot.setAttribute("cy", yOf(point.net).toFixed(1));
+    dot.setAttribute("r", chosen ? "5" : "3");
+    dot.setAttribute("fill", chosen ? "var(--current)" : "currentColor");
+    const tip = document.createElementNS(svg.namespaceURI, "title");
+    tip.textContent = point.value + " · net " + points(point.net) + " · " + point.trades + " trades";
+    dot.appendChild(tip);
+    svg.appendChild(dot);
+  });
+  wrap.append(title, svg, caption);
+  return wrap;
 }
 
 function equityChart(values) {
@@ -557,6 +647,7 @@ function renderReport(body) {
     "near " + settings.profit_near
   ].filter(Boolean).join(" · ");
   wrap.appendChild(line);
+  (body.sweeps || []).forEach((sweep) => wrap.appendChild(rangeChart(sweep)));
   wrap.appendChild(overview(report));
   wrap.appendChild(equityChart(report.summary.strategy.equity));
   wrap.appendChild(tradeTable(report.trades));
@@ -594,13 +685,15 @@ function collectLevels() {
   }).filter((level) => level.ticker && level.price !== "");
 }
 
+function num(id) {
+  const field = document.getElementById(id);
+  const value = field ? field.value.trim() : "";
+  if (value === "") return null;
+  const number = Number(value);
+  return Number.isNaN(number) ? null : number;
+}
+
 function payload() {
-  const num = (id) => {
-    const value = document.getElementById(id).value.trim();
-    if (value === "") return null;
-    const number = Number(value);
-    return Number.isNaN(number) ? null : number;
-  };
   return {
     armed_at: document.getElementById("armed-at").value,
     levels: collectLevels(),
@@ -612,6 +705,8 @@ function payload() {
     sma_band: num("sma-band"),
     break_atr: num("break-atr"),
     profit_near: num("profit-near"),
+    ranges: collectRanges(),
+    steps: num("range-steps"),
     entry: document.getElementById("entry").value,
     exit: document.getElementById("exit-rule").value,
     exit_test: document.getElementById("exit-test").value,
@@ -619,6 +714,29 @@ function payload() {
     take: document.getElementById("take-mode").value,
     flatten: document.getElementById("flatten-mode").value
   };
+}
+
+function rangeKnobs() {
+  return Array.from(document.querySelectorAll(".range-knob"));
+}
+
+function syncRanges() {
+  rangeKnobs().forEach((knob) => {
+    const box = knob.querySelector("input[type=checkbox]");
+    const bounds = knob.querySelector(".bounds");
+    if (bounds) bounds.hidden = !(box && box.checked);
+  });
+}
+
+function collectRanges() {
+  return rangeKnobs().filter((knob) => {
+    const box = knob.querySelector("input[type=checkbox]");
+    return box && box.checked;
+  }).map((knob) => ({
+    name: knob.dataset.name,
+    low: num(knob.dataset.low),
+    high: num(knob.dataset.high)
+  }));
 }
 
 function syncExitTest() {
@@ -637,6 +755,11 @@ function bindDesk() {
     syncExitTest();
     exitTest.addEventListener("change", syncExitTest);
   }
+  syncRanges();
+  rangeKnobs().forEach((knob) => {
+    const box = knob.querySelector("input[type=checkbox]");
+    if (box) box.addEventListener("change", syncRanges);
+  });
   document.getElementById("add-level").addEventListener("click", () => {
     const body = document.getElementById("level-rows");
     const copy = body.rows[0].cloneNode(true);

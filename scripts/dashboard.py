@@ -807,14 +807,36 @@ def _number_field(name: str, element_id: str, label: str) -> str:
     return f'<label>{_esc(label)} <input id="{element_id}" value="{_esc(default)}"></label>'
 
 
+_RANGE_FIELDS = (
+    ("touch", "touch", "Wick touch", "0", "0.50"),
+    ("sma_band", "sma-band", "SMA band", "0", "2"),
+    ("chase", "chase", "Chase", "0", "1.50"),
+    ("break_atr", "break-atr", "ATR fraction", "0", "1.50"),
+    ("profit_near", "profit-near", "Near a level", "0", "0.50"),
+)
+_RANGE_LABELS = {name: label for name, _element, label, _low, _high in _RANGE_FIELDS}
+
+
+def _range_field(name: str, element_id: str, label: str, low: str, high: str) -> str:
+    default = 0.15 if name == "profit_near" else claim_alerts.VARIABLES[name]["default"]
+    return (
+        f'<div class="range-knob" data-name="{name}" data-low="{element_id}-low" data-high="{element_id}-high">'
+        f'<label>{_esc(label)} <input id="{element_id}" value="{_esc(default)}"></label>'
+        f'<label class="tick"><input id="range-{name}" type="checkbox"> Range</label>'
+        f'<div class="bounds" id="bounds-{name}" hidden>'
+        f'<label>Low <input id="{element_id}-low" value="{low}"></label>'
+        f'<label>High <input id="{element_id}-high" value="{high}"></label>'
+        f"</div></div>"
+    )
+
+
 def _strategy_fields() -> str:
+    ranges = "".join(_range_field(*spec) for spec in _RANGE_FIELDS)
     return (
         _select_field("entry", "entry", "Entry")
         + _select_field("exit", "exit-rule", "Exit rule")
-        + _number_field("touch", "touch", "Wick touch")
-        + _number_field("sma_band", "sma-band", "SMA band")
-        + _number_field("chase", "chase", "Chase")
-        + _number_field("break_atr", "break-atr", "ATR fraction")
+        + ranges
+        + '<label>Range steps <input id="range-steps" value="10"></label>'
     )
 
 
@@ -895,6 +917,8 @@ gross loss, profit factor, max drawdown, win rate, and the average trade.
 The armed menu is when this book started. It applies to recent sessions.
 Saved sessions keep each day's own armed time.
 The calendar keeps closes on those dates for both.
+Check Range on wick touch, the SMA band, chase, the ATR fraction, or near a level.
+Set that buffer's low and high. Range steps cuts the span into 10 to 20 values and graphs the net.
 Live, Never exit, Near the next level, and Named stop are scored beside this test.
 This does not place an order and it does not rewrite the paper tape.</p>
 <p class="knobs" id="strategy-fields">
@@ -902,7 +926,6 @@ This does not place an order and it does not rewrite the paper tape.</p>
 <label>Bars <select id="bars-source"><option value="recent">recent sessions</option><option value="saved">saved sessions</option></select></label>
 {_calendar_fields()}
 {_strategy_fields()}
-<label>Near a level <input id="profit-near" value="0.15"></label>
 <label>Exit test <select id="exit-test"><option value="live">use the exit rule</option><option value="never">never exit</option><option value="near">near the next level</option><option value="named">named stop</option><option value="custom">custom</option></select></label>
 <label>Stop <select id="stop-mode"><option value="reclaim">reclaim</option><option value="named">named stop</option><option value="none">none</option></select></label>
 <label>Take profit <select id="take-mode"><option value="target">close through the far target</option><option value="near">near the next level</option><option value="none">never</option></select></label>
@@ -1103,6 +1126,153 @@ def _this_test(payload: dict) -> dict:
     return extra
 
 
+def _range_number(name: str, value, edge: str) -> float:
+    label = f"{_RANGE_LABELS[name]} {edge}"
+    if value is None or value == "":
+        raise ValueError(f"{label} must be a number")
+    if name == "profit_near":
+        try:
+            number = float(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"{label} must be a number") from exc
+        if number < 0:
+            raise ValueError(f"{label} must be zero or more")
+        return number
+    try:
+        return float(claim_alerts._coerce(name, value, claim_alerts.VARIABLES[name]))
+    except ValueError as exc:
+        text = str(exc)
+        if text.startswith(f"{name} "):
+            raise ValueError(f"{label} {text[len(name) + 1:]}") from exc
+        raise
+
+
+def _range_steps(low: float, high: float, count: int) -> list[float]:
+    if count < 10 or count > 20:
+        raise ValueError("steps must be a whole number from 10 to 20")
+    if low > high:
+        raise ValueError("the range low must be at or below the high")
+    if count == 1:
+        return [round(float(low), 6)]
+    values = []
+    for index in range(count):
+        if index == count - 1:
+            values.append(round(float(high), 4))
+        else:
+            values.append(round(float(low) + (float(high) - float(low)) * index / (count - 1), 4))
+    return values
+
+
+def _parse_ranges(payload: dict) -> list[dict]:
+    raw = payload.get("ranges") or []
+    if raw in ([], None, ""):
+        return []
+    if not isinstance(raw, list):
+        raise ValueError("ranges must be a list")
+    steps = payload.get("steps", 10)
+    if steps in (None, ""):
+        steps = 10
+    try:
+        number = float(steps)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("steps must be a whole number from 10 to 20") from exc
+    if number != int(number):
+        raise ValueError("steps must be a whole number from 10 to 20")
+    count = int(number)
+    parsed = []
+    seen: set[str] = set()
+    for row in raw:
+        if not isinstance(row, dict):
+            raise ValueError("a range needs a name, a low, and a high")
+        name = str(row.get("name") or "")
+        if name not in _RANGE_LABELS:
+            raise ValueError("range must be wick touch, SMA band, chase, ATR fraction, or near a level")
+        if name in seen:
+            continue
+        seen.add(name)
+        low = _range_number(name, row.get("low"), "low")
+        high = _range_number(name, row.get("high"), "high")
+        if low > high:
+            raise ValueError(f"{_RANGE_LABELS[name]} low must be at or below the high")
+        parsed.append(
+            {
+                "name": name,
+                "label": _RANGE_LABELS[name],
+                "low": low,
+                "high": high,
+                "values": _range_steps(low, high, count),
+            }
+        )
+    return parsed
+
+
+def _this_settings(kwargs: dict, overrides: dict) -> dict:
+    return desk._settings(
+        overrides.get("touch", kwargs["touch"]),
+        overrides.get("chase", kwargs["chase"]),
+        overrides.get("break_atr", kwargs["break_atr"]),
+        overrides.get("profit_near", kwargs["profit_near"]),
+        overrides.get("sma_band", kwargs["sma_band"]),
+        kwargs["entry"],
+        kwargs.get("this_test"),
+    )
+
+
+def _sweep_points(days: list[dict], kwargs: dict, name: str, values: list[float]) -> list[dict]:
+    points = []
+    for value in values:
+        settings = _this_settings(kwargs, {name: value})
+        trades = []
+        stitched: dict[str, list[dict]] = {}
+        for day in days:
+            result = desk.run_backtest(
+                day["bars"],
+                day["levels"],
+                day["armed_at"],
+                settings,
+                kwargs.get("premiums"),
+                kwargs.get("threshold") or 1,
+            )
+            trades.extend(result["trades"])
+            for ticker, bars in day["bars"].items():
+                stitched.setdefault(ticker, []).extend(bars)
+        ordered = {
+            ticker: sorted(bars, key=lambda bar: bar["close_at"])
+            for ticker, bars in stitched.items()
+        }
+        stats = desk.performance(trades, ordered)["summary"]["strategy"]
+        points.append(
+            {
+                "value": value,
+                "net": stats["net"],
+                "trades": stats["trades"],
+                "win_rate": stats["win_rate"],
+                "profit_factor": stats["profit_factor"],
+                "max_drawdown": stats["max_drawdown"],
+                "expected": stats["expected"],
+            }
+        )
+    return points
+
+
+def _attach_sweeps(packed: dict, days: list[dict], kwargs: dict, payload: dict) -> dict:
+    ranges = _parse_ranges(payload)
+    if not ranges:
+        return packed
+    packed["sweeps"] = [
+        {
+            "name": row["name"],
+            "label": row["label"],
+            "low": row["low"],
+            "high": row["high"],
+            "steps": len(row["values"]),
+            "points": _sweep_points(days, kwargs, row["name"], row["values"]),
+        }
+        for row in ranges
+    ]
+    return packed
+
+
 def _preset_kwargs(payload: dict) -> dict:
     threshold = payload.get("threshold", 1)
     if threshold in (None, ""):
@@ -1197,7 +1367,7 @@ def _saved_payload(
         message = note or ("No saved sessions in that calendar." if bounds else "No saved sessions.")
         window = _mark_calendar(_window({}, "saved", message), bounds)
         runs = desk.run_presets({}, [], 0, **kwargs)
-        return _pack(runs, window)
+        return _attach_sweeps(_pack(runs, window), [], kwargs, payload)
     day_runs = [
         desk.run_presets(day["bars"], day["levels"], day["armed_at"], **kwargs)
         for day in days
@@ -1225,7 +1395,7 @@ def _saved_payload(
         )
     window = _mark_calendar(_window(ordered, "saved", note), bounds)
     window["days"] = [day["day"] for day in days]
-    return _pack(runs, window)
+    return _attach_sweeps(_pack(runs, window), days, kwargs, payload)
 
 
 def backtest_payload(payload: dict, bars_by_ticker: dict | None = None) -> dict:
@@ -1235,14 +1405,11 @@ def backtest_payload(payload: dict, bars_by_ticker: dict | None = None) -> dict:
     if bars_by_ticker is not None:
         bars_by_ticker = _clip_bars(bars_by_ticker, bounds)
         levels = _parse_levels(payload.get("levels") or [])
+        armed = _armed_stamp(payload.get("armed_at") or "")
         window = _mark_calendar(_window(bars_by_ticker, "given"), bounds)
-        runs = desk.run_presets(
-            bars_by_ticker,
-            levels,
-            _armed_stamp(payload.get("armed_at") or ""),
-            **kwargs,
-        )
-        return _pack(runs, window)
+        days = [{"bars": bars_by_ticker, "levels": levels, "armed_at": armed}]
+        runs = desk.run_presets(bars_by_ticker, levels, armed, **kwargs)
+        return _attach_sweeps(_pack(runs, window), days, kwargs, payload)
     if source == "saved":
         return _saved_payload(payload, kwargs, bounds=bounds)
     if source != "recent":
@@ -1256,9 +1423,11 @@ def backtest_payload(payload: dict, bars_by_ticker: dict | None = None) -> dict:
     except (SystemExit, OSError, urllib.error.URLError) as exc:
         note = f"Recent prices were unavailable ({exc}). Saved sessions were used."
         return _saved_payload(payload, kwargs, note, bounds)
+    armed = _armed_stamp(payload.get("armed_at") or "")
     window = _mark_calendar(_window(bars, "recent", _calendar_note(bounds, today)), bounds)
-    runs = desk.run_presets(bars, levels, _armed_stamp(payload.get("armed_at") or ""), **kwargs)
-    return _pack(runs, window)
+    days = [{"bars": bars, "levels": levels, "armed_at": armed}]
+    runs = desk.run_presets(bars, levels, armed, **kwargs)
+    return _attach_sweeps(_pack(runs, window), days, kwargs, payload)
 
 
 def save_book(root: Path, payload: dict) -> None:
