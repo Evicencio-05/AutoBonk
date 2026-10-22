@@ -82,7 +82,9 @@ Checker, 2026-10-20: a lower level is skipped when the next number was tagged an
 
 The 2026-10-14 and 2026-10-15 sets are filed under `charts/`. No Agentic trade has been taken against them, so they stay unscored.
 
-The 2026-10-16 SPCX put was not taken. The operator confirmed the 09:20 buy and the 12:10 sell as the candles for that lookback. The score lives in `learning/training.md`.
+The 2026-10-16 SPCX put was not taken. The operator confirmed the 09:20 buy and the 12:10 sell as the candles for that lookback. The score lives in `learning/training.md`. Re-scored 2026-10-22: the 09:20 buy is still the bottom, and the first green still leaves 0.43 stock points. The live retest already buys that 09:20 candle. The 09:10 high did not tag 146.5.
+
+Snipe check, 2026-10-22: skipping the first color, and buying only a later candle that pushed farther, was replayed on the frozen 2026-10-14, 2026-10-15, and 2026-10-16 books and on the 2026-10-21 book. The retest closed 14 trades, 7 wins, net +18.63 stock points, profit factor 4.14. The skip closed 9 trades, 5 wins, net +11.03, profit factor 4.29. Win rate went from 50% to 56%, and the book made less, because the skip dropped winners. The detail is in `bench/experiments/snipe-entry/experiment.md`. The live entry stays the retest. This is not a pattern. No Agentic trade has been taken.
 
 ## Patterns
 
