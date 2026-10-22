@@ -3,6 +3,7 @@ Description=Check AutoBonk claims after each 10-minute close
 
 [Timer]
 OnCalendar=Mon..Fri *-*-* 04..13:01,11,21,31,41,51 America/Los_Angeles
+OnCalendar=Mon..Fri *-*-* 12:45:00 America/Los_Angeles
 Persistent=false
 AccuracySec=30s
 
