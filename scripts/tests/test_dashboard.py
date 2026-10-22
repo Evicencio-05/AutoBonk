@@ -142,6 +142,117 @@ def test_a_contract_comparison_shows_the_percent_return():
     assert page.index("<h2>Contracts</h2>") < page.index("<h2>Live book</h2>")
 
 
+def _bar(start, open_, high, low, close, **extra):
+    row = {
+        "start": start,
+        "close_at": start + 600,
+        "o": open_,
+        "h": high,
+        "l": low,
+        "c": close,
+        "atr": 0.70,
+        "purple": 70.6,
+        "yellow": 63.5,
+        "sma": 338.9,
+        "v": 1000,
+    }
+    row.update(extra)
+    return row
+
+
+def _replay_bars():
+    return [
+        _bar(0, 340.80, 341.00, 340.40, 340.70),
+        _bar(600, 340.60, 340.74, 340.07, 340.35),
+        _bar(1200, 340.35, 340.44, 339.90, 340.40),
+        _bar(1800, 340.40, 340.41, 339.71, 339.74),
+        _bar(2400, 339.74, 339.80, 339.50, 339.60),
+        _bar(3000, 339.60, 345.50, 339.55, 345.10),
+        _bar(3600, 345.10, 346.20, 345.00, 345.90),
+    ]
+
+
+def _strategy_payload(**extra):
+    payload = {
+        "armed_at": "",
+        "levels": [{"ticker": "AAPL", "price": 340, "allows": "long", "targets": [345.4], "note": "Claim 340"}],
+        "touch": 0.15,
+        "chase": 0.50,
+        "sma_band": 1,
+        "break_atr": 0.5,
+        "profit_near": 0.15,
+        "entry": "retest",
+        "exit": "target",
+        "exit_test": "live",
+    }
+    payload.update(extra)
+    return payload
+
+
+def test_the_strategy_desk_edits_variables_and_hides_contracts():
+    root = Path("/tmp/autobonk-dashboard-strategy")
+    (root / "alerts").mkdir(parents=True, exist_ok=True)
+    (root / "alerts" / "levels.yaml").write_text(
+        'armed_at: "2026-10-16T08:27:30-07:00"\nlevels:\n'
+        "  - ticker: AAPL\n    price: 350\n    allows: long\n    targets: [360]\n    note: Claim\n"
+    )
+
+    page = dashboard.render(root)
+    backtest = page.split("id='backtest'", 1)[1].split("<section", 1)[0]
+
+    assert 'id="strategy-fields"' in backtest
+    assert 'id="entry"' in backtest
+    assert 'id="exit-rule"' in backtest
+    assert 'id="sma-band"' in backtest
+    assert 'id="bars-source"' in backtest
+    assert "max drawdown" in backtest
+    assert "win rate" in backtest
+    assert "premium-rows" not in backtest
+    assert "Add contract" not in backtest
+    assert "place order" not in page.lower()
+
+
+def test_a_backtest_reports_profit_and_follows_the_exit_variable():
+    bars = {"AAPL": _replay_bars()}
+    live = dashboard.backtest_payload(_strategy_payload(), bars)
+    held = dashboard.backtest_payload(_strategy_payload(exit_test="never"), bars)
+
+    report = live["report"]
+    stats = report["summary"]["strategy"]
+    assert report["name"] == "This test"
+    assert stats["trades"] == 1
+    assert round(stats["net"], 2) == -0.75
+    assert stats["gross_loss"] == stats["max_drawdown"]
+    assert stats["profit_factor"] == 0
+    assert stats["wins"] == 0
+    assert stats["losses"] == 1
+    assert "equity" in stats
+    assert report["settings"]["entry"] == "retest"
+    assert report["settings"]["exit"] == "target"
+    assert "stop_mode" not in report["settings"]
+    assert round(held["report"]["summary"]["strategy"]["net"], 2) == 5.55
+    assert held["report"]["settings"]["flatten"] == "none"
+    assert live["window"]["bars"] == 7
+
+
+def test_saved_sessions_score_each_posted_book():
+    result = dashboard.backtest_payload({"bars": "saved", "levels": [], "exit_test": "live"})
+    stats = result["report"]["summary"]["strategy"]
+
+    assert result["window"]["source"] == "saved"
+    assert result["window"]["days"] == ["2026-10-14", "2026-10-15", "2026-10-16"]
+    assert stats["trades"] > 0
+    assert stats["gross_profit"] >= 0
+    assert stats["gross_loss"] >= 0
+    assert "profit_factor" in stats
+    assert "max_drawdown" in stats
+    assert "win_rate" in stats
+    assert "expected" in stats
+    assert "equity" in stats
+    assert len(stats["equity"]) == stats["trades"]
+    assert result["report"]["trades"][0]["contract"] in ("", None)
+
+
 def test_the_first_lesson_is_sniping_the_contract_bottom():
     root = Path("/tmp/autobonk-dashboard-lesson")
     (root / "alerts").mkdir(parents=True, exist_ok=True)
