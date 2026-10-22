@@ -371,10 +371,23 @@ def _training(root: Path) -> str:
         if line.startswith("- ")
         and any(
             label in line
-            for label in ("Confirmed buy", "Confirmed sell", "Buy miss", "Sell miss")
+            for label in (
+                "Confirmed buy",
+                "Confirmed sell",
+                "Buy miss",
+                "Sell miss",
+                "Contract bottom",
+                "versus the bottom",
+            )
         )
     ]
-    blocks = ["<p>One observation. Not a live alert.</p>"]
+    blocks = []
+    goal = _first_goal(root)
+    if goal:
+        blocks.append(
+            f"<p><b>{_esc(goal.get('title'))}</b> {_esc(' '.join(str(goal.get('says') or '').split()))}</p>"
+        )
+    blocks.append("<p>One observation. Not a live alert.</p>")
     for drill in drills:
         blocks.append(
             "<table><thead><tr>"
@@ -547,11 +560,30 @@ def _sheet(text: str, empty: str) -> str:
     return f"<pre class='sheet'>{_esc(body)}</pre>"
 
 
+def _first_goal(root: Path) -> dict | None:
+    path = root / "learning" / "goals.yaml"
+    if not path.is_file():
+        return None
+    goals = (yaml.safe_load(path.read_text()) or {}).get("goals") or []
+    return goals[0] if goals else None
+
+
 def _lessons(root: Path) -> str:
+    lessons_dir = root / "learning" / "lessons"
+    lessons = sorted(lessons_dir.glob("*.md")) if lessons_dir.is_dir() else []
     reviews = sorted((root / "learning" / "reviews").glob("*.md")) if (root / "learning" / "reviews").is_dir() else []
-    if not reviews:
-        return "<p>No written lesson yet.</p>"
+    if not lessons and not reviews:
+        goal = _first_goal(root)
+        if goal is None:
+            return "<p>No written lesson yet.</p>"
+        return (
+            f"<h3>{_esc(goal.get('title'))}</h3>"
+            f"<p>{_esc(' '.join(str(goal.get('says') or '').split()))}</p>"
+            "<p>This is the first goal. It is not a pattern and it is not an order.</p>"
+        )
     blocks = []
+    for path in lessons:
+        blocks.append(_sheet(path.read_text(), ""))
     for path in reversed(reviews):
         blocks.append(f"<h3>{_esc(path.stem)}</h3>" + _sheet(path.read_text(), ""))
     return "".join(blocks)
