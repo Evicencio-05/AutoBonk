@@ -16,12 +16,14 @@ Train sessions: 2026-10-14, 2026-10-15. Forward session: 2026-10-16. Entry stays
 
 Train winner: Wick touch 0.0556, SMA band 1, Chase 0.6667, ATR fraction 0. Train net +28.82 on 10 closes.
 
-Forward net +2.18 on 1 close. Live buffers on that day: +2.18 on 1 close.
+Old parameters: Wick touch 0.15, SMA band 1, Chase 0.5, ATR fraction 0.5.
 
-| Session | Role | Train winner | Live buffers |
-|---------|------|--------------|--------------|
-| 2026-10-14 | train | +14.90 on 5 closes | -2.00 on 6 closes |
-| 2026-10-15 | train | +13.92 on 5 closes | +10.20 on 4 closes |
-| 2026-10-16 | forward | +2.18 on 1 close | +2.18 on 1 close |
+On 2026-10-16, new parameters made +2.18 on 1 close. Old parameters made +2.18 on 1 close. Difference 0.00 stock points.
+
+| Session | Role | New parameters | Old parameters | Difference |
+|---------|------|----------------|----------------|------------|
+| 2026-10-14 | train | +14.90 on 5 closes | -2.00 on 6 closes | +16.90 |
+| 2026-10-15 | train | +13.92 on 5 closes | +10.20 on 4 closes | +3.72 |
+| 2026-10-16 | forward | +2.18 on 1 close | +2.18 on 1 close | 0.00 |
 
 Not applied. The forward day has fewer than 2 closes. Entry stays the retest.

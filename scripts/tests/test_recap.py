@@ -101,6 +101,58 @@ def test_the_checker_applies_buffers_and_ignores_a_fade_entry(tmp_path):
     assert claim.live_settings()["entry"] == "retest"
 
 
+def _rendered(**overrides):
+    sweep = {"low": 0, "high": 1, "points": [{"value": 0.15, "net": 1.0}], "candidates": [0.15]}
+    result = {
+        "train_days": ["2026-10-14"],
+        "forward_day": "2026-10-16",
+        "sweeps": {name: sweep for name in (*recap.LIVE, "profit_near")},
+        "winner": _combo(touch=0.05),
+        "old": _combo(),
+        "train": _stats(4, 6),
+        "forward": _stats(3.5, 2),
+        "baseline_forward": _stats(1.25, 2),
+        "forward_difference": 2.25,
+        "folds": [
+            {
+                "day": "2026-10-16",
+                "role": "forward",
+                "winner": _stats(3.5, 2),
+                "baseline": _stats(1.25, 2),
+                "difference": 2.25,
+            }
+        ],
+        "apply": False,
+        "reason": "the forward day has fewer than 2 closes",
+    }
+    result.update(overrides)
+    return recap.render(result)
+
+
+def test_the_recap_states_the_day_profit_difference():
+    text = _rendered()
+    assert "On 2026-10-16, new parameters made +3.50 on 2 closes." in text
+    assert "Old parameters made +1.25 on 2 closes." in text
+    assert "Difference +2.25 stock points." in text
+    assert "| 2026-10-16 | forward | +3.50 on 2 closes | +1.25 on 2 closes | +2.25 |" in text
+
+    lost = _rendered(
+        forward=_stats(-1, 2),
+        baseline_forward=_stats(1.5, 2),
+        forward_difference=-2.5,
+        folds=[
+            {
+                "day": "2026-10-16",
+                "role": "forward",
+                "winner": _stats(-1, 2),
+                "baseline": _stats(1.5, 2),
+                "difference": -2.5,
+            }
+        ],
+    )
+    assert "Difference -2.50 stock points." in lost
+
+
 def test_saved_sessions_forward_test_the_last_day():
     days = recap.dashboard._saved_days(recap.ROOT)
     result = recap.search(days)
@@ -109,6 +161,12 @@ def test_saved_sessions_forward_test_the_last_day():
     assert result["forward_day"] == "2026-10-16"
     assert set(result["winner"]) == set(recap.LIVE)
     text = recap.render(result)
+    difference = recap._gap(result["forward"]["net"], result["baseline_forward"]["net"])
+    assert result["forward_difference"] == difference
+    assert f"Difference {recap._points(difference)} stock points." in text
+    assert "Old parameters:" in text
+    document = recap.parameters_document(result)
+    assert f"forward_difference: {round(difference, 4)}" in document
     assert "Entry stays the retest" in text
     assert "does not place an order" in text
     assert "Near a level is scored and not applied" in text

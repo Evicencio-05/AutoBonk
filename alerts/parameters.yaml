@@ -17,3 +17,4 @@ train_trades: 10
 forward_net: 2.18
 forward_trades: 1
 baseline_forward_net: 2.18
+forward_difference: 0.0
