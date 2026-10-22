@@ -22,6 +22,7 @@ _SCRIPTS = Path(__file__).resolve().parent
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
+import blotter  # noqa: E402
 import desk  # noqa: E402
 import claim_alerts  # noqa: E402
 
@@ -51,9 +52,10 @@ def render(root: Path) -> str:
 
 
 def _read(path: Path) -> str:
-    if not path.is_file():
-        return ""
-    return path.read_text()
+    text = path.read_text() if path.is_file() else ""
+    if path.parent == ROOT / "alerts":
+        text = blotter.merge(path.name, text)
+    return text
 
 
 def _esc(value) -> str:

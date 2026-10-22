@@ -1143,6 +1143,15 @@ def notify_discord(text: str) -> None:
         response.read()
 
 
+def _store_rows(kind: str, lines: list[str], path: Path, real: Path) -> None:
+    """Remember a row for the website. A temp path used by a test stays a file."""
+    if path.resolve() != real.resolve():
+        return
+    import blotter as trade_rows
+
+    trade_rows.store(kind, lines)
+
+
 def append_log(lines: list[str]) -> None:
     LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
     if not LOG_PATH.is_file():
@@ -1150,6 +1159,7 @@ def append_log(lines: list[str]) -> None:
     with LOG_PATH.open("a") as handle:
         for line in lines:
             handle.write(f"- {line}\n")
+    _store_rows("log", lines, LOG_PATH, LOG_PATH)
 
 
 def _too_far_otm(stock: float, side: str, strike: float, far: float | None) -> bool:
@@ -2047,6 +2057,7 @@ def append_context(
     if not fresh:
         return
     path.write_text(existing.rstrip() + "\n" + "\n".join(fresh) + "\n")
+    _store_rows("context", fresh, path, CONTEXT_PATH)
 
 
 def live_line(event: dict) -> str | None:
@@ -2090,6 +2101,7 @@ def append_live(events: list[dict], path: Path = LIVE_PATH) -> None:
     if not fresh:
         return
     path.write_text(text.rstrip() + "\n" + "\n".join(fresh) + "\n")
+    _store_rows("live", fresh, path, LIVE_PATH)
 
 
 def append_paper(events: list[dict], path: Path = PAPER_PATH) -> None:
@@ -2109,9 +2121,10 @@ def append_paper(events: list[dict], path: Path = PAPER_PATH) -> None:
     blotter, separator, marks = text.partition("\n## Open marks\n")
     if separator:
         path.write_text(blotter.rstrip() + "\n" + addition + "\n## Open marks\n" + marks)
-        return
-    with path.open("a") as handle:
-        handle.write(addition)
+    else:
+        with path.open("a") as handle:
+            handle.write(addition)
+    _store_rows("paper", lines, path, PAPER_PATH)
 
 
 def refresh_dashboard() -> None:
