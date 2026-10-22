@@ -662,12 +662,12 @@ This does not place an order and it does not rewrite the paper tape.</p>
 <label>Take profit <select id="take-mode"><option value="target">close through the far target</option><option value="near">near the next level</option><option value="none">never</option></select></label>
 <label>Clock <select id="flatten-mode"><option value="clock">12:50 PT</option><option value="none">do not flatten</option></select></label>
 </p>
-<table data-nosort><thead><tr><th>Ticker</th><th>Price</th><th>Allows</th><th>Targets</th><th>Up targets</th><th>Stop</th><th>Note</th></tr></thead>
+<table class="editor levels" data-nosort><thead><tr><th>Ticker</th><th>Price</th><th>Allows</th><th>Targets</th><th>Up targets</th><th>Stop</th><th>Note</th></tr></thead>
 <tbody id="level-rows">{level_rows}</tbody></table>
-<p><button type="button" id="add-level">Add level</button></p>
-<table data-nosort><thead><tr><th>Ticker</th><th>Side</th><th>Level</th><th>Contract</th><th>Entry premium</th><th>Exit premium</th></tr></thead>
+<p class="actions"><button type="button" id="add-level">Add level</button></p>
+<table class="editor premiums" data-nosort><thead><tr><th>Ticker</th><th>Side</th><th>Level</th><th>Contract</th><th>Entry premium</th><th>Exit premium</th></tr></thead>
 <tbody id="premium-rows">{premium_rows}</tbody></table>
-<p><button type="button" id="add-premium">Add contract</button>
+<p class="actions"><button type="button" id="add-premium">Add contract</button>
 <button type="button" id="run-backtest">Run backtest</button>
 <button type="button" id="save-book">Save book</button></p>
 <div id="backtest-out"><p>The four presets are Live, Never exit, Near the next level, and Named stop. Custom uses the menus above.</p></div>
@@ -765,10 +765,14 @@ def save_book(root: Path, payload: dict) -> None:
     path.write_text(yaml.safe_dump({"armed_at": armed, "levels": levels}, sort_keys=False))
 
 
+def _contain_tables(part: str) -> str:
+    return part.replace("<table", "<div class='sheet-scroll'><table").replace("</table>", "</table></div>")
+
+
 def _page(sections: list[tuple[str, str, str]]) -> str:
 
     body = "".join(
-        f"<section id='{anchor}'><h2>{html.escape(title)}</h2>{part}</section>"
+        f"<section id='{anchor}'><h2>{html.escape(title)}</h2>{_contain_tables(part)}</section>"
         for title, part, anchor in sections
     )
     by_anchor = {anchor: title for title, _part, anchor in sections}
