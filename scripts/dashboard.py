@@ -626,44 +626,39 @@ def _level_inputs(level: dict) -> str:
     )
 
 
-def _premium_inputs(row: dict) -> str:
-    side = row.get("side") or "call"
+_CHOICE_LABELS = {
+    "retest": "retest",
+    "fade": "fade",
+    "target": "close through the far target",
+    "stop": "named stop",
+}
+
+
+def _select_field(name: str, element_id: str, label: str) -> str:
+    spec = claim_alerts.VARIABLES[name]
+    current = spec["default"]
     options = "".join(
-        f"<option value='{name}'{' selected' if name == side else ''}>{name}</option>"
-        for name in ("call", "put")
+        f"<option value='{_esc(choice)}'{' selected' if choice == current else ''}>"
+        f"{_esc(_CHOICE_LABELS.get(choice, choice))}</option>"
+        for choice in spec["allowed"]
     )
+    return f'<label>{_esc(label)} <select id="{element_id}">{options}</select></label>'
+
+
+def _number_field(name: str, element_id: str, label: str) -> str:
+    default = claim_alerts.VARIABLES[name]["default"]
+    return f'<label>{_esc(label)} <input id="{element_id}" value="{_esc(default)}"></label>'
+
+
+def _strategy_fields() -> str:
     return (
-        "<tr>"
-        f"<td><input name='ticker' value='{_esc(row.get('ticker') or '')}'></td>"
-        f"<td><select name='side'>{options}</select></td>"
-        f"<td><input name='level' value='{_esc(row.get('level') or '')}'></td>"
-        f"<td><input name='contract' value='{_esc(row.get('contract') or '')}'></td>"
-        f"<td><input name='entry' value='{_esc(row.get('entry') or '')}'></td>"
-        f"<td><input name='exit' value='{_esc(row.get('exit') or '')}'></td>"
-        "</tr>"
+        _select_field("entry", "entry", "Entry")
+        + _select_field("exit", "exit-rule", "Exit rule")
+        + _number_field("touch", "touch", "Wick touch")
+        + _number_field("sma_band", "sma-band", "SMA band")
+        + _number_field("chase", "chase", "Chase")
+        + _number_field("break_atr", "break-atr", "ATR fraction")
     )
-
-
-def _known_premiums(root: Path) -> list[dict]:
-    rows = []
-    for cells in _table_rows(_read(root / "alerts" / "contracts.md")):
-        if cells[0] == "Time" or len(cells) < 9 or cells[3] != "chosen":
-            continue
-        if cells[4] in ("", "none"):
-            continue
-        side = "call" if cells[4].endswith("C") else "put" if cells[4].endswith("P") else "call"
-        exit_premium = cells[6] if cells[8] == "exit" else ""
-        rows.append(
-            {
-                "ticker": cells[1],
-                "side": side,
-                "level": cells[2],
-                "contract": cells[4],
-                "entry": cells[5],
-                "exit": exit_premium,
-            }
-        )
-    return rows
 
 
 def _studio(root: Path) -> str:
@@ -675,34 +670,35 @@ def _studio(root: Path) -> str:
         armed = armed.isoformat()
     levels = data.get("levels") or []
     level_rows = "".join(_level_inputs(level) for level in levels) or _level_inputs({})
-    premium_rows = "".join(_premium_inputs(row) for row in _known_premiums(root)) or _premium_inputs({})
+    count = len(levels)
     payload = json.dumps({"armed_at": armed}).replace("<", "\\u003c")
     return f"""
-<p>Change the levels, the buffers, the exit, and the contract premiums, then run the backtest.
-Stock points, returns, and profit factor are computed from the 10-minute closes.
-Option dollars use the premiums in the form, and they are not a quote at a new exit.
-A premium over the threshold is paper. A row with no contract is left out of both factors.
+<p>Change the entry, the exit, and the buffers, then run the test.
+The report is stock points on finished 10-minute closes: net profit, gross profit,
+gross loss, profit factor, max drawdown, win rate, and the average trade.
+Recent sessions uses the levels below. Saved sessions replays each day's own book with these same variables.
+Live, Never exit, Near the next level, and Named stop are scored beside this test.
 This does not place an order and it does not rewrite the paper tape.</p>
-<p class="knobs">
+<p class="knobs" id="strategy-fields">
 <label>Armed <input id="armed-at" value="{_esc(armed)}"></label>
-<label>Touch <input id="touch" value="0.15"></label>
-<label>Chase <input id="chase" value="0.50"></label>
-<label>ATR fraction <input id="break-atr" value="0.5"></label>
+<label>Bars <select id="bars-source"><option value="recent">recent sessions</option><option value="saved">saved sessions</option></select></label>
+<label>Recent range <select id="bar-range"><option value="5d">5 days</option><option value="1mo" selected>1 month</option></select></label>
+{_strategy_fields()}
 <label>Near a level <input id="profit-near" value="0.15"></label>
-<label>Premium threshold <input id="threshold" value="1"></label>
+<label>Exit test <select id="exit-test"><option value="live">use the exit rule</option><option value="never">never exit</option><option value="near">near the next level</option><option value="named">named stop</option><option value="custom">custom</option></select></label>
 <label>Stop <select id="stop-mode"><option value="reclaim">reclaim</option><option value="named">named stop</option><option value="none">none</option></select></label>
 <label>Take profit <select id="take-mode"><option value="target">close through the far target</option><option value="near">near the next level</option><option value="none">never</option></select></label>
 <label>Clock <select id="flatten-mode"><option value="clock">12:50 PT</option><option value="none">do not flatten</option></select></label>
 </p>
+<p class="actions"><button type="button" id="run-backtest">Run backtest</button>
+<button type="button" id="save-book">Save book</button></p>
+<details>
+<summary>Levels in this test ({count})</summary>
 <table class="editor levels" data-nosort><thead><tr><th>Ticker</th><th>Price</th><th>Allows</th><th>Targets</th><th>Up targets</th><th>Stop</th><th>Note</th></tr></thead>
 <tbody id="level-rows">{level_rows}</tbody></table>
 <p class="actions"><button type="button" id="add-level">Add level</button></p>
-<table class="editor premiums" data-nosort><thead><tr><th>Ticker</th><th>Side</th><th>Level</th><th>Contract</th><th>Entry premium</th><th>Exit premium</th></tr></thead>
-<tbody id="premium-rows">{premium_rows}</tbody></table>
-<p class="actions"><button type="button" id="add-premium">Add contract</button>
-<button type="button" id="run-backtest">Run backtest</button>
-<button type="button" id="save-book">Save book</button></p>
-<div id="backtest-out"><p>The four presets are Live, Never exit, Near the next level, and Named stop. Custom uses the menus above.</p></div>
+</details>
+<div id="backtest-out"><p>Run the test to see net profit, drawdown, and win rate for these variables.</p></div>
 <script id="desk-data" type="application/json">{payload}</script>
 """
 
@@ -755,38 +751,230 @@ def _armed_stamp(text: str) -> int:
     return int(when.timestamp())
 
 
-def _fetch_bars(tickers: list[str]) -> dict[str, list[dict]]:
+def _fetch_bars(tickers: list[str], span: str = "1mo") -> dict[str, list[dict]]:
+    if span not in ("5d", "1mo"):
+        raise ValueError("range must be 5d or 1mo")
     moment = int(datetime.now(claim_alerts.PT).timestamp())
     found = {}
     for ticker in tickers:
-        raw = claim_alerts.fetch_five_minute(ticker, "1mo")
+        raw = claim_alerts.fetch_five_minute(ticker, span)
         bars = claim_alerts.add_indicators(claim_alerts.ten_minute_bars(raw, moment))
         found[ticker] = [bar for bar in bars if claim_alerts.in_session(bar["close_at"])]
     return found
 
 
-def backtest_payload(payload: dict, bars_by_ticker: dict | None = None) -> dict:
-    levels = _parse_levels(payload.get("levels") or [])
-    if bars_by_ticker is None:
-        bars_by_ticker = _fetch_bars(sorted({level["ticker"] for level in levels}))
-    custom = payload.get("custom") or {}
-    runs = desk.run_presets(
-        bars_by_ticker,
-        levels,
-        _armed_stamp(payload.get("armed_at") or ""),
-        touch=float(payload.get("touch", 0.15)),
-        chase=float(payload.get("chase", 0.50)),
-        break_atr=float(payload.get("break_atr", 0.5)),
-        profit_near=float(payload.get("profit_near", 0.15)),
-        threshold=float(payload.get("threshold", 1)),
-        premiums=_premium_map(payload.get("premiums") or {}),
-        custom={
-            "stop_mode": custom.get("stop_mode") or "reclaim",
-            "take": custom.get("take") or "target",
-            "flatten": custom.get("flatten") or "clock",
-        },
+def _window(bars_by_ticker: dict[str, list[dict]], source: str, note: str = "") -> dict:
+    stamps = [bar["close_at"] for bars in bars_by_ticker.values() for bar in bars]
+    window = {
+        "source": source,
+        "bars": len(stamps),
+        "tickers": len(bars_by_ticker),
+        "missing": [ticker for ticker, bars in bars_by_ticker.items() if not bars],
+    }
+    if stamps:
+        window["from"] = datetime.fromtimestamp(min(stamps), claim_alerts.PT).strftime("%Y-%m-%d %H:%M PT")
+        window["to"] = datetime.fromtimestamp(max(stamps), claim_alerts.PT).strftime("%Y-%m-%d %H:%M PT")
+    if note:
+        window["note"] = note
+    return window
+
+
+def _variable(payload: dict, name: str):
+    spec = claim_alerts.VARIABLES[name]
+    if name not in payload or payload[name] == "":
+        return spec["default"]
+    if payload[name] is None:
+        raise ValueError(f"{name} must be a number" if spec["type"] == "float" else f"{name} must be set")
+    return claim_alerts._coerce(name, payload[name], spec)
+
+
+def _profit_near(payload: dict) -> float:
+    value = payload.get("profit_near", 0.15)
+    if value in ("", None):
+        if value is None and "profit_near" in payload:
+            raise ValueError("profit_near must be a number")
+        return 0.15
+    try:
+        number = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("profit_near must be a number") from exc
+    if number < 0:
+        raise ValueError("profit_near must be zero or more")
+    return number
+
+
+def _one_of(value, allowed: tuple[str, ...], label: str) -> str:
+    if value not in allowed:
+        raise ValueError(f"{label} must be one of {', '.join(allowed)}")
+    return value
+
+
+def _this_test(payload: dict) -> dict:
+    """The form's exit. Live uses the exit rule. The other tests are what-ifs."""
+    extra = {"exit": _variable(payload, "exit")}
+    mode = _one_of(
+        payload.get("exit_test") or "live",
+        ("live", "never", "near", "named", "custom"),
+        "exit test",
     )
-    return {"runs": runs}
+    if mode == "never":
+        extra.update(stop_mode="none", take="none", flatten="none")
+    elif mode == "near":
+        extra.update(stop_mode="none", take="near", flatten="clock")
+    elif mode == "named":
+        extra.update(stop_mode="named", take="none", flatten="clock")
+    elif mode == "custom":
+        extra.update(
+            stop_mode=_one_of(payload.get("stop_mode") or "reclaim", ("reclaim", "named", "none"), "stop"),
+            take=_one_of(payload.get("take") or "target", ("target", "near", "none"), "take profit"),
+            flatten=_one_of(payload.get("flatten") or "clock", ("clock", "none"), "clock"),
+        )
+    return extra
+
+
+def _preset_kwargs(payload: dict) -> dict:
+    threshold = payload.get("threshold", 1)
+    if threshold in (None, ""):
+        threshold = 1
+    return {
+        "touch": _variable(payload, "touch"),
+        "chase": _variable(payload, "chase"),
+        "break_atr": _variable(payload, "break_atr"),
+        "profit_near": _profit_near(payload),
+        "sma_band": _variable(payload, "sma_band"),
+        "entry": _variable(payload, "entry"),
+        "threshold": float(threshold),
+        "premiums": _premium_map(payload.get("premiums") or {}),
+        "this_test": _this_test(payload),
+    }
+
+
+def _pack(runs: list[dict], window: dict) -> dict:
+    report = next(run for run in runs if run["name"] == "This test")
+    return {"runs": runs, "report": report, "window": window}
+
+
+def _bars_for_tickers(source: dict, tickers: list[str]) -> dict[str, list[dict]]:
+    found = {ticker: {} for ticker in tickers}
+    for ticker in tickers:
+        for bar in source.get(ticker) or []:
+            if not isinstance(bar, dict):
+                continue
+            if any(bar.get(name) is None for name in ("close_at", "o", "h", "l", "c")):
+                continue
+            close_at = int(bar["close_at"])
+            if not claim_alerts.in_session(close_at):
+                continue
+            found[ticker][close_at] = {
+                "start": close_at - claim_alerts.TEN_MIN,
+                "close_at": close_at,
+                "o": float(bar["o"]),
+                "h": float(bar["h"]),
+                "l": float(bar["l"]),
+                "c": float(bar["c"]),
+                "v": bar.get("v"),
+            }
+    return {
+        ticker: claim_alerts.add_indicators([by_time[stamp] for stamp in sorted(by_time)])
+        for ticker, by_time in found.items()
+    }
+
+
+def _saved_days(root: Path) -> list[dict]:
+    """Each frozen session keeps that day's levels and its armed time."""
+    folder = root / "bench" / "fixtures"
+    if not folder.is_dir():
+        return []
+    days = []
+    for bars_path in sorted(folder.glob("*-bars.json")):
+        day = bars_path.name[: -len("-bars.json")]
+        levels_path = folder / f"{day}-levels.yaml"
+        if not levels_path.is_file():
+            continue
+        data = yaml.safe_load(levels_path.read_text()) or {}
+        armed = data.get("armed_at") or ""
+        if hasattr(armed, "isoformat"):
+            armed = armed.isoformat()
+        levels = _parse_levels(data.get("levels") or [])
+        raw = json.loads(bars_path.read_text())
+        source = raw.get("tickers") if isinstance(raw.get("tickers"), dict) else raw
+        if not isinstance(source, dict):
+            continue
+        tickers = sorted({level["ticker"] for level in levels})
+        days.append(
+            {
+                "day": day,
+                "levels": levels,
+                "armed_at": _armed_stamp(str(armed)),
+                "bars": _bars_for_tickers(source, tickers),
+            }
+        )
+    return days
+
+
+def _saved_payload(payload: dict, kwargs: dict, note: str = "") -> dict:
+    days = _saved_days(ROOT)
+    if not days:
+        window = _window({}, "saved", note or "No saved sessions.")
+        runs = desk.run_presets({}, [], 0, **kwargs)
+        return _pack(runs, window)
+    day_runs = [
+        desk.run_presets(day["bars"], day["levels"], day["armed_at"], **kwargs)
+        for day in days
+    ]
+    stitched: dict[str, list[dict]] = {}
+    for day in days:
+        for ticker, bars in day["bars"].items():
+            stitched.setdefault(ticker, []).extend(bars)
+    ordered = {
+        ticker: sorted(bars, key=lambda bar: bar["close_at"])
+        for ticker, bars in stitched.items()
+    }
+    runs = []
+    for index, first in enumerate(day_runs[0]):
+        trades = []
+        for scored in day_runs:
+            trades.extend(scored[index]["trades"])
+        runs.append(
+            {
+                "name": first["name"],
+                "trades": trades,
+                "settings": first["settings"],
+                **desk.performance(trades, ordered),
+            }
+        )
+    window = _window(ordered, "saved", note)
+    window["days"] = [day["day"] for day in days]
+    return _pack(runs, window)
+
+
+def backtest_payload(payload: dict, bars_by_ticker: dict | None = None) -> dict:
+    kwargs = _preset_kwargs(payload)
+    source = payload.get("bars") or "recent"
+    if bars_by_ticker is not None:
+        levels = _parse_levels(payload.get("levels") or [])
+        window = _window(bars_by_ticker, "given")
+        runs = desk.run_presets(
+            bars_by_ticker,
+            levels,
+            _armed_stamp(payload.get("armed_at") or ""),
+            **kwargs,
+        )
+        return _pack(runs, window)
+    if source == "saved":
+        return _saved_payload(payload, kwargs)
+    if source != "recent":
+        raise ValueError("bars must be recent or saved")
+    levels = _parse_levels(payload.get("levels") or [])
+    tickers = sorted({level["ticker"] for level in levels})
+    try:
+        bars = _fetch_bars(tickers, payload.get("range") or "1mo")
+    except (SystemExit, OSError, urllib.error.URLError) as exc:
+        note = f"Recent prices were unavailable ({exc}). Saved sessions were used."
+        return _saved_payload(payload, kwargs, note)
+    window = _window(bars, "recent")
+    runs = desk.run_presets(bars, levels, _armed_stamp(payload.get("armed_at") or ""), **kwargs)
+    return _pack(runs, window)
 
 
 def save_book(root: Path, payload: dict) -> None:

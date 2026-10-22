@@ -50,7 +50,32 @@ def test_profit_factor_is_gross_wins_over_gross_losses():
     assert stats["net"] == 3.0
     assert stats["wins"] == 2
     assert stats["losses"] == 1
+    assert stats["breakeven"] == 0
     assert stats["profit_factor"] == 2.5
+    assert stats["gross_profit"] == 5.0
+    assert stats["gross_loss"] == 2.0
+    assert stats["win_rate"] == 2 / 3
+    assert stats["expected"] == 1.0
+    assert stats["avg_win"] == 2.5
+    assert stats["avg_loss"] == -2.0
+    assert stats["payoff_ratio"] == 1.25
+    assert stats["largest_win"] == 4.0
+    assert stats["largest_loss"] == -2.0
+    assert stats["max_drawdown"] == 2.0
+    assert stats["max_drawdown_percent"] == 0.5
+    assert stats["max_win_streak"] == 1
+    assert stats["max_loss_streak"] == 1
+    assert stats["equity"] == [4.0, 2.0, 3.0]
+
+
+def test_drawdown_before_a_peak_has_no_percent():
+    stats = desk.score_points([-1.0, -1.0, 3.0])
+
+    assert stats["max_drawdown"] == 2.0
+    assert stats["max_drawdown_percent"] is None
+    assert stats["max_loss_streak"] == 2
+    assert stats["max_win_streak"] == 1
+    assert stats["breakeven"] == 0
 
 
 def test_a_premium_over_the_threshold_is_paper_and_a_blank_contract_is_not_a_trade():
@@ -98,3 +123,40 @@ def test_a_trade_without_a_contract_stays_out_of_the_factor():
     assert live["summary"]["no_contract"] == 1
     assert live["summary"]["fits"]["stock"]["trades"] == 0
     assert live["summary"]["paper"]["stock"]["trades"] == 0
+    assert live["summary"]["strategy"]["trades"] == 1
+    assert live["summary"]["strategy"]["net"] == live["trades"][0]["points"]
+    assert "max_drawdown" in live["summary"]["strategy"]
+    assert live["buy_hold"]["tickers"] == 1
+
+
+def test_this_test_uses_the_callers_exit():
+    runs = {
+        run["name"]: run
+        for run in desk.run_presets(
+            {"AAPL": _bars()},
+            _levels(),
+            this_test={"stop_mode": "none", "take": "none", "flatten": "none"},
+        )
+    }
+
+    assert runs["This test"]["trades"][0]["marked"] is True
+    assert runs["This test"]["summary"]["strategy"]["net"] == runs["Never exit"]["summary"]["strategy"]["net"]
+    assert runs["This test"]["settings"]["entry"] == "retest"
+    assert runs["Live"]["settings"]["entry"] == "retest"
+    assert runs["Live"]["settings"]["exit"] == "target"
+
+
+def test_live_stays_on_the_retest_when_the_test_fades():
+    runs = {
+        run["name"]: run
+        for run in desk.run_presets(
+            {"AAPL": _bars()},
+            _levels(),
+            entry="fade",
+            this_test={"exit": "target"},
+        )
+    }
+
+    assert runs["Live"]["settings"]["entry"] == "retest"
+    assert runs["This test"]["settings"]["entry"] == "fade"
+    assert runs["Never exit"]["settings"]["entry"] == "fade"

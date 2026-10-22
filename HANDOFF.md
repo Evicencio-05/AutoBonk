@@ -11,7 +11,7 @@ Open this project at `/home/evice/repos/AutoBonk`.
 
 ## What runs
 
-- `scripts/claim_alerts.py` checks finished 10-minute bars and can post an alert to Discord `#ta`. An alert is not an order. A live entry is a level retest. An SMA hold, or an RSI cross on an open trade, is a watch. A watch is not a paper row and not an order.
+- `scripts/claim_alerts.py` checks finished 10-minute bars and can post an alert to Discord `#ta`. An alert is not an order. A live entry is a level retest. A lost support is resistance, and a claimed resistance is support. An SMA hold, or an RSI cross on an open trade, is a watch. A watch is not a paper row and not an order.
 - After the cash close, fill `learning/daily_review.md` into `learning/reviews/YYYY-MM-DD.md` and append that day's fade fills in `alerts/fade_forward.md`. A review is not a pattern and does not change the live checker.
 - `scripts/bench.py` replays one frozen levels file and one settings snapshot. A replay is an observation. It does not change `rules/ta_rules.md` or the live defaults.
 - `scripts/discord_ta.py` reads `#ta` forwards. Ingest saves images under `charts/inbox/`.
