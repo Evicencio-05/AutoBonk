@@ -1,0 +1,437 @@
+{
+  "question": "With invalidation at the level, a wick stop, and the far note level as the target, how do failed claims and failed breaks do on 2026-10-15?",
+  "variable": "entry",
+  "default_value": "retest",
+  "variant_value": "fade",
+  "day": "discovery",
+  "default_events": [
+    {
+      "ticker": "AAPL",
+      "side": "call",
+      "level": 345.35,
+      "kind": "skip",
+      "reason": "chase",
+      "bar_time": "2026-10-15 06:50 PT",
+      "fill": 346.1199951171875
+    },
+    {
+      "ticker": "AAPL",
+      "side": "put",
+      "level": 345.35,
+      "kind": "entry",
+      "reason": "retest",
+      "bar_time": "2026-10-15 07:30 PT",
+      "fill": 345.0824890136719
+    },
+    {
+      "ticker": "AAPL",
+      "side": "put",
+      "level": 345.35,
+      "kind": "exit",
+      "reason": "clock",
+      "bar_time": "2026-10-15 12:50 PT",
+      "fill": null
+    },
+    {
+      "ticker": "AMZN",
+      "side": "call",
+      "level": 255.0,
+      "kind": "entry",
+      "reason": "retest",
+      "bar_time": "2026-10-15 12:40 PT",
+      "fill": 255.19000244140625
+    },
+    {
+      "ticker": "AMZN",
+      "side": "call",
+      "level": 255.0,
+      "kind": "exit",
+      "reason": "clock",
+      "bar_time": "2026-10-15 12:50 PT",
+      "fill": null
+    },
+    {
+      "ticker": "GOOGL",
+      "side": "call",
+      "level": 346.75,
+      "kind": "entry",
+      "reason": "sma",
+      "bar_time": "2026-10-15 07:30 PT",
+      "fill": 350.93499755859375
+    },
+    {
+      "ticker": "GOOGL",
+      "side": "call",
+      "level": 346.75,
+      "kind": "exit",
+      "reason": "clock",
+      "bar_time": "2026-10-15 12:50 PT",
+      "fill": null
+    },
+    {
+      "ticker": "MSFT",
+      "side": "call",
+      "level": 533.0,
+      "kind": "skip",
+      "reason": "chase",
+      "bar_time": "2026-10-15 07:10 PT",
+      "fill": 534.72998046875
+    },
+    {
+      "ticker": "MSFT",
+      "side": "call",
+      "level": 533.0,
+      "kind": "skip",
+      "reason": "chase",
+      "bar_time": "2026-10-15 07:30 PT",
+      "fill": 533.60498046875
+    },
+    {
+      "ticker": "MSFT",
+      "side": "call",
+      "level": 537.25,
+      "kind": "entry",
+      "reason": "sma",
+      "bar_time": "2026-10-15 10:10 PT",
+      "fill": 539.5800170898438
+    },
+    {
+      "ticker": "MSFT",
+      "side": "call",
+      "level": 537.25,
+      "kind": "exit",
+      "reason": "clock",
+      "bar_time": "2026-10-15 12:50 PT",
+      "fill": null
+    },
+    {
+      "ticker": "SPCX",
+      "side": "put",
+      "level": 146.0,
+      "kind": "skip",
+      "reason": "reclaim",
+      "bar_time": "2026-10-15 09:50 PT",
+      "fill": 145.83999633789062
+    }
+  ],
+  "variant_events": [
+    {
+      "ticker": "AAPL",
+      "side": "call",
+      "level": 345.35,
+      "kind": "skip",
+      "reason": "chase",
+      "bar_time": "2026-10-15 06:50 PT",
+      "fill": 346.1199951171875
+    },
+    {
+      "ticker": "AAPL",
+      "side": "put",
+      "level": 345.35,
+      "kind": "entry",
+      "reason": "fade",
+      "bar_time": "2026-10-15 07:30 PT",
+      "fill": 345.0824890136719
+    },
+    {
+      "ticker": "AAPL",
+      "side": "put",
+      "level": 345.35,
+      "kind": "exit",
+      "reason": "target",
+      "bar_time": "2026-10-15 11:20 PT",
+      "fill": null
+    },
+    {
+      "ticker": "AAPL",
+      "side": "put",
+      "level": 342.85,
+      "kind": "entry",
+      "reason": "sma",
+      "bar_time": "2026-10-15 11:50 PT",
+      "fill": 342.3399963378906
+    },
+    {
+      "ticker": "AAPL",
+      "side": "put",
+      "level": 342.85,
+      "kind": "exit",
+      "reason": "reclaim",
+      "bar_time": "2026-10-15 12:20 PT",
+      "fill": null
+    },
+    {
+      "ticker": "AAPL",
+      "side": "call",
+      "level": 342.85,
+      "kind": "skip",
+      "reason": "reclaim",
+      "bar_time": "2026-10-15 12:40 PT",
+      "fill": 342.92498779296875
+    },
+    {
+      "ticker": "AMZN",
+      "side": "call",
+      "level": 249.5,
+      "kind": "entry",
+      "reason": "fade",
+      "bar_time": "2026-10-15 06:50 PT",
+      "fill": 249.9600067138672
+    },
+    {
+      "ticker": "AMZN",
+      "side": "call",
+      "level": 249.5,
+      "kind": "exit",
+      "reason": "target",
+      "bar_time": "2026-10-15 12:20 PT",
+      "fill": null
+    },
+    {
+      "ticker": "AMZN",
+      "side": "call",
+      "level": 255.0,
+      "kind": "entry",
+      "reason": "sma",
+      "bar_time": "2026-10-15 12:50 PT",
+      "fill": 255.03500366210938
+    },
+    {
+      "ticker": "AMZN",
+      "side": "call",
+      "level": 255.0,
+      "kind": "exit",
+      "reason": "clock",
+      "bar_time": "2026-10-15 12:50 PT",
+      "fill": null
+    },
+    {
+      "ticker": "GOOGL",
+      "side": "call",
+      "level": 346.75,
+      "kind": "entry",
+      "reason": "sma",
+      "bar_time": "2026-10-15 07:30 PT",
+      "fill": 350.93499755859375
+    },
+    {
+      "ticker": "GOOGL",
+      "side": "call",
+      "level": 346.75,
+      "kind": "exit",
+      "reason": "clock",
+      "bar_time": "2026-10-15 12:50 PT",
+      "fill": null
+    },
+    {
+      "ticker": "MSFT",
+      "side": "put",
+      "level": 537.25,
+      "kind": "entry",
+      "reason": "fade",
+      "bar_time": "2026-10-15 06:50 PT",
+      "fill": 537.22998046875
+    },
+    {
+      "ticker": "MSFT",
+      "side": "put",
+      "level": 537.25,
+      "kind": "exit",
+      "reason": "reclaim",
+      "bar_time": "2026-10-15 08:10 PT",
+      "fill": null
+    },
+    {
+      "ticker": "MSFT",
+      "side": "call",
+      "level": 537.25,
+      "kind": "entry",
+      "reason": "sma",
+      "bar_time": "2026-10-15 10:10 PT",
+      "fill": 539.5800170898438
+    },
+    {
+      "ticker": "MSFT",
+      "side": "call",
+      "level": 537.25,
+      "kind": "exit",
+      "reason": "clock",
+      "bar_time": "2026-10-15 12:50 PT",
+      "fill": null
+    },
+    {
+      "ticker": "NVDA",
+      "side": "call",
+      "level": 213.5,
+      "kind": "skip",
+      "reason": "chase",
+      "bar_time": "2026-10-15 07:10 PT",
+      "fill": 214.08999633789062
+    },
+    {
+      "ticker": "SPCX",
+      "side": "call",
+      "level": 146.0,
+      "kind": "skip",
+      "reason": "reclaim",
+      "bar_time": "2026-10-15 09:30 PT",
+      "fill": 146.34800720214844
+    },
+    {
+      "ticker": "SPCX",
+      "side": "put",
+      "level": 146.0,
+      "kind": "skip",
+      "reason": "reclaim",
+      "bar_time": "2026-10-15 09:50 PT",
+      "fill": 145.83999633789062
+    },
+    {
+      "ticker": "SPCX",
+      "side": "call",
+      "level": 146.0,
+      "kind": "entry",
+      "reason": "fade",
+      "bar_time": "2026-10-15 10:50 PT",
+      "fill": 146.28500366210938
+    },
+    {
+      "ticker": "SPCX",
+      "side": "call",
+      "level": 146.0,
+      "kind": "exit",
+      "reason": "clock",
+      "bar_time": "2026-10-15 12:50 PT",
+      "fill": null
+    },
+    {
+      "ticker": "TSLA",
+      "side": "call",
+      "level": 358.0,
+      "kind": "skip",
+      "reason": "chase",
+      "bar_time": "2026-10-15 06:50 PT",
+      "fill": 359.9100036621094
+    }
+  ],
+  "difference": {
+    "entries_added": [
+      {
+        "ticker": "AAPL",
+        "side": "put",
+        "level": 342.85,
+        "kind": "entry",
+        "reason": "sma",
+        "bar_time": "2026-10-15 11:50 PT",
+        "fill": 342.3399963378906
+      },
+      {
+        "ticker": "AMZN",
+        "side": "call",
+        "level": 249.5,
+        "kind": "entry",
+        "reason": "fade",
+        "bar_time": "2026-10-15 06:50 PT",
+        "fill": 249.9600067138672
+      },
+      {
+        "ticker": "AMZN",
+        "side": "call",
+        "level": 255.0,
+        "kind": "entry",
+        "reason": "sma",
+        "bar_time": "2026-10-15 12:50 PT",
+        "fill": 255.03500366210938
+      },
+      {
+        "ticker": "MSFT",
+        "side": "put",
+        "level": 537.25,
+        "kind": "entry",
+        "reason": "fade",
+        "bar_time": "2026-10-15 06:50 PT",
+        "fill": 537.22998046875
+      },
+      {
+        "ticker": "SPCX",
+        "side": "call",
+        "level": 146.0,
+        "kind": "entry",
+        "reason": "fade",
+        "bar_time": "2026-10-15 10:50 PT",
+        "fill": 146.28500366210938
+      }
+    ],
+    "entries_removed": [
+      {
+        "ticker": "AMZN",
+        "side": "call",
+        "level": 255.0,
+        "kind": "entry",
+        "reason": "retest",
+        "bar_time": "2026-10-15 12:40 PT",
+        "fill": 255.19000244140625
+      }
+    ],
+    "exits_moved": [
+      {
+        "from": {
+          "ticker": "AAPL",
+          "side": "put",
+          "level": 345.35,
+          "kind": "exit",
+          "reason": "clock",
+          "bar_time": "2026-10-15 12:50 PT",
+          "fill": null
+        },
+        "to": {
+          "ticker": "AAPL",
+          "side": "put",
+          "level": 345.35,
+          "kind": "exit",
+          "reason": "target",
+          "bar_time": "2026-10-15 11:20 PT",
+          "fill": null
+        }
+      }
+    ],
+    "skips_appeared": [
+      {
+        "ticker": "AAPL",
+        "side": "call",
+        "level": 342.85,
+        "kind": "skip",
+        "reason": "reclaim",
+        "bar_time": "2026-10-15 12:40 PT",
+        "fill": 342.92498779296875
+      },
+      {
+        "ticker": "NVDA",
+        "side": "call",
+        "level": 213.5,
+        "kind": "skip",
+        "reason": "chase",
+        "bar_time": "2026-10-15 07:10 PT",
+        "fill": 214.08999633789062
+      },
+      {
+        "ticker": "SPCX",
+        "side": "call",
+        "level": 146.0,
+        "kind": "skip",
+        "reason": "reclaim",
+        "bar_time": "2026-10-15 09:30 PT",
+        "fill": 146.34800720214844
+      },
+      {
+        "ticker": "TSLA",
+        "side": "call",
+        "level": 358.0,
+        "kind": "skip",
+        "reason": "chase",
+        "bar_time": "2026-10-15 06:50 PT",
+        "fill": 359.9100036621094
+      }
+    ]
+  }
+}

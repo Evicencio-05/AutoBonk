@@ -1,0 +1,7 @@
+# Local map only. Copy to config/accounts.yaml and fill the Agentic account number.
+# Do not commit the filled file.
+accounts:
+  "AGENTIC_ACCOUNT_NUMBER":
+    thesis_store: robinhood_agentic
+    label: Portfolio C — Agentic
+    agentic_allowed: true

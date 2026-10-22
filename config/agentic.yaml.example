@@ -1,0 +1,22 @@
+# Copy to config/agentic.yaml for local overrides. The agent reads this and does not write it.
+# Chat overrides win over this file.
+
+account_key: robinhood_agentic
+
+sizing:
+  risk_pct: null
+  max_risk_dollars: 100
+  max_position_dollars: 100
+  max_position_pct: 100
+  min_shares: 1
+  account_size_source: mcp_buying_power
+  fixed_account_size: null
+  fractional: true
+
+gates:
+  require_new_entry_allowed: true
+  require_actionable_research: false
+  stale_research_days: 14
+
+learning:
+  write_plan_artifact: true

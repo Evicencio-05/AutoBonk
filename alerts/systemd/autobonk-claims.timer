@@ -1,0 +1,10 @@
+[Unit]
+Description=Check AutoBonk claims after each 10-minute close
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 04..13:01,11,21,31,41,51 America/Los_Angeles
+Persistent=false
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

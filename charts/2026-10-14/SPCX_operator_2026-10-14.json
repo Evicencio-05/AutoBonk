@@ -1,0 +1,93 @@
+{
+  "source": "operator",
+  "ticker": "SPCX",
+  "as_of": "2026-10-14",
+  "inputs": [
+    {
+      "type": "image",
+      "note": "SPCX 4h operator chart from Discord #ta forward, chart header 2026-10-14",
+      "file": "charts/2026-10-14/SPCX_operator_2026-10-14.webp"
+    }
+  ],
+  "extracted": {
+    "category": "operator",
+    "timeframe": "4h",
+    "last": 154.84,
+    "change": null,
+    "change_pct": null,
+    "volume": "1.42M",
+    "sma": {
+      "50": null,
+      "100": null,
+      "200": null
+    },
+    "price_vs_sma": null,
+    "sr_levels": [
+      176.42,
+      168.0,
+      164.1,
+      152.19,
+      145.05
+    ],
+    "fib_levels": [
+      {
+        "ratio": "1",
+        "price": 172.4,
+        "color": null
+      },
+      {
+        "ratio": "0.786",
+        "price": 157.94,
+        "color": null
+      },
+      {
+        "ratio": "0.618",
+        "price": 146.69,
+        "color": null
+      }
+    ],
+    "fib_sets": null,
+    "vp": {
+      "indicator": "luxalgo_vp_node_detection",
+      "lookback_note": "right-side profile on the 4h chart",
+      "poc": null,
+      "vah": null,
+      "val": null,
+      "peak_nodes": [],
+      "trough_nodes": [],
+      "highest_volume_zones": [],
+      "lowest_volume_zones": [],
+      "profile_labels": null,
+      "colors_note": "orange/blue histogram with gray outside the value area"
+    },
+    "major_levels": [
+      176.42,
+      168.0,
+      164.1,
+      152.19,
+      145.05
+    ],
+    "rsi": {
+      "white": 39.3,
+      "yellow": 30.15,
+      "mid_50": 50,
+      "buyer_strength": false,
+      "seller_strength": false,
+      "deterioration_watch": null,
+      "hold_note": null
+    },
+    "channel": null,
+    "earnings_markers": null,
+    "structure_notes": "Sharp slide from the October high. Price 154.84 approaching the 152 shelf.",
+    "operator_thesis": "Sliding. Look for 152 to act as a floor. Under that, 146.5. Need to claim 158 for higher.",
+    "chart_timestamp": "2026-10-14T06:24:00-07:00",
+    "batch": "pm_levels_2026-10-14"
+  },
+  "confidence": "medium",
+  "gaps": [
+    "SMA 50/100/200 prices left null; right-axis colors were not confirmed bar by bar.",
+    "VP POC / value area not numerically labeled.",
+    "Fib line colors not stored."
+  ],
+  "next": null
+}

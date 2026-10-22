@@ -1,0 +1,101 @@
+{
+  "tickers": [
+    "AAPL",
+    "SPCX",
+    "AMZN",
+    "GOOGL",
+    "MSFT"
+  ],
+  "events": [
+    {
+      "ticker": "AAPL",
+      "side": "put",
+      "level": 346.0,
+      "kind": "skip",
+      "reason": "chase",
+      "bar_time": "2026-10-16 09:10 PT",
+      "fill": 345.1400146484375
+    },
+    {
+      "ticker": "AAPL",
+      "side": "put",
+      "level": 346.0,
+      "kind": "entry",
+      "reason": "sma",
+      "bar_time": "2026-10-16 09:30 PT",
+      "fill": 344.95001220703125
+    },
+    {
+      "ticker": "AAPL",
+      "side": "put",
+      "level": 346.0,
+      "kind": "exit",
+      "reason": "target",
+      "bar_time": "2026-10-16 09:40 PT",
+      "fill": null
+    },
+    {
+      "ticker": "AAPL",
+      "side": "put",
+      "level": 344.0,
+      "kind": "entry",
+      "reason": "sma",
+      "bar_time": "2026-10-16 10:30 PT",
+      "fill": 343.1099853515625
+    },
+    {
+      "ticker": "AAPL",
+      "side": "put",
+      "level": 344.0,
+      "kind": "exit",
+      "reason": "clock",
+      "bar_time": "2026-10-16 12:50 PT",
+      "fill": null
+    },
+    {
+      "ticker": "SPCX",
+      "side": "put",
+      "level": 146.5,
+      "kind": "skip",
+      "reason": "reclaim",
+      "bar_time": "2026-10-16 08:50 PT",
+      "fill": 146.12139892578125
+    },
+    {
+      "ticker": "SPCX",
+      "side": "put",
+      "level": 146.5,
+      "kind": "entry",
+      "reason": "sma",
+      "bar_time": "2026-10-16 09:20 PT",
+      "fill": 145.88319396972656
+    },
+    {
+      "ticker": "SPCX",
+      "side": "put",
+      "level": 146.5,
+      "kind": "exit",
+      "reason": "clock",
+      "bar_time": "2026-10-16 12:50 PT",
+      "fill": null
+    },
+    {
+      "ticker": "GOOGL",
+      "side": "put",
+      "level": 346.75,
+      "kind": "entry",
+      "reason": "sma",
+      "bar_time": "2026-10-16 08:50 PT",
+      "fill": 344.4800109863281
+    },
+    {
+      "ticker": "GOOGL",
+      "side": "put",
+      "level": 346.75,
+      "kind": "exit",
+      "reason": "target",
+      "bar_time": "2026-10-16 11:20 PT",
+      "fill": null
+    }
+  ]
+}

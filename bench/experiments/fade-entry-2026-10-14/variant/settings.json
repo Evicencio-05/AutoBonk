@@ -1,0 +1,43 @@
+{
+  "touch": {
+    "value": 0.15,
+    "default": 0.15,
+    "type": "float",
+    "decision": "tag",
+    "allowed": null
+  },
+  "sma_band": {
+    "value": 1.0,
+    "default": 1.0,
+    "type": "float",
+    "decision": "tag",
+    "allowed": null
+  },
+  "chase": {
+    "value": 0.5,
+    "default": 0.5,
+    "type": "float",
+    "decision": "fill",
+    "allowed": null
+  },
+  "exit": {
+    "value": "target",
+    "default": "target",
+    "type": "str",
+    "decision": "exit",
+    "allowed": [
+      "target",
+      "stop"
+    ]
+  },
+  "entry": {
+    "value": "fade",
+    "default": "retest",
+    "type": "str",
+    "decision": "entry",
+    "allowed": [
+      "retest",
+      "fade"
+    ]
+  }
+}

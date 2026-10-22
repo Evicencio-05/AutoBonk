@@ -1,0 +1,127 @@
+{
+  "armed_at": "2026-10-16T08:27:30-07:00",
+  "levels": [
+    {
+      "ticker": "AAPL",
+      "price": 350.0,
+      "allows": "long",
+      "targets": [
+        360.0
+      ],
+      "chart": null
+    },
+    {
+      "ticker": "AAPL",
+      "price": 346.0,
+      "allows": "both",
+      "targets": [
+        344.0
+      ],
+      "chart": null,
+      "up_targets": [
+        350.0,
+        360.0
+      ]
+    },
+    {
+      "ticker": "AAPL",
+      "price": 344.0,
+      "allows": "short",
+      "targets": [
+        340.0
+      ],
+      "chart": null
+    },
+    {
+      "ticker": "SPCX",
+      "price": 151.0,
+      "allows": "long",
+      "targets": [],
+      "chart": null
+    },
+    {
+      "ticker": "SPCX",
+      "price": 146.5,
+      "allows": "both",
+      "targets": [
+        142.6
+      ],
+      "chart": null
+    },
+    {
+      "ticker": "SPCX",
+      "price": 142.6,
+      "allows": "both",
+      "targets": [],
+      "chart": null
+    },
+    {
+      "ticker": "AMZN",
+      "price": 257.0,
+      "allows": "long",
+      "targets": [
+        260.5
+      ],
+      "chart": null
+    },
+    {
+      "ticker": "AMZN",
+      "price": 260.5,
+      "allows": "long",
+      "targets": [],
+      "chart": null
+    },
+    {
+      "ticker": "GOOGL",
+      "price": 350.0,
+      "allows": "long",
+      "targets": [
+        352.5,
+        356.5
+      ],
+      "chart": null
+    },
+    {
+      "ticker": "GOOGL",
+      "price": 352.5,
+      "allows": "long",
+      "targets": [
+        356.5
+      ],
+      "chart": null
+    },
+    {
+      "ticker": "GOOGL",
+      "price": 356.5,
+      "allows": "long",
+      "targets": [],
+      "chart": null
+    },
+    {
+      "ticker": "GOOGL",
+      "price": 346.75,
+      "allows": "short",
+      "targets": [
+        344.0,
+        340.0
+      ],
+      "chart": null
+    },
+    {
+      "ticker": "MSFT",
+      "price": 542.5,
+      "allows": "long",
+      "targets": [
+        547.5
+      ],
+      "chart": null
+    },
+    {
+      "ticker": "MSFT",
+      "price": 547.5,
+      "allows": "long",
+      "targets": [],
+      "chart": null
+    }
+  ]
+}

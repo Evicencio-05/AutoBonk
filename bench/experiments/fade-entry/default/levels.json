@@ -1,0 +1,146 @@
+{
+  "armed_at": "2026-10-15T06:30:00-07:00",
+  "levels": [
+    {
+      "ticker": "AAPL",
+      "price": 348.8,
+      "allows": "long",
+      "targets": [],
+      "chart": null
+    },
+    {
+      "ticker": "AAPL",
+      "price": 345.35,
+      "allows": "both",
+      "targets": [],
+      "chart": null,
+      "up_targets": [
+        348.8
+      ]
+    },
+    {
+      "ticker": "AAPL",
+      "price": 342.85,
+      "allows": "short",
+      "targets": [],
+      "chart": null
+    },
+    {
+      "ticker": "AMZN",
+      "price": 255.0,
+      "allows": "long",
+      "targets": [],
+      "chart": null
+    },
+    {
+      "ticker": "AMZN",
+      "price": 249.5,
+      "allows": "short",
+      "targets": [
+        244.75
+      ],
+      "chart": null
+    },
+    {
+      "ticker": "GOOGL",
+      "price": 346.75,
+      "allows": "long",
+      "targets": [],
+      "chart": null
+    },
+    {
+      "ticker": "GOOGL",
+      "price": 338.5,
+      "allows": "long",
+      "targets": [],
+      "chart": null
+    },
+    {
+      "ticker": "MSFT",
+      "price": 533.0,
+      "allows": "long",
+      "targets": [
+        537.25
+      ],
+      "chart": null
+    },
+    {
+      "ticker": "MSFT",
+      "price": 537.25,
+      "allows": "long",
+      "targets": [],
+      "chart": null
+    },
+    {
+      "ticker": "MSFT",
+      "price": 526.0,
+      "allows": "short",
+      "targets": [
+        524.0,
+        518.5
+      ],
+      "chart": null
+    },
+    {
+      "ticker": "MSFT",
+      "price": 524.0,
+      "allows": "short",
+      "targets": [
+        518.5
+      ],
+      "chart": null
+    },
+    {
+      "ticker": "NVDA",
+      "price": 219.8,
+      "allows": "long",
+      "targets": [],
+      "chart": null
+    },
+    {
+      "ticker": "NVDA",
+      "price": 213.5,
+      "allows": "short",
+      "targets": [
+        209.0
+      ],
+      "chart": null
+    },
+    {
+      "ticker": "SPCX",
+      "price": 151.75,
+      "allows": "long",
+      "targets": [],
+      "chart": null
+    },
+    {
+      "ticker": "SPCX",
+      "price": 146.0,
+      "allows": "short",
+      "targets": [
+        142.5,
+        138.5
+      ],
+      "chart": null
+    },
+    {
+      "ticker": "TSLA",
+      "price": 367.0,
+      "allows": "long",
+      "targets": [
+        371.0
+      ],
+      "chart": null
+    },
+    {
+      "ticker": "TSLA",
+      "price": 358.0,
+      "allows": "short",
+      "targets": [
+        353.0,
+        345.5
+      ],
+      "chart": null
+    }
+  ]
+}

@@ -1,0 +1,85 @@
+{
+  "source": "operator",
+  "ticker": "MSFT",
+  "as_of": "2026-10-14",
+  "inputs": [
+    {
+      "type": "image",
+      "note": "MSFT 4h operator chart from Discord #ta forward, chart header 2026-10-14",
+      "file": "charts/2026-10-14/MSFT_operator_2026-10-14.webp"
+    }
+  ],
+  "extracted": {
+    "category": "operator",
+    "timeframe": "4h",
+    "last": 543.56,
+    "change": null,
+    "change_pct": null,
+    "volume": "75.8K",
+    "sma": {
+      "50": null,
+      "100": null,
+      "200": null
+    },
+    "price_vs_sma": null,
+    "sr_levels": [
+      556.32,
+      551.15,
+      540.14,
+      531.2,
+      509.12,
+      491.22
+    ],
+    "fib_levels": [
+      {
+        "ratio": "3.618",
+        "price": 554.67,
+        "color": null
+      }
+    ],
+    "fib_sets": null,
+    "vp": {
+      "indicator": "luxalgo_vp_node_detection",
+      "lookback_note": "right-side profile on the 4h chart",
+      "poc": null,
+      "vah": null,
+      "val": null,
+      "peak_nodes": [],
+      "trough_nodes": [],
+      "highest_volume_zones": [],
+      "lowest_volume_zones": [],
+      "profile_labels": null,
+      "colors_note": "orange/blue histogram with gray outside the value area"
+    },
+    "major_levels": [
+      556.32,
+      551.15,
+      540.14,
+      531.2,
+      509.12,
+      491.22
+    ],
+    "rsi": {
+      "white": 68.45,
+      "yellow": 62.21,
+      "mid_50": 50,
+      "buyer_strength": true,
+      "seller_strength": false,
+      "deterioration_watch": null,
+      "hold_note": null
+    },
+    "channel": null,
+    "earnings_markers": null,
+    "structure_notes": "Closing in on the high at 551.15. Last 543.56. RSI white 68.45 still above yellow and above 50.",
+    "operator_thesis": "Closing in on ATH. 540.15 is first support, then 531. Need to claim 547.5.",
+    "chart_timestamp": "2026-10-14T06:24:00-07:00",
+    "batch": "pm_levels_2026-10-14"
+  },
+  "confidence": "medium",
+  "gaps": [
+    "SMA 50/100/200 prices left null; right-axis colors were not confirmed bar by bar.",
+    "VP POC / value area not numerically labeled.",
+    "Fib line colors not stored."
+  ],
+  "next": null
+}

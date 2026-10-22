@@ -1,0 +1,8 @@
+.env
+.cursor/mcp.json
+config/accounts.yaml
+__pycache__/
+.venv/
+*.pyc
+charts/inbox/
+alerts/state.json

@@ -1,0 +1,74 @@
+# Friday's armed book, from the 8:27 AM PT notes. Discovery only. Not the live book.
+armed_at: "2026-10-16T08:27:30-07:00"
+levels:
+  - ticker: AAPL
+    price: 350
+    allows: long
+    targets: [360]
+    note: "Claim 350 toward 360"
+  - ticker: AAPL
+    price: 346
+    allows: both
+    targets: [344]
+    up_targets: [350, 360]
+    note: "346 is the last level to hold"
+  - ticker: AAPL
+    price: 344
+    allows: short
+    targets: [340]
+    note: "Lose 344 and 340 is next"
+  - ticker: SPCX
+    price: 151
+    allows: long
+    targets: []
+    note: "151 is the battleground"
+  - ticker: SPCX
+    price: 146.5
+    allows: both
+    targets: [142.6]
+    note: "146.5 lower support"
+  - ticker: SPCX
+    price: 142.6
+    allows: both
+    targets: []
+    note: "142.6 lower support"
+  - ticker: AMZN
+    price: 257
+    allows: long
+    targets: [260.5]
+    note: "257 if the 4h 20 SMA is claimed"
+  - ticker: AMZN
+    price: 260.5
+    allows: long
+    targets: []
+    note: "Claim the 4h POC and 260.5"
+  - ticker: GOOGL
+    price: 350
+    allows: long
+    targets: [352.5, 356.5]
+    note: "350 claim can see 352.5"
+  - ticker: GOOGL
+    price: 352.5
+    allows: long
+    targets: [356.5]
+    note: "Then 352.5"
+  - ticker: GOOGL
+    price: 356.5
+    allows: long
+    targets: []
+    note: "Then 356.5"
+  - ticker: GOOGL
+    price: 346.75
+    allows: short
+    targets: [344, 340]
+    note: "Break 346.75 sees 344, then 340"
+  - ticker: MSFT
+    price: 542.5
+    allows: long
+    targets: [547.5]
+    note: "Above 542.5 can see 547.5"
+  - ticker: MSFT
+    price: 547.5
+    allows: long
+    targets: []
+    note: "547.5"

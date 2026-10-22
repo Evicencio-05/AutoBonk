@@ -1,0 +1,94 @@
+{
+  "source": "operator",
+  "ticker": "AAPL",
+  "as_of": "2026-10-14",
+  "inputs": [
+    {
+      "type": "image",
+      "note": "AAPL 4h operator chart from Discord #ta forward, chart header 2026-10-14",
+      "file": "charts/2026-10-14/AAPL_operator_2026-10-14.webp"
+    }
+  ],
+  "extracted": {
+    "category": "operator",
+    "timeframe": "4h",
+    "last": 343.2,
+    "change": null,
+    "change_pct": null,
+    "volume": "327.54K",
+    "sma": {
+      "50": null,
+      "100": null,
+      "200": null
+    },
+    "price_vs_sma": null,
+    "sr_levels": [
+      348.15,
+      340.03,
+      325.81
+    ],
+    "fib_levels": [
+      {
+        "ratio": "1",
+        "price": 345.34,
+        "color": null
+      },
+      {
+        "ratio": "0.786",
+        "price": 335.76,
+        "color": null
+      },
+      {
+        "ratio": "0.618",
+        "price": 328.24,
+        "color": null
+      },
+      {
+        "ratio": "0.5",
+        "price": 322.96,
+        "color": null
+      }
+    ],
+    "fib_sets": null,
+    "vp": {
+      "indicator": "luxalgo_vp_node_detection",
+      "lookback_note": "right-side profile on the 4h chart",
+      "poc": null,
+      "vah": null,
+      "val": null,
+      "peak_nodes": [],
+      "trough_nodes": [],
+      "highest_volume_zones": [],
+      "lowest_volume_zones": [],
+      "profile_labels": null,
+      "colors_note": "orange/blue histogram with gray outside the value area"
+    },
+    "major_levels": [
+      348.15,
+      340.03,
+      325.81
+    ],
+    "rsi": {
+      "white": 62.45,
+      "yellow": 60.34,
+      "mid_50": 50,
+      "buyer_strength": true,
+      "seller_strength": false,
+      "deterioration_watch": null,
+      "hold_note": null
+    },
+    "channel": null,
+    "earnings_markers": null,
+    "structure_notes": "Rising channel. Price 343.20 under the mid-channel, session high 348.15.",
+    "operator_thesis": "Pushing on a fear/safety trade. Look to claim 345 for higher. Needs to hold 340.9 if it slides. Looking for channel top/bottom touches.",
+    "chart_timestamp": "2026-10-14T06:24:00-07:00",
+    "batch": "pm_levels_2026-10-14"
+  },
+  "confidence": "medium",
+  "gaps": [
+    "SMA 50/100/200 prices left null; right-axis colors were not confirmed bar by bar.",
+    "VP POC / value area not numerically labeled.",
+    "Fib line colors not stored."
+  ],
+  "next": null
+}

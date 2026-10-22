@@ -1,0 +1,90 @@
+{
+  "source": "operator",
+  "ticker": "GOOGL",
+  "as_of": "2026-10-15",
+  "inputs": [
+    {
+      "type": "image",
+      "note": "GOOGL 4h operator chart from Discord #ta forward, chart header 2026-10-15",
+      "file": "charts/2026-10-15/GOOGL_operator_2026-10-15.webp"
+    }
+  ],
+  "extracted": {
+    "category": "operator",
+    "timeframe": "4h",
+    "last": 343.23,
+    "change": null,
+    "change_pct": null,
+    "volume": "98.56K",
+    "sma": {
+      "50": null,
+      "100": null,
+      "200": null
+    },
+    "price_vs_sma": null,
+    "sr_levels": [
+      351.03,
+      349.66,
+      346.75,
+      344.37,
+      338.5,
+      335.08
+    ],
+    "fib_levels": [
+      {
+        "ratio": "0.618",
+        "price": 356.47,
+        "color": null
+      },
+      {
+        "ratio": "0.5",
+        "price": 340.36,
+        "color": null
+      }
+    ],
+    "fib_sets": null,
+    "vp": {
+      "indicator": "luxalgo_vp_node_detection",
+      "lookback_note": "right-side profile on the 4h chart",
+      "poc": null,
+      "vah": null,
+      "val": null,
+      "peak_nodes": [],
+      "trough_nodes": [],
+      "highest_volume_zones": [],
+      "lowest_volume_zones": [],
+      "profile_labels": null,
+      "colors_note": "orange/blue histogram with gray outside the value area"
+    },
+    "major_levels": [
+      351.03,
+      349.66,
+      346.75,
+      344.37,
+      338.5,
+      335.08
+    ],
+    "rsi": {
+      "white": 49.88,
+      "yellow": 37.78,
+      "mid_50": 50,
+      "buyer_strength": false,
+      "seller_strength": false,
+      "deterioration_watch": null,
+      "hold_note": null
+    },
+    "channel": null,
+    "earnings_markers": "E markers visible on some charts",
+    "structure_notes": "Slid to the lower trendline and did not reach the 200-day SMA or the 0.5 fib. Last 343.23, sitting above the 4h 200 SMA and POC per the note. 4h RSI white 49.88 near 50.",
+    "operator_thesis": "Slid to the bottom trendline, but did not reach the 200D SMA or 0.5 fib. Currently sitting above the 4H 200 SMA and POC. Daily RSI near 50. Watch for a sweep below the lower trendline with a bounce around 338.5. Claim 346.75 for higher.",
+    "chart_timestamp": "2026-10-15T06:25:00-07:00",
+    "batch": "pm_levels_2026-10-15"
+  },
+  "confidence": "medium",
+  "gaps": [
+    "SMA 50/100/200 prices left null; right-axis colors were not confirmed bar by bar.",
+    "VP POC / value area not numerically labeled.",
+    "Fib line colors not stored."
+  ],
+  "next": null
+}

@@ -1,0 +1,181 @@
+{
+  "armed_at": "2026-10-14T06:30:00-07:00",
+  "levels": [
+    {
+      "ticker": "AAPL",
+      "price": 345.0,
+      "allows": "long",
+      "targets": [],
+      "chart": null
+    },
+    {
+      "ticker": "AAPL",
+      "price": 340.9,
+      "allows": "long",
+      "targets": [],
+      "chart": null
+    },
+    {
+      "ticker": "SPCX",
+      "price": 152.0,
+      "allows": "short",
+      "targets": [
+        146.5
+      ],
+      "chart": null
+    },
+    {
+      "ticker": "SPCX",
+      "price": 146.5,
+      "allows": "short",
+      "targets": [],
+      "chart": null
+    },
+    {
+      "ticker": "SPCX",
+      "price": 158.0,
+      "allows": "long",
+      "targets": [],
+      "chart": null
+    },
+    {
+      "ticker": "AMZN",
+      "price": 257.0,
+      "allows": "both",
+      "targets": [
+        254.5
+      ],
+      "chart": null,
+      "up_targets": [
+        259.5,
+        260.75
+      ]
+    },
+    {
+      "ticker": "AMZN",
+      "price": 259.5,
+      "allows": "long",
+      "targets": [
+        260.75
+      ],
+      "chart": null
+    },
+    {
+      "ticker": "AMZN",
+      "price": 260.75,
+      "allows": "long",
+      "targets": [],
+      "chart": null
+    },
+    {
+      "ticker": "GOOGL",
+      "price": 353.7,
+      "allows": "long",
+      "targets": [],
+      "chart": null
+    },
+    {
+      "ticker": "GOOGL",
+      "price": 351.5,
+      "allows": "both",
+      "targets": [],
+      "chart": null,
+      "up_targets": [
+        358.75
+      ]
+    },
+    {
+      "ticker": "GOOGL",
+      "price": 358.75,
+      "allows": "long",
+      "targets": [],
+      "chart": null
+    },
+    {
+      "ticker": "MSFT",
+      "price": 540.15,
+      "allows": "short",
+      "targets": [
+        531.0
+      ],
+      "chart": null
+    },
+    {
+      "ticker": "MSFT",
+      "price": 531.0,
+      "allows": "short",
+      "targets": [],
+      "chart": null
+    },
+    {
+      "ticker": "MSFT",
+      "price": 547.5,
+      "allows": "long",
+      "targets": [],
+      "chart": null
+    },
+    {
+      "ticker": "NVDA",
+      "price": 225.5,
+      "allows": "short",
+      "targets": [
+        222.0,
+        220.0
+      ],
+      "chart": null
+    },
+    {
+      "ticker": "NVDA",
+      "price": 228.5,
+      "allows": "long",
+      "targets": [],
+      "chart": null
+    },
+    {
+      "ticker": "TSLA",
+      "price": 370.5,
+      "allows": "short",
+      "targets": [
+        366.75,
+        364.0
+      ],
+      "chart": null
+    },
+    {
+      "ticker": "TSLA",
+      "price": 378.25,
+      "allows": "long",
+      "targets": [],
+      "chart": null
+    },
+    {
+      "ticker": "META",
+      "price": 742.0,
+      "allows": "both",
+      "targets": [
+        720.0
+      ],
+      "chart": null,
+      "up_targets": [
+        770.0,
+        780.0
+      ]
+    },
+    {
+      "ticker": "META",
+      "price": 770.0,
+      "allows": "long",
+      "targets": [
+        780.0
+      ],
+      "chart": null
+    },
+    {
+      "ticker": "META",
+      "price": 780.0,
+      "allows": "long",
+      "targets": [],
+      "chart": null
+    }
+  ]
+}

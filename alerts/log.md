@@ -1,0 +1,51 @@
+# 10-minute claim alerts
+
+- AAPL lose: 10-minute close 343.70 below 344.0 at 2026-10-16 09:10 PT. Lose 344 and 340 is next. Not an order.
+- AAPL lose: 10-minute close 343.94 below 344.0 at 2026-10-16 09:40 PT. Lose 344 and 340 is next. Not an order.
+- AAPL lose: 10-minute close 342.51 below 344.0 at 2026-10-16 10:10 PT. Lose 344 and 340 is next. Not an order.
+- SPCX lose: 10-minute close 145.76 below 146.5 at 2026-10-16 09:00 PT. 146.5 lower support. Not an order.
+- SPCX call entry 146.50 at 2026-10-19 05:40 PT. Candle red O 147.45 H 147.56 L 147.07 C 147.24. RSI purple 55.85 yellow 49.07. Fill 147.30. call debit at most $100. OTM is allowed when theta and the target still leave room to gain. Not an order.
+- AMZN call entry 253.15 at 2026-10-19 06:20 PT. Candle red O 255.14 H 255.28 L 254.81 C 255.05. RSI purple 71.27 yellow 69.42. Fill 255.19. call debit at most $100. OTM is allowed when theta and the target still leave room to gain. Not an order.
+- SPCX call skip 148.50 at 2026-10-19 07:00 PT. Candle red O 148.93 H 149.16 L 147.61 C 148.01. RSI purple 53.99 yellow 60.99. Fill bar closed back through the level. Not an order.
+- AAPL call entry 343.50 at 2026-10-19 07:40 PT. Candle red O 345.55 H 345.77 L 345.11 C 345.20. RSI purple 63.85 yellow 48.05. Fill 345.18. call debit at most $100. OTM is allowed when theta and the target still leave room to gain. Not an order.
+- SPCX call entry 148.50 at 2026-10-19 07:50 PT. Candle red O 149.60 H 150.06 L 148.83 C 149.13. RSI purple 58.59 yellow 62.95. Fill 149.11. call debit at most $100. OTM is allowed when theta and the target still leave room to gain. Not an order.
+- AAPL call exit 343.50 at 2026-10-19 08:10 PT. Candle red O 343.96 H 344.04 L 342.91 C 343.09. RSI purple 48.28 yellow 52.86. Close back through the entry level. Not an order.
+- GOOGL call entry 344.55 at 2026-10-19 08:30 PT. Candle red O 346.36 H 346.36 L 345.10 C 345.58. RSI purple 65.43 yellow 64.43. Fill 345.60. call debit at most $100. OTM is allowed when theta and the target still leave room to gain. Not an order.
+- AMZN call exit 253.15 at 2026-10-19 08:50 PT. Candle green O 262.57 H 263.42 L 262.25 C 263.16. RSI purple 80.30 yellow 82.05. Close through the last target. Not an order.
+- TSLA call entry 362.50 at 2026-10-19 08:50 PT. Candle red O 368.11 H 368.14 L 367.32 C 367.53. RSI purple 84.01 yellow 84.52. Fill 367.51. call debit at most $100. OTM is allowed when theta and the target still leave room to gain. Not an order.
+- AMZN call entry 258.30 at 2026-10-19 09:10 PT. Candle red O 263.15 H 263.44 L 262.82 C 262.98. RSI purple 78.56 yellow 82.43. Fill 262.98. call debit at most $100. OTM is allowed when theta and the target still leave room to gain. Not an order.
+- AMZN call exit 258.30 at 2026-10-19 09:20 PT. Candle green O 262.77 H 263.39 L 262.66 C 263.29. RSI purple 78.28 yellow 82.44. Close through the last target. Not an order.
+- AMZN call entry 261.00 at 2026-10-19 09:40 PT. Candle red O 263.31 H 263.41 L 262.82 C 263.05. RSI purple 75.82 yellow 81.75. Fill 263.03. call debit at most $100. OTM is allowed when theta and the target still leave room to gain. Not an order.
+- GOOGL call exit 344.55 at 2026-10-19 10:10 PT. Candle red O 344.77 H 344.77 L 344.15 C 344.22. RSI purple 46.13 yellow 61.34. Close back through the entry level. Not an order.
+- SPCX call exit 148.50 at 2026-10-19 10:10 PT. Candle red O 148.73 H 148.82 L 148.18 C 148.24. RSI purple 41.71 yellow 57.35. Close back through the entry level. Not an order.
+- META put entry 700.00 at 2026-10-20 05:30 PT. Candle green O 697.61 H 699.34 L 697.17 C 698.50. RSI purple 35.78 yellow 34.08. Fill 698.53. put debit at most $100. OTM is allowed when theta and the target still leave room to gain. Not an order.
+- META put exit 700.00 at 2026-10-20 05:40 PT. Candle green O 699.00 H 700.01 L 698.37 C 700.01. RSI purple 45.55 yellow 34.73. Close back through the entry level. Not an order.
+- SPCX put exit 146.50 at 2026-10-20 05:40 PT. Candle green O 145.99 H 146.59 L 145.88 C 146.59. RSI purple 48.66 yellow 38.09. Close back through the entry level. Not an order.
+- AAPL put exit 340.30 at 2026-10-20 06:40 PT. Candle green O 339.61 H 343.03 L 338.70 C 341.08. RSI purple 63.83 yellow 38.55. Close back through the entry level. Not an order.
+- SPCX put entry 146.50 at 2026-10-20 07:00 PT. Candle green O 144.12 H 144.37 L 143.27 C 144.29. RSI purple 29.04 yellow 42.65. Fill 144.30. put debit at most $100. OTM is allowed when theta and the target still leave room to gain. Not an order.
+- SPCX put exit 146.50 at 2026-10-20 07:20 PT. Candle green O 145.88 H 147.54 L 145.77 C 147.21. RSI purple 57.03 yellow 44.04. Close back through the entry level. Not an order.
+- GOOGL call skip 343.60 at 2026-10-20 07:50 PT. Candle red O 343.70 H 343.77 L 342.55 C 342.55. RSI purple 45.10 yellow 48.74. Fill bar closed back through the level. Not an order.
+- NVDA call entry 217.50 at 2026-10-20 07:50 PT. Candle red O 218.03 H 218.46 L 217.25 C 217.71. RSI purple 62.13 yellow 47.38. Fill 217.70. call debit at most $100. OTM is allowed when theta and the target still leave room to gain. Not an order.
+- SPCX call entry 146.60 at 2026-10-20 07:50 PT. Candle red O 147.90 H 148.14 L 147.15 C 147.88. RSI purple 61.06 yellow 47.01. Fill 147.90. call debit at most $100. OTM is allowed when theta and the target still leave room to gain. Not an order.
+- AAPL call entry 340.00 at 2026-10-20 08:00 PT. Candle red O 342.26 H 342.52 L 341.86 C 341.89. RSI purple 62.90 yellow 56.78. Fill 341.88. call debit at most $100. OTM is allowed when theta and the target still leave room to gain. Not an order.
+- NVDA call exit 217.50 at 2026-10-20 08:20 PT. Candle red O 217.61 H 217.63 L 216.23 C 217.20. RSI purple 56.21 yellow 52.30. Close back through the entry level. Not an order.
+- TSLA call entry 370.00 at 2026-10-20 08:20 PT. Candle red O 377.29 H 377.59 L 375.78 C 376.42. RSI purple 70.76 yellow 63.48. Fill 376.43. call debit at most $100. OTM is allowed when theta and the target still leave room to gain. Not an order.
+- SPCX call exit 146.60 at 2026-10-20 08:40 PT. Candle red O 146.78 H 146.87 L 146.00 C 146.26. RSI purple 45.21 yellow 49.88. Close back through the entry level. Not an order.
+- SNOW call watch 320.00 at 2026-10-21 06:50 PT. Candle red O 323.01 H 326.42 L 321.71 C 322.86. RSI purple 61.87 yellow 49.48. The 20 SMA is on the level. Not a fill. Not an order.
+- PLTR call watch 193.85 at 2026-10-21 07:00 PT. Candle red O 196.51 H 197.17 L 195.81 C 196.13. RSI purple 63.88 yellow 51.42. The 20 SMA is on the level. Not a fill. Not an order.
+- AAPL call entry 340.00 at 2026-10-21 07:30 PT. Candle red O 340.42 H 340.74 L 340.07 C 340.35. RSI purple 70.60 yellow 63.51. Fill 340.35. call debit at most $100. OTM is allowed when theta and the target still leave room to gain. Not an order.
+- AMZN put entry 260.50 at 2026-10-21 07:30 PT. Candle green O 259.58 H 260.50 L 259.52 C 260.23. RSI purple 30.62 yellow 40.92. Fill 260.23. put debit at most $100. OTM is allowed when theta and the target still leave room to gain. Not an order.
+- GOOGL put watch 335.50 at 2026-10-21 07:30 PT. Candle green O 331.14 H 331.67 L 330.68 C 331.61. RSI purple 22.00 yellow 30.23. The 20 SMA is on the level. Not a fill. Not an order.
+- PLTR call watch 193.85 at 2026-10-21 07:30 PT. Candle red O 197.64 H 197.85 L 196.93 C 197.43. RSI purple 68.26 yellow 55.10. The 20 SMA is on the level. Not a fill. Not an order.
+- AAPL call skip 340.00 at 2026-10-21 07:30 PT. Candle green O 340.35 H 340.44 L 339.88 C 340.40. RSI purple 71.07 yellow 64.27. No strike under $1 was still in front of the far target. Not an order.
+- AMZN put skip 260.50 at 2026-10-21 07:30 PT. Candle green O 260.23 H 260.29 L 259.63 C 260.24. RSI purple 30.76 yellow 39.60. No strike under $1 was still in front of the far target. Not an order.
+- PLTR call skip 197.00 at 2026-10-21 07:40 PT. Candle red O 197.47 H 197.75 L 196.72 C 196.90. RSI purple 64.17 yellow 56.18. Fill bar closed back through the level. Not an order.
+- AMZN put skip 260.50 at 2026-10-21 07:50 PT. Candle green O 260.48 H 261.10 L 260.35 C 260.95. RSI purple 40.12 yellow 38.07. Fill bar closed back through the level. Not an order.
+- AAPL call watch 340.00 at 2026-10-21 08:10 PT. Candle red O 343.18 H 344.21 L 342.68 C 343.07. RSI purple 79.35 yellow 69.34. The 20 SMA is on the level. Not a fill. Not an order.
+- AAPL call watch 340.00 at 2026-10-21 08:40 PT. Candle red O 344.67 H 345.25 L 344.28 C 344.64. RSI purple 83.69 yellow 74.28. The 20 SMA is on the level. Not a fill. Not an order.
+- PLTR call watch 197.00 at 2026-10-21 09:00 PT. Candle red O 199.83 H 199.94 L 199.35 C 199.65. RSI purple 73.01 yellow 69.41. The 20 SMA is on the level. Not a fill. Not an order.
+- AAPL call watch 343.00 at 2026-10-21 09:50 PT. Candle red O 343.97 H 344.08 L 343.75 C 343.90. RSI purple 69.82 yellow 74.77. The 20 SMA is on the level. Not a fill. Not an order.
+- AAPL call watch 343.00 at 2026-10-21 10:30 PT. Candle red O 344.58 H 344.76 L 344.27 C 344.42. RSI purple 71.30 yellow 75.02. The 20 SMA is on the level. Not a fill. Not an order.
+- PLTR call skip 200.00 at 2026-10-21 10:30 PT. Candle red O 200.13 H 200.20 L 199.78 C 199.99. RSI purple 70.16 yellow 71.83. Fill bar closed back through the level. Not an order.
+- AAPL call watch 343.00 at 2026-10-21 11:00 PT. Candle red O 344.61 H 344.78 L 344.25 C 344.40. RSI purple 68.10 yellow 72.08. The 20 SMA is on the level. Not a fill. Not an order.
+- PLTR call watch 200.00 at 2026-10-21 13:00 PT. Candle red O 202.32 H 202.55 L 201.30 C 201.64. RSI purple 67.82 yellow 65.87. The 20 SMA is on the level. Not a fill. Not an order.

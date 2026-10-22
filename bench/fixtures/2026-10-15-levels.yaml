@@ -1,0 +1,90 @@
+# Thursday 2026-10-15 theses. Discovery only. Not the live book.
+# A claim level is long. A break level is short. The first number after it is the target.
+armed_at: "2026-10-15T06:30:00-07:00"
+levels:
+  - ticker: AAPL
+    price: 348.8
+    allows: long
+    targets: []
+    note: "Claim 348.8"
+  - ticker: AAPL
+    price: 345.35
+    allows: both
+    targets: []
+    up_targets: [348.8]
+    note: "Stay above 345.35"
+  - ticker: AAPL
+    price: 342.85
+    allows: short
+    targets: []
+    note: "4h SMA support. A break sees the bottom of the channel"
+  - ticker: AMZN
+    price: 255
+    allows: long
+    targets: []
+    note: "Claim 255 for higher"
+  - ticker: AMZN
+    price: 249.5
+    allows: short
+    targets: [244.75]
+    note: "Lose 249.5 and 244.75 is next"
+  - ticker: GOOGL
+    price: 346.75
+    allows: long
+    targets: []
+    note: "Claim 346.75 for higher"
+  - ticker: GOOGL
+    price: 338.5
+    allows: long
+    targets: []
+    note: "Bounce around 338.5"
+  - ticker: MSFT
+    price: 533
+    allows: long
+    targets: [537.25]
+    note: "Claim 533 and it could see 537.25"
+  - ticker: MSFT
+    price: 537.25
+    allows: long
+    targets: []
+    note: "Watch for rejection at 537.25"
+  - ticker: MSFT
+    price: 526
+    allows: short
+    targets: [524, 518.5]
+    note: "526 and 524 are supports. Below that can see 518.5"
+  - ticker: MSFT
+    price: 524
+    allows: short
+    targets: [518.5]
+    note: "Below 524 can see 518.5"
+  - ticker: NVDA
+    price: 219.8
+    allows: long
+    targets: []
+    note: "Retest of 219.8 above"
+  - ticker: NVDA
+    price: 213.5
+    allows: short
+    targets: [209]
+    note: "A break sees 209"
+  - ticker: SPCX
+    price: 151.75
+    allows: long
+    targets: []
+    note: "Retest of 151.75"
+  - ticker: SPCX
+    price: 146
+    allows: short
+    targets: [142.5, 138.5]
+    note: "146 needs to hold before 142.5, then 138.5"
+  - ticker: TSLA
+    price: 367
+    allows: long
+    targets: [371]
+    note: "Claim 367 for a push to 371"
+  - ticker: TSLA
+    price: 358
+    allows: short
+    targets: [353, 345.5]
+    note: "358 is support. A break sees 353, possibly 345.5"

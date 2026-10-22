@@ -1,0 +1,112 @@
+# 2026-10-14 chart-pack theses. Discovery only. Not the live book.
+# The pack has no forward time, so the replay starts at 6:30 PT.
+armed_at: "2026-10-14T06:30:00-07:00"
+levels:
+  - ticker: AAPL
+    price: 345
+    allows: long
+    targets: []
+    note: "Claim 345 for higher"
+  - ticker: AAPL
+    price: 340.9
+    allows: long
+    targets: []
+    note: "Hold 340.9 if it slides"
+  - ticker: SPCX
+    price: 152
+    allows: short
+    targets: [146.5]
+    note: "152 is the floor. Under that, 146.5"
+  - ticker: SPCX
+    price: 146.5
+    allows: short
+    targets: []
+    note: "Under 152"
+  - ticker: SPCX
+    price: 158
+    allows: long
+    targets: []
+    note: "Claim 158 for higher"
+  - ticker: AMZN
+    price: 257
+    allows: both
+    targets: [254.5]
+    up_targets: [259.5, 260.75]
+    note: "Bounce at 257. Lose it and see 254.5"
+  - ticker: AMZN
+    price: 259.5
+    allows: long
+    targets: [260.75]
+    note: "Claim 259.5 then 260.75"
+  - ticker: AMZN
+    price: 260.75
+    allows: long
+    targets: []
+    note: "Then 260.75"
+  - ticker: GOOGL
+    price: 353.7
+    allows: long
+    targets: []
+    note: "353.7 is a bounce"
+  - ticker: GOOGL
+    price: 351.5
+    allows: both
+    targets: []
+    up_targets: [358.75]
+    note: "351.5 needs to hold"
+  - ticker: GOOGL
+    price: 358.75
+    allows: long
+    targets: []
+    note: "Claim 358.75 for higher"
+  - ticker: MSFT
+    price: 540.15
+    allows: short
+    targets: [531]
+    note: "540.15 is first support, then 531"
+  - ticker: MSFT
+    price: 531
+    allows: short
+    targets: []
+    note: "Then 531"
+  - ticker: MSFT
+    price: 547.5
+    allows: long
+    targets: []
+    note: "Claim 547.5"
+  - ticker: NVDA
+    price: 225.5
+    allows: short
+    targets: [222, 220]
+    note: "Hold 225.5 or slide to 222, then 220"
+  - ticker: NVDA
+    price: 228.5
+    allows: long
+    targets: []
+    note: "Claim 228.5 for higher"
+  - ticker: TSLA
+    price: 370.5
+    allows: short
+    targets: [366.75, 364]
+    note: "If 370.5 fails, 366.75 then 364"
+  - ticker: TSLA
+    price: 378.25
+    allows: long
+    targets: []
+    note: "Claim 378.25"
+  - ticker: META
+    price: 742
+    allows: both
+    targets: [720]
+    up_targets: [770, 780]
+    note: "742 bounce. Lose it and see 720"
+  - ticker: META
+    price: 770
+    allows: long
+    targets: [780]
+    note: "Claim 770 and 780"
+  - ticker: META
+    price: 780
+    allows: long
+    targets: []
+    note: "Then 780"

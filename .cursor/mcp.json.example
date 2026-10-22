@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "robinhood-trading": {
+      "url": "https://agent.robinhood.com/mcp/trading"
+    },
+    "discord-ta": {
+      "type": "stdio",
+      "command": "python3",
+      "args": ["scripts/discord_ta.py", "--mcp"],
+      "envFile": "${workspaceFolder}/.env"
+    }
+  }
+}

@@ -1,0 +1,104 @@
+{
+  "source": "operator",
+  "ticker": "AMZN",
+  "as_of": "2026-10-15",
+  "inputs": [
+    {
+      "type": "image",
+      "note": "AMZN 4h operator chart from Discord #ta forward, chart header 2026-10-15",
+      "file": "charts/2026-10-15/AMZN_operator_2026-10-15.webp"
+    }
+  ],
+  "extracted": {
+    "category": "operator",
+    "timeframe": "4h",
+    "last": 250.4,
+    "change": null,
+    "change_pct": null,
+    "volume": "300.78K",
+    "sma": {
+      "50": null,
+      "100": null,
+      "200": null
+    },
+    "price_vs_sma": null,
+    "sr_levels": [
+      256.81,
+      254.12,
+      244.73
+    ],
+    "fib_levels": [
+      {
+        "ratio": "1",
+        "price": 260.73,
+        "color": null
+      },
+      {
+        "ratio": "0.786",
+        "price": 257.3,
+        "color": null
+      },
+      {
+        "ratio": "0.618",
+        "price": 254.62,
+        "color": null
+      },
+      {
+        "ratio": "0.5",
+        "price": 252.73,
+        "color": null
+      },
+      {
+        "ratio": "0.382",
+        "price": 250.84,
+        "color": null
+      },
+      {
+        "ratio": "0",
+        "price": 244.73,
+        "color": null
+      }
+    ],
+    "fib_sets": null,
+    "vp": {
+      "indicator": "luxalgo_vp_node_detection",
+      "lookback_note": "right-side profile on the 4h chart",
+      "poc": null,
+      "vah": null,
+      "val": null,
+      "peak_nodes": [],
+      "trough_nodes": [],
+      "highest_volume_zones": [],
+      "lowest_volume_zones": [],
+      "profile_labels": null,
+      "colors_note": "orange/blue histogram with gray outside the value area"
+    },
+    "major_levels": [
+      256.81,
+      254.12,
+      244.73
+    ],
+    "rsi": {
+      "white": 43.25,
+      "yellow": 34.49,
+      "mid_50": 50,
+      "buyer_strength": false,
+      "seller_strength": false,
+      "deterioration_watch": null,
+      "hold_note": null
+    },
+    "channel": null,
+    "earnings_markers": null,
+    "structure_notes": "Hugging the 0.382 at 250.84. Last 250.40. 4h RSI white 43.25 above yellow but under 50. Note says daily RSI is at 50.",
+    "operator_thesis": "Hugging the 0.382 fib, with yesterday's low at the 0.5 and daily RSI at 50. Very little resistance to 252.75. Claim 255 for higher. Lose 249.5 and 244.75 is next.",
+    "chart_timestamp": "2026-10-15T06:25:00-07:00",
+    "batch": "pm_levels_2026-10-15"
+  },
+  "confidence": "medium",
+  "gaps": [
+    "SMA 50/100/200 prices left null; right-axis colors were not confirmed bar by bar.",
+    "VP POC / value area not numerically labeled.",
+    "Fib line colors not stored."
+  ],
+  "next": null
+}

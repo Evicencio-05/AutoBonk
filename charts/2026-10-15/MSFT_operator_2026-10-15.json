@@ -1,0 +1,108 @@
+{
+  "source": "operator",
+  "ticker": "MSFT",
+  "as_of": "2026-10-15",
+  "inputs": [
+    {
+      "type": "image",
+      "note": "MSFT 4h operator chart from Discord #ta forward, chart header 2026-10-15",
+      "file": "charts/2026-10-15/MSFT_operator_2026-10-15.webp"
+    }
+  ],
+  "extracted": {
+    "category": "operator",
+    "timeframe": "4h",
+    "last": 531.99,
+    "change": null,
+    "change_pct": null,
+    "volume": "79.41K",
+    "sma": {
+      "50": null,
+      "100": null,
+      "200": null
+    },
+    "price_vs_sma": null,
+    "sr_levels": [
+      556.32,
+      551.15,
+      538.8,
+      532.9,
+      509.98
+    ],
+    "fib_levels": [
+      {
+        "ratio": "3.618",
+        "price": 554.67,
+        "color": null
+      },
+      {
+        "ratio": "1",
+        "price": 551.15,
+        "color": null
+      },
+      {
+        "ratio": "0.786",
+        "price": 537.21,
+        "color": null
+      },
+      {
+        "ratio": "0.618",
+        "price": 526.26,
+        "color": null
+      },
+      {
+        "ratio": "0.5",
+        "price": 518.58,
+        "color": null
+      },
+      {
+        "ratio": "0.382",
+        "price": 510.89,
+        "color": null
+      }
+    ],
+    "fib_sets": null,
+    "vp": {
+      "indicator": "luxalgo_vp_node_detection",
+      "lookback_note": "right-side profile on the 4h chart",
+      "poc": null,
+      "vah": null,
+      "val": null,
+      "peak_nodes": [],
+      "trough_nodes": [],
+      "highest_volume_zones": [],
+      "lowest_volume_zones": [],
+      "profile_labels": null,
+      "colors_note": "orange/blue histogram with gray outside the value area"
+    },
+    "major_levels": [
+      556.32,
+      551.15,
+      538.8,
+      532.9,
+      509.98
+    ],
+    "rsi": {
+      "white": 55.36,
+      "yellow": 44.45,
+      "mid_50": 50,
+      "buyer_strength": true,
+      "seller_strength": false,
+      "deterioration_watch": null,
+      "hold_note": null
+    },
+    "channel": null,
+    "earnings_markers": null,
+    "structure_notes": "Pulling back from the 551.15 high. Last 531.99. 4h white RSI 55.36 still above yellow and above 50.",
+    "operator_thesis": "Pulling back from the highs. Claim 533 and it could see 537.25. Watch for rejection there or at the 4h 20 SMA. 526 and 524 are supports. Below that can see 518.5.",
+    "chart_timestamp": "2026-10-15T06:25:00-07:00",
+    "batch": "pm_levels_2026-10-15"
+  },
+  "confidence": "medium",
+  "gaps": [
+    "SMA 50/100/200 prices left null; right-axis colors were not confirmed bar by bar.",
+    "VP POC / value area not numerically labeled.",
+    "Fib line colors not stored."
+  ],
+  "next": null
+}

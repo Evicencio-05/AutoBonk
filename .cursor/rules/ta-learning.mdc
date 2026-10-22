@@ -1,0 +1,16 @@
+---
+description: Learn which posted operator TA shows up in Agentic trades that were actually taken.
+alwaysApply: true
+---
+
+# Learn from posted TA
+
+After new charts are ingested, append one row per ticker to `learning/journal.md`. Copy the operator's levels, RSI purple versus yellow, and the chart path. Do not invent a setup they did not write.
+
+When the operator replies confirm and an Agentic order is placed, fill Trade with side, entry, and the posted level that justified it. When that trade closes, fill Result with the exit and whether the posted level held.
+
+Before drafting the next plan, read the journal and `learning/training.md`. Call something a pattern only when the same feature shows up in more than one taken trade, and say which of those trades worked. One chart, or a chart with no trade, is an observation.
+
+When the operator confirms the candles of a play, add a drill to `learning/drills.yaml` and run `python3 scripts/train_intraday.py score`. A live read uses finished 10-minute bars only. The score is how far the first green or first red sits from the confirmed candle. One drill does not change `rules/ta_rules.md`.
+
+Leave `rules/ta_rules.md` unchanged. Record options-exposure comments as their words, and do not treat them as a reason to trade. Do not place an order because a journal pattern matched.

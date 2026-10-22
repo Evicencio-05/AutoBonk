@@ -1,0 +1,90 @@
+{
+  "source": "operator",
+  "ticker": "TSLA",
+  "as_of": "2026-10-15",
+  "inputs": [
+    {
+      "type": "image",
+      "note": "TSLA 4h operator chart from Discord #ta forward, chart header 2026-10-15",
+      "file": "charts/2026-10-15/TSLA_operator_2026-10-15.webp"
+    }
+  ],
+  "extracted": {
+    "category": "operator",
+    "timeframe": "4h",
+    "last": 361.08,
+    "change": null,
+    "change_pct": null,
+    "volume": "162.42K",
+    "sma": {
+      "50": null,
+      "100": null,
+      "200": null
+    },
+    "price_vs_sma": null,
+    "sr_levels": [
+      388.56,
+      382.75,
+      375.97,
+      371.99,
+      367.14,
+      345.88
+    ],
+    "fib_levels": [
+      {
+        "ratio": "0.618",
+        "price": 372.77,
+        "color": null
+      },
+      {
+        "ratio": "0.5",
+        "price": 342.5,
+        "color": null
+      }
+    ],
+    "fib_sets": null,
+    "vp": {
+      "indicator": "luxalgo_vp_node_detection",
+      "lookback_note": "right-side profile on the 4h chart",
+      "poc": null,
+      "vah": null,
+      "val": null,
+      "peak_nodes": [],
+      "trough_nodes": [],
+      "highest_volume_zones": [],
+      "lowest_volume_zones": [],
+      "profile_labels": null,
+      "colors_note": "orange/blue histogram with gray outside the value area"
+    },
+    "major_levels": [
+      388.56,
+      382.75,
+      375.97,
+      371.99,
+      367.14,
+      345.88
+    ],
+    "rsi": {
+      "white": 38.82,
+      "yellow": 27.25,
+      "mid_50": 50,
+      "buyer_strength": false,
+      "seller_strength": false,
+      "deterioration_watch": null,
+      "hold_note": null
+    },
+    "channel": null,
+    "earnings_markers": "E markers visible on some charts",
+    "structure_notes": "No-man's land on the 4h. Last 361.08. Note says daily RSI at 50 and 4h below 30. Chart 4h white is 38.82 and yellow is 27.25.",
+    "operator_thesis": "In no-man's land on the 4H. Daily RSI at 50 and 4H below 30. 358 is the main support below. A break sees 353, possibly 345.5. Claim 367 for a push to 371.",
+    "chart_timestamp": "2026-10-15T06:25:00-07:00",
+    "batch": "pm_levels_2026-10-15"
+  },
+  "confidence": "medium",
+  "gaps": [
+    "SMA 50/100/200 prices left null; right-axis colors were not confirmed bar by bar.",
+    "VP POC / value area not numerically labeled.",
+    "Fib line colors not stored."
+  ],
+  "next": null
+}

@@ -1,0 +1,22 @@
+[
+  {
+    "ticker": "AAPL",
+    "bar_time": "2026-10-16 09:30 PT",
+    "status": "not recorded"
+  },
+  {
+    "ticker": "AAPL",
+    "bar_time": "2026-10-16 10:30 PT",
+    "status": "not recorded"
+  },
+  {
+    "ticker": "SPCX",
+    "bar_time": "2026-10-16 09:20 PT",
+    "status": "not recorded"
+  },
+  {
+    "ticker": "GOOGL",
+    "bar_time": "2026-10-16 08:50 PT",
+    "status": "not recorded"
+  }
+]

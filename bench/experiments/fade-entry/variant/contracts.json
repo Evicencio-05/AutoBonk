@@ -1,0 +1,42 @@
+[
+  {
+    "ticker": "AAPL",
+    "bar_time": "2026-10-15 07:30 PT",
+    "status": "not recorded"
+  },
+  {
+    "ticker": "AAPL",
+    "bar_time": "2026-10-15 11:50 PT",
+    "status": "not recorded"
+  },
+  {
+    "ticker": "AMZN",
+    "bar_time": "2026-10-15 06:50 PT",
+    "status": "not recorded"
+  },
+  {
+    "ticker": "AMZN",
+    "bar_time": "2026-10-15 12:50 PT",
+    "status": "not recorded"
+  },
+  {
+    "ticker": "GOOGL",
+    "bar_time": "2026-10-15 07:30 PT",
+    "status": "not recorded"
+  },
+  {
+    "ticker": "MSFT",
+    "bar_time": "2026-10-15 06:50 PT",
+    "status": "not recorded"
+  },
+  {
+    "ticker": "MSFT",
+    "bar_time": "2026-10-15 10:10 PT",
+    "status": "not recorded"
+  },
+  {
+    "ticker": "SPCX",
+    "bar_time": "2026-10-15 10:50 PT",
+    "status": "not recorded"
+  }
+]
