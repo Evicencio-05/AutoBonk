@@ -39,6 +39,8 @@ RSI is confluence. It does not block a play. A missing RSI agreement is not a re
 
 The levels in the operator's note are what the play is built on. Price close to a level counts. The level does not have to be tagged to the cent. A 10 minute close through the level is a claim or a lose. A wick through the level is not. A hold is a retest that does not close back through. After a break, a later candle that comes back to the level and closes on the break side is the retest entry.
 
+Every support can flip to resistance, and every resistance can flip to support. The flip is a finished 10-minute close beyond the level by half the 14-period ATR. A close inside that band has not flipped the level. A lost support is resistance: a put on the green retest from below. A claimed resistance is support: a call on the red retest from above. A later close back through flips it again. The flipped side uses the posted numbers in that direction. The first is the next number. The far one is still the last target.
+
 ## Options
 
 Buy the contract. The cap is $100 per contract. Look first at 0DTE or the next expiration, at the money or in the money. Those are often over the cap. A reasonable out-of-the-money contract is allowed when it can still gain into the posted target. Judge that from the theta decay and the distance from the strike to the target. Do not buy a strike so far out that the target cannot add value before theta takes it. Do not cut a contract unless the play is invalidated, or theta decay will hurt the contract significantly. Holding through a weekend, or into a higher open the next session, is theta damage for a short-dated contract.
