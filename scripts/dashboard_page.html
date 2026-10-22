@@ -108,6 +108,15 @@ try {
   pre.sheet { white-space: pre-wrap; background: var(--sheet); color: var(--ink);
     border-radius: 12px; padding: 12px; max-height: 420px; overflow: auto; }
   #backtest-out { margin-top: 8px; }
+  details { margin: 8px 0 12px; }
+  summary { font-weight: 800; cursor: pointer; color: var(--ink); }
+  .metrics { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+    gap: 8px; margin: 8px 0 12px; }
+  .metric { border: 2px solid var(--line); border-radius: 12px; padding: 8px 10px; background: var(--sheet); }
+  .metric span { display: block; color: var(--th); font-size: 0.72rem; font-weight: 800;
+    letter-spacing: 0.04em; text-transform: uppercase; }
+  .metric strong { font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+  .equity { width: 100%; height: 140px; display: block; }
 </style>
 </head>
 <body>
@@ -277,6 +286,11 @@ function percent(value) {
   return (value > 0 ? "+" : "") + (Number(value) * 100).toFixed(1) + "%";
 }
 
+function share(value) {
+  if (value === null || value === undefined || Number.isNaN(value)) return "";
+  return (Number(value) * 100).toFixed(1) + "%";
+}
+
 function cell(row, text, className) {
   const td = document.createElement("td");
   td.textContent = text;
@@ -285,11 +299,145 @@ function cell(row, text, className) {
   return td;
 }
 
-function renderRuns(runs) {
-  const wrap = document.createElement("div");
+function ratio(value) {
+  if (value === null || value === undefined || Number.isNaN(value)) return "—";
+  return Number(value).toFixed(2);
+}
+
+function metric(label, text, className) {
+  const box = document.createElement("div");
+  box.className = "metric";
+  const name = document.createElement("span");
+  name.textContent = label;
+  const value = document.createElement("strong");
+  value.textContent = text || "—";
+  if (className) value.className = className;
+  box.append(name, value);
+  return box;
+}
+
+function tone(value) {
+  if (value > 0) return "up";
+  if (value < 0) return "down";
+  return "";
+}
+
+function overview(report) {
+  const stats = report.summary.strategy;
+  const hold = report.buy_hold || {};
+  const grid = document.createElement("div");
+  grid.className = "metrics";
+  const drawdown = stats.max_drawdown_percent == null
+    ? points(-stats.max_drawdown)
+    : points(-stats.max_drawdown) + " (" + (stats.max_drawdown_percent * 100).toFixed(1) + "% of peak)";
+  const cards = [
+    ["Net points", points(stats.net) + (stats.return == null ? "" : " (" + percent(stats.return) + ")"), tone(stats.net)],
+    ["Gross profit", points(stats.gross_profit), tone(stats.gross_profit)],
+    ["Gross loss", points(-stats.gross_loss), stats.gross_loss ? "down" : ""],
+    ["Profit factor", factor(stats), ""],
+    ["Max drawdown", drawdown, stats.max_drawdown ? "down" : ""],
+    ["Expected payoff", points(stats.expected), tone(stats.expected)],
+    ["Closed net", points(stats.closed_net), tone(stats.closed_net)],
+    ["Open points", points(stats.open_points) + " (" + stats.open_trades + ")", tone(stats.open_points)],
+    ["Buy and hold", points(hold.points) + (hold.return == null ? "" : " (" + percent(hold.return) + ")"), tone(hold.points)],
+    ["Total trades", String(stats.trades), ""],
+    ["Win rate", share(stats.win_rate), ""],
+    ["Winning trades", String(stats.wins), ""],
+    ["Losing trades", String(stats.losses), ""],
+    ["Breakeven", String(stats.breakeven), ""],
+    ["Avg winning trade", points(stats.avg_win), tone(stats.avg_win)],
+    ["Avg losing trade", points(stats.avg_loss), tone(stats.avg_loss)],
+    ["Payoff ratio", ratio(stats.payoff_ratio), ""],
+    ["Largest win", points(stats.largest_win), tone(stats.largest_win)],
+    ["Largest loss", points(stats.largest_loss), tone(stats.largest_loss)],
+    ["Max win streak", String(stats.max_win_streak), ""],
+    ["Max loss streak", String(stats.max_loss_streak), ""]
+  ];
+  cards.forEach((card) => grid.appendChild(metric(card[0], card[1], card[2])));
+  return grid;
+}
+
+function equityChart(values) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 600 140");
+  svg.setAttribute("class", "equity");
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", "Equity curve");
+  if (!values || !values.length) return svg;
+  const min = Math.min(0, ...values);
+  const max = Math.max(0, ...values);
+  const span = max - min || 1;
+  const coords = values.map((value, index) => {
+    const x = values.length === 1 ? 300 : (index / (values.length - 1)) * 600;
+    const y = 128 - ((value - min) / span) * 112;
+    return x.toFixed(1) + "," + y.toFixed(1);
+  });
+  const zero = 128 - ((0 - min) / span) * 112;
+  const axis = document.createElementNS(svg.namespaceURI, "line");
+  axis.setAttribute("x1", "0");
+  axis.setAttribute("x2", "600");
+  axis.setAttribute("y1", String(zero));
+  axis.setAttribute("y2", String(zero));
+  axis.setAttribute("stroke", "currentColor");
+  axis.setAttribute("stroke-opacity", "0.35");
+  const path = document.createElementNS(svg.namespaceURI, "polyline");
+  path.setAttribute("fill", "none");
+  path.setAttribute("stroke", "currentColor");
+  path.setAttribute("stroke-width", "2");
+  path.setAttribute("points", coords.join(" "));
+  svg.append(axis, path);
+  return svg;
+}
+
+function tradeTable(trades) {
+  const wrap = document.createElement("details");
+  const heading = document.createElement("summary");
+  heading.textContent = trades.length + (trades.length === 1 ? " trade" : " trades");
+  wrap.appendChild(heading);
+  if (!trades.length) {
+    const empty = document.createElement("p");
+    empty.textContent = "No round trip on these bars.";
+    wrap.appendChild(empty);
+    return wrap;
+  }
   const table = document.createElement("table");
   const head = document.createElement("tr");
-  ["Preset", "Book", "Trades", "Net points", "Return", "Profit factor", "Option net", "Option factor"].forEach((name) => {
+  ["Time", "Ticker", "Side", "Level", "Exit", "Points", "Return"].forEach((name) => {
+    const th = document.createElement("th");
+    th.textContent = name;
+    head.appendChild(th);
+  });
+  const thead = document.createElement("thead");
+  thead.appendChild(head);
+  table.appendChild(thead);
+  const body = document.createElement("tbody");
+  trades.forEach((trade) => {
+    const row = document.createElement("tr");
+    cell(row, trade.time);
+    cell(row, trade.ticker, "ticker");
+    cell(row, trade.side, trade.side === "put" ? "put" : "call");
+    cell(row, Number(trade.level).toFixed(2));
+    cell(row, trade.marked ? "open mark" : trade.exit_reason);
+    cell(row, points(trade.points), tone(trade.points));
+    cell(row, percent(trade.return), tone(trade.return));
+    body.appendChild(row);
+  });
+  table.appendChild(body);
+  wrap.appendChild(table);
+  return wrap;
+}
+
+function comparison(runs) {
+  const wrap = document.createElement("div");
+  const heading = document.createElement("h3");
+  heading.textContent = "Exit comparison";
+  wrap.appendChild(heading);
+  const note = document.createElement("p");
+  note.textContent = "Live stays the retest and the target exit. The other columns use the entry and buffers above, each with its own exit.";
+  wrap.appendChild(note);
+  const table = document.createElement("table");
+  const head = document.createElement("tr");
+  ["Test", "Trades", "Win rate", "Net points", "Return", "Profit factor", "Max drawdown", "Expected"].forEach((name) => {
     const th = document.createElement("th");
     th.textContent = name;
     head.appendChild(th);
@@ -299,52 +447,57 @@ function renderRuns(runs) {
   table.appendChild(thead);
   const body = document.createElement("tbody");
   runs.forEach((run) => {
-    ["fits", "paper"].forEach((book) => {
-      const stock = run.summary[book].stock;
-      const option = run.summary[book].option;
-      const row = document.createElement("tr");
-      cell(row, run.name);
-      cell(row, book, book === "paper" ? "put" : "call");
-      cell(row, String(stock.trades));
-      cell(row, points(stock.net), stock.net < 0 ? "down" : "up");
-      cell(row, percent(stock.return));
-      cell(row, factor(stock));
-      cell(row, money(option.net));
-      cell(row, factor(option));
-      body.appendChild(row);
-    });
+    const stock = run.summary.strategy;
+    const row = document.createElement("tr");
+    cell(row, run.name);
+    cell(row, String(stock.trades));
+    cell(row, share(stock.win_rate));
+    cell(row, points(stock.net), tone(stock.net));
+    cell(row, percent(stock.return));
+    cell(row, factor(stock));
+    cell(row, points(-stock.max_drawdown), stock.max_drawdown ? "down" : "");
+    cell(row, points(stock.expected), tone(stock.expected));
+    body.appendChild(row);
   });
   table.appendChild(body);
   wrap.appendChild(table);
-  const custom = runs[runs.length - 1];
-  const heading = document.createElement("h3");
-  heading.textContent = custom.name + " trades";
-  wrap.appendChild(heading);
-  custom.trades.forEach((trade) => {
-    const card = document.createElement("p");
-    const inputs = trade.inputs || {};
-    const candle = inputs.candle || {};
-    card.textContent = [
-      trade.time, trade.ticker, trade.side, "level " + Number(trade.level).toFixed(2),
-      trade.contract || "no contract", trade.book || "left out",
-      "fill " + Number(trade.fill).toFixed(2),
-      trade.exit_reason, Number(trade.exit_close).toFixed(2),
-      points(trade.points) + " stock",
-      money(trade.option_dollars),
-      candle.color ? (candle.color + " O" + candle.o.toFixed(2) + " H" + candle.h.toFixed(2) + " L" + candle.l.toFixed(2) + " C" + candle.c.toFixed(2)) : "",
-      inputs.purple == null ? "" : ("purple " + Number(inputs.purple).toFixed(2)),
-      inputs.yellow == null ? "" : ("yellow " + Number(inputs.yellow).toFixed(2)),
-      inputs.atr == null ? "" : ("ATR " + Number(inputs.atr).toFixed(2) + " band " + Number(inputs.band).toFixed(2)),
-      inputs.nearby || "",
-      inputs.volume == null ? "" : (inputs.volume.toLocaleString() + " shares")
-    ].filter(Boolean).join(" · ");
-    wrap.appendChild(card);
-  });
-  if (custom.summary.no_contract) {
-    const note = document.createElement("p");
-    note.textContent = custom.summary.no_contract + " trades have no contract and are not in the factors.";
-    wrap.appendChild(note);
-  }
+  return wrap;
+}
+
+function renderReport(body) {
+  const wrap = document.createElement("div");
+  const report = body.report || body.runs[body.runs.length - 1];
+  const windowInfo = body.window || {};
+  const intro = document.createElement("p");
+  const from = windowInfo.from && windowInfo.to ? (windowInfo.from + " to " + windowInfo.to + ". ") : "";
+  const days = windowInfo.days && windowInfo.days.length ? (windowInfo.days.length + " saved sessions. ") : "";
+  const missing = windowInfo.missing && windowInfo.missing.length
+    ? (" No bars for " + windowInfo.missing.join(", ") + ".")
+    : "";
+  const note = windowInfo.note ? (" " + windowInfo.note) : "";
+  intro.textContent = days + from + windowInfo.bars + " finished 10-minute bars. " +
+    (windowInfo.source ? ("Source: " + windowInfo.source + ". ") : "") +
+    missing + note;
+  wrap.appendChild(intro);
+  const settings = report.settings || {};
+  const line = document.createElement("p");
+  line.textContent = [
+    "Entry " + (settings.entry || ""),
+    "exit " + (settings.exit || ""),
+    settings.stop_mode ? ("stop " + settings.stop_mode) : "",
+    settings.take ? ("take " + settings.take) : "",
+    settings.flatten ? ("clock " + settings.flatten) : "",
+    "touch " + settings.touch,
+    "chase " + settings.chase,
+    "SMA band " + settings.sma_band,
+    "ATR fraction " + settings.break_atr,
+    "near " + settings.profit_near
+  ].filter(Boolean).join(" · ");
+  wrap.appendChild(line);
+  wrap.appendChild(overview(report));
+  wrap.appendChild(equityChart(report.summary.strategy.equity));
+  wrap.appendChild(tradeTable(report.trades));
+  if (body.runs) wrap.appendChild(comparison(body.runs));
   return wrap;
 }
 
@@ -378,53 +531,50 @@ function collectLevels() {
   }).filter((level) => level.ticker && level.price !== "");
 }
 
-function collectPremiums() {
-  const premiums = {};
-  document.querySelectorAll("#premium-rows tr").forEach((row) => {
-    const read = (name) => row.querySelector("[name=" + name + "]").value.trim();
-    const ticker = read("ticker").toUpperCase();
-    const level = read("level");
-    if (!ticker || !level) return;
-    const key = ticker + "|" + row.querySelector("[name=side]").value + "|" + Number(level).toFixed(2);
-    premiums[key] = {
-      contract: read("contract"),
-      entry: read("entry") === "" ? null : Number(read("entry")),
-      exit: read("exit") === "" ? null : Number(read("exit"))
-    };
-  });
-  return premiums;
-}
-
 function payload() {
-  const num = (id) => Number(document.getElementById(id).value);
+  const num = (id) => {
+    const value = document.getElementById(id).value.trim();
+    if (value === "") return null;
+    const number = Number(value);
+    return Number.isNaN(number) ? null : number;
+  };
   return {
     armed_at: document.getElementById("armed-at").value,
     levels: collectLevels(),
+    bars: document.getElementById("bars-source").value,
+    range: document.getElementById("bar-range").value,
     touch: num("touch"),
     chase: num("chase"),
+    sma_band: num("sma-band"),
     break_atr: num("break-atr"),
     profit_near: num("profit-near"),
-    threshold: num("threshold"),
-    custom: {
-      stop_mode: document.getElementById("stop-mode").value,
-      take: document.getElementById("take-mode").value,
-      flatten: document.getElementById("flatten-mode").value
-    },
-    premiums: collectPremiums()
+    entry: document.getElementById("entry").value,
+    exit: document.getElementById("exit-rule").value,
+    exit_test: document.getElementById("exit-test").value,
+    stop_mode: document.getElementById("stop-mode").value,
+    take: document.getElementById("take-mode").value,
+    flatten: document.getElementById("flatten-mode").value
   };
+}
+
+function syncExitTest() {
+  const custom = document.getElementById("exit-test").value === "custom";
+  ["stop-mode", "take-mode", "flatten-mode"].forEach((id) => {
+    const field = document.getElementById(id);
+    if (field && field.parentElement) field.parentElement.hidden = !custom;
+  });
 }
 
 function bindDesk() {
   const run = document.getElementById("run-backtest");
   if (!run) return;
+  const exitTest = document.getElementById("exit-test");
+  if (exitTest) {
+    syncExitTest();
+    exitTest.addEventListener("change", syncExitTest);
+  }
   document.getElementById("add-level").addEventListener("click", () => {
     const body = document.getElementById("level-rows");
-    const copy = body.rows[0].cloneNode(true);
-    copy.querySelectorAll("input").forEach((input) => { input.value = ""; });
-    body.appendChild(copy);
-  });
-  document.getElementById("add-premium").addEventListener("click", () => {
-    const body = document.getElementById("premium-rows");
     const copy = body.rows[0].cloneNode(true);
     copy.querySelectorAll("input").forEach((input) => { input.value = ""; });
     body.appendChild(copy);
@@ -440,7 +590,7 @@ function bindDesk() {
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || "The backtest failed.");
-      out.replaceChildren(renderRuns(body.runs));
+      out.replaceChildren(renderReport(body));
     } catch (error) {
       out.textContent = error.message + " Start the desk with python3 scripts/dashboard.py serve.";
     }

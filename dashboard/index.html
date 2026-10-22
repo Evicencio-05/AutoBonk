@@ -108,6 +108,15 @@ try {
   pre.sheet { white-space: pre-wrap; background: var(--sheet); color: var(--ink);
     border-radius: 12px; padding: 12px; max-height: 420px; overflow: auto; }
   #backtest-out { margin-top: 8px; }
+  details { margin: 8px 0 12px; }
+  summary { font-weight: 800; cursor: pointer; color: var(--ink); }
+  .metrics { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+    gap: 8px; margin: 8px 0 12px; }
+  .metric { border: 2px solid var(--line); border-radius: 12px; padding: 8px 10px; background: var(--sheet); }
+  .metric span { display: block; color: var(--th); font-size: 0.72rem; font-weight: 800;
+    letter-spacing: 0.04em; text-transform: uppercase; }
+  .metric strong { font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+  .equity { width: 100%; height: 140px; display: block; }
 </style>
 </head>
 <body>
@@ -120,31 +129,32 @@ try {
 </header>
 <main>
 <section id='backtest'><h2>Backtest</h2>
-<p>Change the levels, the buffers, the exit, and the contract premiums, then run the backtest.
-Stock points, returns, and profit factor are computed from the 10-minute closes.
-Option dollars use the premiums in the form, and they are not a quote at a new exit.
-A premium over the threshold is paper. A row with no contract is left out of both factors.
+<p>Change the entry, the exit, and the buffers, then run the test.
+The report is stock points on finished 10-minute closes: net profit, gross profit,
+gross loss, profit factor, max drawdown, win rate, and the average trade.
+Recent sessions uses the levels below. Saved sessions replays each day's own book with these same variables.
+Live, Never exit, Near the next level, and Named stop are scored beside this test.
 This does not place an order and it does not rewrite the paper tape.</p>
-<p class="knobs">
+<p class="knobs" id="strategy-fields">
 <label>Armed <input id="armed-at" value="2026-10-20T23:05:37-07:00"></label>
-<label>Touch <input id="touch" value="0.15"></label>
-<label>Chase <input id="chase" value="0.50"></label>
-<label>ATR fraction <input id="break-atr" value="0.5"></label>
+<label>Bars <select id="bars-source"><option value="recent">recent sessions</option><option value="saved">saved sessions</option></select></label>
+<label>Recent range <select id="bar-range"><option value="5d">5 days</option><option value="1mo" selected>1 month</option></select></label>
+<label>Entry <select id="entry"><option value='retest' selected>retest</option><option value='fade'>fade</option></select></label><label>Exit rule <select id="exit-rule"><option value='target' selected>close through the far target</option><option value='stop'>named stop</option></select></label><label>Wick touch <input id="touch" value="0.15"></label><label>SMA band <input id="sma-band" value="1.0"></label><label>Chase <input id="chase" value="0.5"></label><label>ATR fraction <input id="break-atr" value="0.5"></label>
 <label>Near a level <input id="profit-near" value="0.15"></label>
-<label>Premium threshold <input id="threshold" value="1"></label>
+<label>Exit test <select id="exit-test"><option value="live">use the exit rule</option><option value="never">never exit</option><option value="near">near the next level</option><option value="named">named stop</option><option value="custom">custom</option></select></label>
 <label>Stop <select id="stop-mode"><option value="reclaim">reclaim</option><option value="named">named stop</option><option value="none">none</option></select></label>
 <label>Take profit <select id="take-mode"><option value="target">close through the far target</option><option value="near">near the next level</option><option value="none">never</option></select></label>
 <label>Clock <select id="flatten-mode"><option value="clock">12:50 PT</option><option value="none">do not flatten</option></select></label>
 </p>
+<p><button type="button" id="run-backtest">Run backtest</button>
+<button type="button" id="save-book">Save book</button></p>
+<details>
+<summary>Levels in this test (53)</summary>
 <table data-nosort><thead><tr><th>Ticker</th><th>Price</th><th>Allows</th><th>Targets</th><th>Up targets</th><th>Stop</th><th>Note</th></tr></thead>
 <tbody id="level-rows"><tr><td><input name='ticker' value='SNOW'></td><td><input name='price' value='320'></td><td><select name='allows'><option value='long' selected>long</option><option value='short'>short</option><option value='both'>both</option></select></td><td><input name='targets' value='335'></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='More downside until 320, then 335 can be claimed and held'></td></tr><tr><td><input name='ticker' value='SNOW'></td><td><input name='price' value='335'></td><td><select name='allows'><option value='long' selected>long</option><option value='short'>short</option><option value='both'>both</option></select></td><td><input name='targets' value=''></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='335 claimed and held'></td></tr><tr><td><input name='ticker' value='SNOW'></td><td><input name='price' value='281'></td><td><select name='allows'><option value='long' selected>long</option><option value='short'>short</option><option value='both'>both</option></select></td><td><input name='targets' value=''></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='281 is the ultimate long, if we reach it'></td></tr><tr><td><input name='ticker' value='CRWD'></td><td><input name='price' value='214'></td><td><select name='allows'><option value='long'>long</option><option value='short' selected>short</option><option value='both'>both</option></select></td><td><input name='targets' value='190, 170'></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='Heads 214, then 190, then 170. 170 might be too far'></td></tr><tr><td><input name='ticker' value='CRWD'></td><td><input name='price' value='190'></td><td><select name='allows'><option value='long'>long</option><option value='short' selected>short</option><option value='both'>both</option></select></td><td><input name='targets' value='170'></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='Then 190'></td></tr><tr><td><input name='ticker' value='CRWD'></td><td><input name='price' value='170'></td><td><select name='allows'><option value='long'>long</option><option value='short' selected>short</option><option value='both'>both</option></select></td><td><input name='targets' value=''></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='170 might be too far of a drop'></td></tr><tr><td><input name='ticker' value='AAPL'></td><td><input name='price' value='355.5'></td><td><select name='allows'><option value='long'>long</option><option value='short' selected>short</option><option value='both'>both</option></select></td><td><input name='targets' value=''></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='355.5 remains the first level to break for downside'></td></tr><tr><td><input name='ticker' value='AAPL'></td><td><input name='price' value='333.25'></td><td><select name='allows'><option value='long'>long</option><option value='short'>short</option><option value='both' selected>both</option></select></td><td><input name='targets' value='330.7, 328.25, 324.75'></td><td><input name='up_targets' value='340, 343, 345.4'></td><td><input name='stop' value=''></td><td><input name='note' value='Interested in 333.25. A bounce on the trend line is possible. If 333 breaks, 330.7'></td></tr><tr><td><input name='ticker' value='AAPL'></td><td><input name='price' value='330.7'></td><td><select name='allows'><option value='long' selected>long</option><option value='short'>short</option><option value='both'>both</option></select></td><td><input name='targets' value='333.25, 340, 343, 345.4'></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='If 333 breaks, look to 330.7 for a bounce'></td></tr><tr><td><input name='ticker' value='AAPL'></td><td><input name='price' value='330'></td><td><select name='allows'><option value='long'>long</option><option value='short' selected>short</option><option value='both'>both</option></select></td><td><input name='targets' value='328.25, 324.75'></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='If 330 breaks, 328.25 then 324.75'></td></tr><tr><td><input name='ticker' value='AAPL'></td><td><input name='price' value='328.25'></td><td><select name='allows'><option value='long'>long</option><option value='short' selected>short</option><option value='both'>both</option></select></td><td><input name='targets' value='324.75'></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='Then 328.25'></td></tr><tr><td><input name='ticker' value='AAPL'></td><td><input name='price' value='324.75'></td><td><select name='allows'><option value='long'>long</option><option value='short' selected>short</option><option value='both'>both</option></select></td><td><input name='targets' value=''></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='Then 324.75'></td></tr><tr><td><input name='ticker' value='AAPL'></td><td><input name='price' value='340'></td><td><select name='allows'><option value='long' selected>long</option><option value='short'>short</option><option value='both'>both</option></select></td><td><input name='targets' value='343, 345.4'></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='A bounce claims broken levels, then 340, then 343, then 345.4'></td></tr><tr><td><input name='ticker' value='AAPL'></td><td><input name='price' value='343'></td><td><select name='allows'><option value='long' selected>long</option><option value='short'>short</option><option value='both'>both</option></select></td><td><input name='targets' value='345.4'></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='Then 343'></td></tr><tr><td><input name='ticker' value='AAPL'></td><td><input name='price' value='345.4'></td><td><select name='allows'><option value='long' selected>long</option><option value='short'>short</option><option value='both'>both</option></select></td><td><input name='targets' value=''></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='Then 345.4'></td></tr><tr><td><input name='ticker' value='AMZN'></td><td><input name='price' value='264.2'></td><td><select name='allows'><option value='long' selected>long</option><option value='short'>short</option><option value='both'>both</option></select></td><td><input name='targets' value='265.35, 267, 269.58'></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='Claims at 264.2, then 265.35, then 267, then 269.58. Want an open above 263.7'></td></tr><tr><td><input name='ticker' value='AMZN'></td><td><input name='price' value='265.35'></td><td><select name='allows'><option value='long' selected>long</option><option value='short'>short</option><option value='both'>both</option></select></td><td><input name='targets' value='267, 269.58'></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='Then 265.35'></td></tr><tr><td><input name='ticker' value='AMZN'></td><td><input name='price' value='267'></td><td><select name='allows'><option value='long' selected>long</option><option value='short'>short</option><option value='both'>both</option></select></td><td><input name='targets' value='269.58'></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='Then 267'></td></tr><tr><td><input name='ticker' value='AMZN'></td><td><input name='price' value='269.58'></td><td><select name='allows'><option value='long' selected>long</option><option value='short'>short</option><option value='both'>both</option></select></td><td><input name='targets' value=''></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='Then 269.58'></td></tr><tr><td><input name='ticker' value='AMZN'></td><td><input name='price' value='260.5'></td><td><select name='allows'><option value='long'>long</option><option value='short' selected>short</option><option value='both'>both</option></select></td><td><input name='targets' value='257.95, 256.18, 254.4'></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='Break 260.5, then 257.95, then 256.18, then 254.4'></td></tr><tr><td><input name='ticker' value='AMZN'></td><td><input name='price' value='257.95'></td><td><select name='allows'><option value='long'>long</option><option value='short' selected>short</option><option value='both'>both</option></select></td><td><input name='targets' value='256.18, 254.4'></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='Then 257.95'></td></tr><tr><td><input name='ticker' value='AMZN'></td><td><input name='price' value='256.18'></td><td><select name='allows'><option value='long'>long</option><option value='short' selected>short</option><option value='both'>both</option></select></td><td><input name='targets' value='254.4'></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='Then 256.18'></td></tr><tr><td><input name='ticker' value='AMZN'></td><td><input name='price' value='254.4'></td><td><select name='allows'><option value='long'>long</option><option value='short' selected>short</option><option value='both'>both</option></select></td><td><input name='targets' value=''></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='Then 254.4'></td></tr><tr><td><input name='ticker' value='AVGO'></td><td><input name='price' value='340.75'></td><td><select name='allows'><option value='long' selected>long</option><option value='short'>short</option><option value='both'>both</option></select></td><td><input name='targets' value='343, 344.43, 356.75'></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='Did not claim 340.75. Can open above it. Then the 343 fib, then 344.43, then 356.75'></td></tr><tr><td><input name='ticker' value='AVGO'></td><td><input name='price' value='343'></td><td><select name='allows'><option value='long' selected>long</option><option value='short'>short</option><option value='both'>both</option></select></td><td><input name='targets' value='344.43, 356.75'></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='The 343 fib'></td></tr><tr><td><input name='ticker' value='AVGO'></td><td><input name='price' value='344.43'></td><td><select name='allows'><option value='long' selected>long</option><option value='short'>short</option><option value='both'>both</option></select></td><td><input name='targets' value='356.75'></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='Needs to claim 344.43 to have a chance to push'></td></tr><tr><td><input name='ticker' value='AVGO'></td><td><input name='price' value='356.75'></td><td><select name='allows'><option value='long' selected>long</option><option value='short'>short</option><option value='both'>both</option></select></td><td><input name='targets' value=''></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='356.75 is the key level for an explosive push'></td></tr><tr><td><input name='ticker' value='NVDA'></td><td><input name='price' value='224.5'></td><td><select name='allows'><option value='long' selected>long</option><option value='short'>short</option><option value='both'>both</option></select></td><td><input name='targets' value='229.25, 232'></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='Push to 224.5, then 229.25, then 232. 4h resistance at 225.25, be wary there'></td></tr><tr><td><input name='ticker' value='NVDA'></td><td><input name='price' value='229.25'></td><td><select name='allows'><option value='long' selected>long</option><option value='short'>short</option><option value='both'>both</option></select></td><td><input name='targets' value='232'></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='Then 229.25'></td></tr><tr><td><input name='ticker' value='NVDA'></td><td><input name='price' value='232'></td><td><select name='allows'><option value='long' selected>long</option><option value='short'>short</option><option value='both'>both</option></select></td><td><input name='targets' value=''></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='Then 232'></td></tr><tr><td><input name='ticker' value='GOOGL'></td><td><input name='price' value='344'></td><td><select name='allows'><option value='long' selected>long</option><option value='short'>short</option><option value='both'>both</option></select></td><td><input name='targets' value='345.82, 347.35, 350, 352.66'></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='Needs to claim 344. Above that 345.82, then 347.35, then 350, then 352.66'></td></tr><tr><td><input name='ticker' value='GOOGL'></td><td><input name='price' value='345.82'></td><td><select name='allows'><option value='long' selected>long</option><option value='short'>short</option><option value='both'>both</option></select></td><td><input name='targets' value='347.35, 350, 352.66'></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='Then 345.82'></td></tr><tr><td><input name='ticker' value='GOOGL'></td><td><input name='price' value='347.35'></td><td><select name='allows'><option value='long' selected>long</option><option value='short'>short</option><option value='both'>both</option></select></td><td><input name='targets' value='350, 352.66'></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='Then 347.35'></td></tr><tr><td><input name='ticker' value='GOOGL'></td><td><input name='price' value='350'></td><td><select name='allows'><option value='long' selected>long</option><option value='short'>short</option><option value='both'>both</option></select></td><td><input name='targets' value='352.66'></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='Then 350'></td></tr><tr><td><input name='ticker' value='GOOGL'></td><td><input name='price' value='352.66'></td><td><select name='allows'><option value='long' selected>long</option><option value='short'>short</option><option value='both'>both</option></select></td><td><input name='targets' value=''></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='Then 352.66'></td></tr><tr><td><input name='ticker' value='GOOGL'></td><td><input name='price' value='338.4'></td><td><select name='allows'><option value='long'>long</option><option value='short' selected>short</option><option value='both'>both</option></select></td><td><input name='targets' value='335.5'></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='If 338.4 breaks, 335.5'></td></tr><tr><td><input name='ticker' value='GOOGL'></td><td><input name='price' value='335.5'></td><td><select name='allows'><option value='long'>long</option><option value='short' selected>short</option><option value='both'>both</option></select></td><td><input name='targets' value=''></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='Then 335.5'></td></tr><tr><td><input name='ticker' value='INTC'></td><td><input name='price' value='90.5'></td><td><select name='allows'><option value='long' selected>long</option><option value='short'>short</option><option value='both'>both</option></select></td><td><input name='targets' value='95, 97.5, 100, 102, 103'></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='If 95 does not break immediately, look for a bounce on 90.5'></td></tr><tr><td><input name='ticker' value='INTC'></td><td><input name='price' value='95'></td><td><select name='allows'><option value='long' selected>long</option><option value='short'>short</option><option value='both'>both</option></select></td><td><input name='targets' value='97.5, 100, 102, 103'></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='Claim 95, then 97.5, then 100, then 102, maybe 103'></td></tr><tr><td><input name='ticker' value='INTC'></td><td><input name='price' value='97.5'></td><td><select name='allows'><option value='long' selected>long</option><option value='short'>short</option><option value='both'>both</option></select></td><td><input name='targets' value='100, 102, 103'></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='Then 97.5'></td></tr><tr><td><input name='ticker' value='INTC'></td><td><input name='price' value='100'></td><td><select name='allows'><option value='long' selected>long</option><option value='short'>short</option><option value='both'>both</option></select></td><td><input name='targets' value='102, 103'></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='Then 100'></td></tr><tr><td><input name='ticker' value='INTC'></td><td><input name='price' value='102'></td><td><select name='allows'><option value='long' selected>long</option><option value='short'>short</option><option value='both'>both</option></select></td><td><input name='targets' value='103'></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='Then 102, maybe 103'></td></tr><tr><td><input name='ticker' value='INTC'></td><td><input name='price' value='103'></td><td><select name='allows'><option value='long' selected>long</option><option value='short'>short</option><option value='both'>both</option></select></td><td><input name='targets' value=''></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='Maybe 103'></td></tr><tr><td><input name='ticker' value='INTC'></td><td><input name='price' value='90'></td><td><select name='allows'><option value='long'>long</option><option value='short' selected>short</option><option value='both'>both</option></select></td><td><input name='targets' value=''></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='Do not want to see 90 break'></td></tr><tr><td><input name='ticker' value='PLTR'></td><td><input name='price' value='193.85'></td><td><select name='allows'><option value='long' selected>long</option><option value='short'>short</option><option value='both'>both</option></select></td><td><input name='targets' value='197, 200, 203.7, 210'></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='Hold the 4h 20 and the fib at 193.85, then 197, then 200, then 203.7, then 210'></td></tr><tr><td><input name='ticker' value='PLTR'></td><td><input name='price' value='197'></td><td><select name='allows'><option value='long' selected>long</option><option value='short'>short</option><option value='both'>both</option></select></td><td><input name='targets' value='200, 203.7, 210'></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='Then 197'></td></tr><tr><td><input name='ticker' value='PLTR'></td><td><input name='price' value='200'></td><td><select name='allows'><option value='long' selected>long</option><option value='short'>short</option><option value='both'>both</option></select></td><td><input name='targets' value='203.7, 210'></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='Then 200'></td></tr><tr><td><input name='ticker' value='PLTR'></td><td><input name='price' value='203.7'></td><td><select name='allows'><option value='long' selected>long</option><option value='short'>short</option><option value='both'>both</option></select></td><td><input name='targets' value='210'></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='Then 203.7'></td></tr><tr><td><input name='ticker' value='PLTR'></td><td><input name='price' value='210'></td><td><select name='allows'><option value='long' selected>long</option><option value='short'>short</option><option value='both'>both</option></select></td><td><input name='targets' value=''></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='Then 210'></td></tr><tr><td><input name='ticker' value='PLTR'></td><td><input name='price' value='191.5'></td><td><select name='allows'><option value='long'>long</option><option value='short' selected>short</option><option value='both'>both</option></select></td><td><input name='targets' value='186.5'></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='A break below 191.5 could see 186.5 or the 4h 200'></td></tr><tr><td><input name='ticker' value='PLTR'></td><td><input name='price' value='186.5'></td><td><select name='allows'><option value='long'>long</option><option value='short' selected>short</option><option value='both'>both</option></select></td><td><input name='targets' value=''></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='Then 186.5'></td></tr><tr><td><input name='ticker' value='PLTR'></td><td><input name='price' value='190'></td><td><select name='allows'><option value='long'>long</option><option value='short' selected>short</option><option value='both'>both</option></select></td><td><input name='targets' value='185'></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='Easy slide to 185 if 190 breaks'></td></tr><tr><td><input name='ticker' value='PLTR'></td><td><input name='price' value='185'></td><td><select name='allows'><option value='long'>long</option><option value='short' selected>short</option><option value='both'>both</option></select></td><td><input name='targets' value=''></td><td><input name='up_targets' value=''></td><td><input name='stop' value=''></td><td><input name='note' value='Then 185'></td></tr></tbody></table>
 <p><button type="button" id="add-level">Add level</button></p>
-<table data-nosort><thead><tr><th>Ticker</th><th>Side</th><th>Level</th><th>Contract</th><th>Entry premium</th><th>Exit premium</th></tr></thead>
-<tbody id="premium-rows"><tr><td><input name='ticker' value='NVDA'></td><td><select name='side'><option value='call' selected>call</option><option value='put'>put</option></select></td><td><input name='level' value='217.50'></td><td><input name='contract' value='10/21 222.5C'></td><td><input name='entry' value='0.44'></td><td><input name='exit' value='0.34'></td></tr><tr><td><input name='ticker' value='AAPL'></td><td><select name='side'><option value='call' selected>call</option><option value='put'>put</option></select></td><td><input name='level' value='340.00'></td><td><input name='contract' value='10/21 345C'></td><td><input name='entry' value='0.93'></td><td><input name='exit' value='0.39'></td></tr><tr><td><input name='ticker' value='AAPL'></td><td><select name='side'><option value='call' selected>call</option><option value='put'>put</option></select></td><td><input name='level' value='340.00'></td><td><input name='contract' value='10/21 342.5C'></td><td><input name='entry' value='0.38'></td><td><input name='exit' value='0.18'></td></tr><tr><td><input name='ticker' value='AMZN'></td><td><select name='side'><option value='call'>call</option><option value='put' selected>put</option></select></td><td><input name='level' value='260.50'></td><td><input name='contract' value='10/21 257.5P'></td><td><input name='entry' value='0.28'></td><td><input name='exit' value='0.15'></td></tr></tbody></table>
-<p><button type="button" id="add-premium">Add contract</button>
-<button type="button" id="run-backtest">Run backtest</button>
-<button type="button" id="save-book">Save book</button></p>
-<div id="backtest-out"><p>The four presets are Live, Never exit, Near the next level, and Named stop. Custom uses the menus above.</p></div>
+</details>
+<div id="backtest-out"><p>Run the test to see net profit, drawdown, and win rate for these variables.</p></div>
 <script id="desk-data" type="application/json">{"armed_at": "2026-10-20T23:05:37-07:00"}</script>
 </section><section id='trades'><h2>Paper</h2><table><thead><tr><th>Time</th><th>Ticker</th><th>Side</th><th>Level</th><th>Contract</th><th>Paid</th><th>Exit</th><th>Profit</th></tr></thead><tbody><tr><td class='num'>2026-10-19 07:40 PT</td><td class='ticker'>AAPL</td><td class='side call'>call</td><td class='num'>343.50</td><td>10/19 347.5C</td><td class='num'>0.32</td><td class='num'>0.04</td><td class='num down'>-$28</td></tr><tr><td class='num'>2026-10-19 06:20 PT</td><td class='ticker'>AMZN</td><td class='side call'>call</td><td class='num'>253.15</td><td>10/19 257.5C</td><td class='num'>0.52</td><td class='num'>5.65</td><td class='num up'>+$513</td></tr><tr><td class='num'>2026-10-19 09:10 PT</td><td class='ticker'>AMZN</td><td class='side call'>call</td><td class='num'>258.30</td><td>none</td><td class='num'></td><td class='num'></td><td class='num'></td></tr><tr><td class='num'>2026-10-19 08:30 PT</td><td class='ticker'>GOOGL</td><td class='side call'>call</td><td class='num'>344.55</td><td>10/19 347.5C</td><td class='num'>0.37</td><td class='num'></td><td class='num'></td></tr><tr><td class='num'>2026-10-19 07:50 PT</td><td class='ticker'>SPCX</td><td class='side call'>call</td><td class='num'>148.50</td><td>10/19 150C</td><td class='num'>0.60</td><td class='num'></td><td class='num'></td></tr><tr><td class='num'>2026-10-20 05:30 PT</td><td class='ticker'>META</td><td class='side put'>put</td><td class='num'>700.00</td><td>none</td><td class='num'></td><td class='num'></td><td class='num'></td></tr><tr><td class='num'>2026-10-20 07:00 PT</td><td class='ticker'>SPCX</td><td class='side put'>put</td><td class='num'>146.50</td><td>none</td><td class='num'></td><td class='num'></td><td class='num'></td></tr><tr><td class='num'>2026-10-20 07:50 PT</td><td class='ticker'>NVDA</td><td class='side call'>call</td><td class='num'>217.50</td><td>10/21 222.5C</td><td class='num'>0.44</td><td class='num'></td><td class='num'></td></tr><tr><td class='num'>2026-10-20 07:50 PT</td><td class='ticker'>SPCX</td><td class='side call'>call</td><td class='num'>146.60</td><td>none</td><td class='num'></td><td class='num'></td><td class='num'></td></tr><tr><td class='num'>2026-10-19 05:40 PT</td><td class='ticker'>SPCX</td><td class='side call'>call</td><td class='num'>146.50</td><td>none</td><td class='num'></td><td class='num'>open</td><td class='num'></td></tr><tr><td class='num'>2026-10-19 08:50 PT</td><td class='ticker'>TSLA</td><td class='side call'>call</td><td class='num'>362.50</td><td>10/19 370C</td><td class='num'>0.57</td><td class='num'>open</td><td class='num'></td></tr><tr><td class='num'>2026-10-19 09:40 PT</td><td class='ticker'>AMZN</td><td class='side call'>call</td><td class='num'>261.00</td><td>none</td><td class='num'></td><td class='num'>open</td><td class='num'></td></tr><tr><td class='num'>2026-10-20 08:00 PT</td><td class='ticker'>AAPL</td><td class='side call'>call</td><td class='num'>340.00</td><td>10/21 345C</td><td class='num'>0.93</td><td class='num'>0.07 mark</td><td class='num down'>-$86</td></tr><tr><td class='num'>2026-10-20 08:20 PT</td><td class='ticker'>TSLA</td><td class='side call'>call</td><td class='num'>370.00</td><td>none</td><td class='num'></td><td class='num'>open</td><td class='num'></td></tr><tr><td class='num'>2026-10-21 07:30 PT</td><td class='ticker'>AAPL</td><td class='side call'>call</td><td class='num'>340.00</td><td>10/21 342.5C</td><td class='num'>0.38</td><td class='num'>1.40 mark</td><td class='num up'>+$102</td></tr><tr><td class='num'>2026-10-21 07:30 PT</td><td class='ticker'>AMZN</td><td class='side put'>put</td><td class='num'>260.50</td><td>10/21 257.5P</td><td class='num'>0.28</td><td class='num'>0.05 mark</td><td class='num down'>-$23</td></tr><tr data-stay><td colspan='7'>Day</td><td class='num up'>+$478</td></tr></tbody></table><p>A trade needs a contract. A premium over $1 is paper. Fits stock profit factor 1.65. Fits option profit factor 4.49. Paper stock profit factor —. Paper option profit factor —. 7 rows have no contract and are not in either factor. These factors are computed from the tape.</p><p>A paper row is not an order and is not a journal trade. Profit is one contract, the premium change times 100.</p><p>The candle, RSI, SMAs, nearby levels, and volume for each row are in `alerts/context.md`.</p><p>SPCX 146.50 has no contract. At the 6:30 option open the 150 call was $1.10, and the next strike, 152.5, is $5.20 above the 147.30 stock fill with no upside target on that level.</p><p>AMZN 253.15 is the 257.5 call. The stock filled at 6:10, before options printed. The premium is the 6:30 open.</p><p>AMZN 258.30 has no contract. The 262.5 call was $1.17, and 265 is past the 263.15 target.</p><p>AMZN 261.00 has no contract. The 262.5 call was $1.11 at the fill, and 265 is past the 263.15 target.</p><h3>What went into each row</h3><p>The signal candle on an entry, the exit candle on an exit. Purple is the 14 RSI. Yellow is its 14 SMA. The number after an average or a level is the close minus that price.</p><table><thead><tr><th>Time</th><th>Ticker</th><th>Action</th><th>Side</th><th>Level</th><th>Fill</th><th>Candle</th><th>Purple</th><th>Yellow</th><th>SMA20</th><th>SMA50</th><th>SMA200</th><th>Nearby</th><th>Volume</th></tr></thead><tbody><tr><td>2026-10-19 05:40 PT</td><td>SPCX</td><td>entry</td><td>call</td><td>146.50</td><td>147.30</td><td>red O147.45 H147.56 L147.07 C147.24</td><td>55.85</td><td>49.07</td><td>146.90 (+0.34)</td><td>146.48 (+0.76)</td><td>147.43 (-0.19)</td><td>146.50 (+0.74)</td><td>0</td></tr><tr><td>2026-10-19 06:20 PT</td><td>AMZN</td><td>entry</td><td>call</td><td>253.15</td><td>255.19</td><td>red O255.14 H255.28 L254.81 C255.05</td><td>71.27</td><td>69.42</td><td>253.85 (+1.21)</td><td>251.86 (+3.20)</td><td>252.52 (+2.54)</td><td>255.75 (-0.70)</td><td>0</td></tr><tr><td>2026-10-19 07:40 PT</td><td>AAPL</td><td>entry</td><td>call</td><td>343.50</td><td>345.18</td><td>red O345.55 H345.77 L345.11 C345.20</td><td>63.85</td><td>48.05</td><td>342.78 (+2.42)</td><td>342.97 (+2.23)</td><td>343.36 (+1.84)</td><td>345.40 (-0.20)</td><td>7,807,609</td></tr><tr><td>2026-10-19 07:50 PT</td><td>SPCX</td><td>entry</td><td>call</td><td>148.50</td><td>149.11</td><td>red O149.60 H150.06 L148.83 C149.13</td><td>58.59</td><td>62.95</td><td>148.04 (+1.09)</td><td>147.17 (+1.96)</td><td>147.46 (+1.67)</td><td>148.50 (+0.63)</td><td>2,277,059</td></tr><tr><td>2026-10-19 08:10 PT</td><td>AAPL</td><td>exit</td><td>call</td><td>343.50</td><td>343.09</td><td>red O343.96 H344.04 L342.91 C343.09</td><td>48.28</td><td>52.86</td><td>343.02 (+0.07)</td><td>343.04 (+0.05)</td><td>343.34 (-0.25)</td><td>343.50 (-0.41)</td><td>652,957</td></tr><tr><td>2026-10-19 08:30 PT</td><td>GOOGL</td><td>entry</td><td>call</td><td>344.55</td><td>345.60</td><td>red O346.36 H346.36 L345.10 C345.58</td><td>65.43</td><td>64.43</td><td>343.83 (+1.75)</td><td>342.56 (+3.02)</td><td>345.57 (+0.01)</td><td>346.00 (-0.42)</td><td>342,708</td></tr><tr><td>2026-10-19 08:50 PT</td><td>AMZN</td><td>exit</td><td>call</td><td>253.15</td><td>263.16</td><td>green O262.57 H263.42 L262.25 C263.16</td><td>80.30</td><td>82.05</td><td>258.60 (+4.56)</td><td>255.00 (+8.16)</td><td>253.30 (+9.86)</td><td>263.15 (+0.01)</td><td>1,048,513</td></tr><tr><td>2026-10-19 08:50 PT</td><td>TSLA</td><td>entry</td><td>call</td><td>362.50</td><td>367.51</td><td>red O368.11 H368.14 L367.32 C367.53</td><td>84.01</td><td>84.52</td><td>361.64 (+5.89)</td><td>357.39 (+10.14)</td><td>361.34 (+6.19)</td><td>362.50 (+5.03)</td><td>539,561</td></tr><tr><td>2026-10-19 09:10 PT</td><td>AMZN</td><td>entry</td><td>call</td><td>258.30</td><td>262.98</td><td>red O263.15 H263.44 L262.82 C262.98</td><td>78.56</td><td>82.43</td><td>258.97 (+4.01)</td><td>255.28 (+7.70)</td><td>253.36 (+9.62)</td><td>263.15 (-0.17)</td><td>738,861</td></tr><tr><td>2026-10-19 09:20 PT</td><td>AMZN</td><td>exit</td><td>call</td><td>258.30</td><td>263.29</td><td>green O262.77 H263.39 L262.66 C263.29</td><td>78.28</td><td>82.44</td><td>259.76 (+3.53)</td><td>255.84 (+7.45)</td><td>253.48 (+9.81)</td><td>263.15 (+0.14)</td><td>768,697</td></tr><tr><td>2026-10-19 09:40 PT</td><td>AMZN</td><td>entry</td><td>call</td><td>261.00</td><td>263.03</td><td>red O263.31 H263.41 L262.82 C263.05</td><td>75.82</td><td>81.75</td><td>260.16 (+2.89)</td><td>256.12 (+6.93)</td><td>253.54 (+9.51)</td><td>263.15 (-0.10)</td><td>781,545</td></tr><tr><td>2026-10-19 10:10 PT</td><td>GOOGL</td><td>exit</td><td>call</td><td>344.55</td><td>344.22</td><td>red O344.77 H344.77 L344.15 C344.22</td><td>46.13</td><td>61.34</td><td>345.23 (-1.01)</td><td>343.70 (+0.52)</td><td>345.36 (-1.14)</td><td>344.55 (-0.33)</td><td>156,941</td></tr><tr><td>2026-10-19 10:10 PT</td><td>SPCX</td><td>exit</td><td>call</td><td>148.50</td><td>148.24</td><td>red O148.73 H148.82 L148.18 C148.24</td><td>41.71</td><td>57.35</td><td>149.48 (-1.24)</td><td>148.21 (+0.03)</td><td>147.72 (+0.52)</td><td>148.50 (-0.26)</td><td>1,230,806</td></tr><tr><td>2026-10-20 05:30 PT</td><td>META</td><td>entry</td><td>put</td><td>700.00</td><td>698.53</td><td>green O697.61 H699.34 L697.17 C698.50</td><td>35.78</td><td>34.08</td><td>700.59 (-2.09)</td><td>703.82 (-5.32)</td><td>711.02 (-12.52)</td><td>700.00 (-1.50)</td><td>0</td></tr><tr><td>2026-10-20 05:40 PT</td><td>META</td><td>exit</td><td>put</td><td>700.00</td><td>700.01</td><td>green O699.00 H700.01 L698.37 C700.01</td><td>45.55</td><td>34.73</td><td>700.22 (-0.21)</td><td>703.54 (-3.53)</td><td>710.63 (-10.62)</td><td>700.00 (+0.01)</td><td>0</td></tr><tr><td>2026-10-20 05:40 PT</td><td>SPCX</td><td>exit</td><td>put</td><td>146.50</td><td>146.59</td><td>green O145.99 H146.59 L145.88 C146.59</td><td>48.66</td><td>38.09</td><td>146.36 (+0.23)</td><td>147.54 (-0.95)</td><td>147.23 (-0.64)</td><td>146.50 (+0.09)</td><td>0</td></tr><tr><td>2026-10-20 06:40 PT</td><td>AAPL</td><td>exit</td><td>put</td><td>340.30</td><td>341.08</td><td>green O339.61 H343.03 L338.70 C341.08</td><td>63.83</td><td>38.55</td><td>339.25 (+1.82)</td><td>340.70 (+0.37)</td><td>342.74 (-1.66)</td><td>340.30 (+0.78)</td><td>3,381,652</td></tr><tr><td>2026-10-20 07:00 PT</td><td>SPCX</td><td>entry</td><td>put</td><td>146.50</td><td>144.30</td><td>green O144.12 H144.37 L143.27 C144.29</td><td>29.04</td><td>42.65</td><td>146.17 (-1.88)</td><td>147.18 (-2.89)</td><td>147.06 (-2.77)</td><td>144.00 (+0.29)</td><td>3,111,681</td></tr><tr><td>2026-10-20 07:20 PT</td><td>SPCX</td><td>exit</td><td>put</td><td>146.50</td><td>147.21</td><td>green O145.88 H147.54 L145.77 C147.21</td><td>57.03</td><td>44.04</td><td>146.11 (+1.10)</td><td>147.00 (+0.20)</td><td>147.02 (+0.19)</td><td>146.50 (+0.71)</td><td>3,618,586</td></tr><tr><td>2026-10-20 07:50 PT</td><td>NVDA</td><td>entry</td><td>call</td><td>217.50</td><td>217.70</td><td>red O218.03 H218.46 L217.25 C217.71</td><td>62.13</td><td>47.38</td><td>215.74 (+1.97)</td><td>216.32 (+1.39)</td><td>216.51 (+1.20)</td><td>217.50 (+0.21)</td><td>2,485,326</td></tr><tr><td>2026-10-20 07:50 PT</td><td>SPCX</td><td>entry</td><td>call</td><td>146.60</td><td>147.90</td><td>red O147.90 H148.14 L147.15 C147.88</td><td>61.06</td><td>47.01</td><td>146.29 (+1.60)</td><td>146.96 (+0.92)</td><td>147.02 (+0.86)</td><td>146.60 (+1.28)</td><td>2,351,085</td></tr><tr><td>2026-10-20 08:00 PT</td><td>AAPL</td><td>entry</td><td>call</td><td>340.00</td><td>341.88</td><td>red O342.26 H342.52 L341.86 C341.89</td><td>62.90</td><td>56.78</td><td>340.03 (+1.86)</td><td>340.56 (+1.33)</td><td>342.67 (-0.78)</td><td>342.25 (-0.36)</td><td>525,776</td></tr><tr><td>2026-10-20 08:20 PT</td><td>NVDA</td><td>exit</td><td>call</td><td>217.50</td><td>217.20</td><td>red O217.61 H217.63 L216.23 C217.20</td><td>56.21</td><td>52.30</td><td>216.18 (+1.02)</td><td>216.33 (+0.87)</td><td>216.54 (+0.66)</td><td>217.50 (-0.30)</td><td>2,685,325</td></tr><tr><td>2026-10-20 08:20 PT</td><td>TSLA</td><td>entry</td><td>call</td><td>370.00</td><td>376.43</td><td>red O377.29 H377.59 L375.78 C376.42</td><td>70.76</td><td>63.48</td><td>370.59 (+5.83)</td><td>368.90 (+7.52)</td><td>361.95 (+14.47)</td><td>377.00 (-0.58)</td><td>898,475</td></tr><tr><td>2026-10-20 08:40 PT</td><td>SPCX</td><td>exit</td><td>call</td><td>146.60</td><td>146.26</td><td>red O146.78 H146.87 L146.00 C146.26</td><td>45.21</td><td>49.88</td><td>146.65 (-0.39)</td><td>146.79 (-0.53)</td><td>147.06 (-0.80)</td><td>146.60 (-0.34)</td><td>39,935,401</td></tr><tr><td>2026-10-21 07:30 PT</td><td>AAPL</td><td>entry</td><td>call</td><td>340.00</td><td>340.35</td><td>red O340.42 H340.74 L340.07 C340.35</td><td>70.60</td><td>63.51</td><td>338.93 (+1.41)</td><td>338.24 (+2.11)</td><td>340.53 (-0.18)</td><td>340.00 (+0.35)</td><td>635,223</td></tr><tr><td>2026-10-21 07:30 PT</td><td>AMZN</td><td>entry</td><td>put</td><td>260.50</td><td>260.23</td><td>green O259.58 H260.50 L259.52 C260.23</td><td>30.62</td><td>40.92</td><td>262.42 (-2.19)</td><td>262.95 (-2.72)</td><td>262.08 (-1.85)</td><td>260.50 (-0.27)</td><td>1,029,628</td></tr></tbody></table><table><thead><tr><th>Time</th><th>Ticker</th><th>Action</th><th>Side</th><th>Level</th><th>Fill</th><th>Reason</th><th>Contract</th><th>Premium</th></tr></thead><tbody><tr><td class='num'>2026-10-19 05:40 PT</td><td class='ticker'>SPCX</td><td>entry</td><td class='side call'>call</td><td class='num'>146.50</td><td class='num'>147.30</td><td>sma</td><td>none</td><td class='num'></td></tr><tr><td class='num'>2026-10-19 06:20 PT</td><td class='ticker'>AMZN</td><td>entry</td><td class='side call'>call</td><td class='num'>253.15</td><td class='num'>255.19</td><td>sma</td><td>10/19 257.5C</td><td class='num'>0.52</td></tr><tr><td class='num'>2026-10-19 07:40 PT</td><td class='ticker'>AAPL</td><td>entry</td><td class='side call'>call</td><td class='num'>343.50</td><td class='num'>345.18</td><td>sma</td><td>10/19 347.5C</td><td class='num'>0.32</td></tr><tr><td class='num'>2026-10-19 07:50 PT</td><td class='ticker'>SPCX</td><td>entry</td><td class='side call'>call</td><td class='num'>148.50</td><td class='num'>149.11</td><td>sma</td><td>10/19 150C</td><td class='num'>0.60</td></tr><tr><td class='num'>2026-10-19 08:10 PT</td><td class='ticker'>AAPL</td><td>exit</td><td class='side call'>call</td><td class='num'>343.50</td><td class='num'>343.09</td><td>reclaim</td><td>10/19 347.5C</td><td class='num'>0.04</td></tr><tr><td class='num'>2026-10-19 08:30 PT</td><td class='ticker'>GOOGL</td><td>entry</td><td class='side call'>call</td><td class='num'>344.55</td><td class='num'>345.60</td><td>sma</td><td>10/19 347.5C</td><td class='num'>0.37</td></tr><tr><td class='num'>2026-10-19 08:50 PT</td><td class='ticker'>AMZN</td><td>exit</td><td class='side call'>call</td><td class='num'>253.15</td><td class='num'>263.16</td><td>target</td><td>10/19 257.5C</td><td class='num'>5.65</td></tr><tr><td class='num'>2026-10-19 08:50 PT</td><td class='ticker'>TSLA</td><td>entry</td><td class='side call'>call</td><td class='num'>362.50</td><td class='num'>367.51</td><td>sma</td><td>10/19 370C</td><td class='num'>0.57</td></tr><tr><td class='num'>2026-10-19 09:10 PT</td><td class='ticker'>AMZN</td><td>entry</td><td class='side call'>call</td><td class='num'>258.30</td><td class='num'>262.98</td><td>sma</td><td>none</td><td class='num'></td></tr><tr><td class='num'>2026-10-19 09:20 PT</td><td class='ticker'>AMZN</td><td>exit</td><td class='side call'>call</td><td class='num'>258.30</td><td class='num'>263.29</td><td>target</td><td>none</td><td class='num'></td></tr><tr><td class='num'>2026-10-19 09:40 PT</td><td class='ticker'>AMZN</td><td>entry</td><td class='side call'>call</td><td class='num'>261.00</td><td class='num'>263.03</td><td>sma</td><td>none</td><td class='num'></td></tr><tr><td class='num'>2026-10-19 10:10 PT</td><td class='ticker'>GOOGL</td><td>exit</td><td class='side call'>call</td><td class='num'>344.55</td><td class='num'>344.22</td><td>reclaim</td><td>10/19 347.5C</td><td class='num'></td></tr><tr><td class='num'>2026-10-19 10:10 PT</td><td class='ticker'>SPCX</td><td>exit</td><td class='side call'>call</td><td class='num'>148.50</td><td class='num'>148.24</td><td>reclaim</td><td>10/19 150C</td><td class='num'></td></tr><tr><td class='num'>2026-10-20 05:30 PT</td><td class='ticker'>META</td><td>entry</td><td class='side put'>put</td><td class='num'>700.00</td><td class='num'>698.53</td><td>sma</td><td>none</td><td class='num'></td></tr><tr><td class='num'>2026-10-20 05:40 PT</td><td class='ticker'>META</td><td>exit</td><td class='side put'>put</td><td class='num'>700.00</td><td class='num'>700.01</td><td>reclaim</td><td>none</td><td class='num'></td></tr><tr><td class='num'>2026-10-20 05:40 PT</td><td class='ticker'>SPCX</td><td>exit</td><td class='side put'>put</td><td class='num'>146.50</td><td class='num'>146.59</td><td>reclaim</td><td></td><td class='num'></td></tr><tr><td class='num'>2026-10-20 06:40 PT</td><td class='ticker'>AAPL</td><td>exit</td><td class='side put'>put</td><td class='num'>340.30</td><td class='num'>341.08</td><td>reclaim</td><td></td><td class='num'></td></tr><tr><td class='num'>2026-10-20 07:00 PT</td><td class='ticker'>SPCX</td><td>entry</td><td class='side put'>put</td><td class='num'>146.50</td><td class='num'>144.30</td><td>sma</td><td>none</td><td class='num'></td></tr><tr><td class='num'>2026-10-20 07:20 PT</td><td class='ticker'>SPCX</td><td>exit</td><td class='side put'>put</td><td class='num'>146.50</td><td class='num'>147.21</td><td>reclaim</td><td>none</td><td class='num'></td></tr><tr><td class='num'>2026-10-20 07:50 PT</td><td class='ticker'>NVDA</td><td>entry</td><td class='side call'>call</td><td class='num'>217.50</td><td class='num'>217.70</td><td>retest</td><td>10/21 222.5C</td><td class='num'>0.44</td></tr><tr><td class='num'>2026-10-20 07:50 PT</td><td class='ticker'>SPCX</td><td>entry</td><td class='side call'>call</td><td class='num'>146.60</td><td class='num'>147.90</td><td>sma</td><td>none</td><td class='num'></td></tr><tr><td class='num'>2026-10-20 08:00 PT</td><td class='ticker'>AAPL</td><td>entry</td><td class='side call'>call</td><td class='num'>340.00</td><td class='num'>341.88</td><td>sma</td><td>10/21 345C</td><td class='num'>0.93</td></tr><tr><td class='num'>2026-10-20 08:20 PT</td><td class='ticker'>NVDA</td><td>exit</td><td class='side call'>call</td><td class='num'>217.50</td><td class='num'>217.20</td><td>reclaim</td><td>10/21 222.5C</td><td class='num'></td></tr><tr><td class='num'>2026-10-20 08:20 PT</td><td class='ticker'>TSLA</td><td>entry</td><td class='side call'>call</td><td class='num'>370.00</td><td class='num'>376.43</td><td>sma</td><td>none</td><td class='num'></td></tr><tr><td class='num'>2026-10-20 08:40 PT</td><td class='ticker'>SPCX</td><td>exit</td><td class='side call'>call</td><td class='num'>146.60</td><td class='num'>146.26</td><td>reclaim</td><td>none</td><td class='num'></td></tr><tr><td class='num'>2026-10-21 07:30 PT</td><td class='ticker'>AAPL</td><td>entry</td><td class='side call'>call</td><td class='num'>340.00</td><td class='num'>340.35</td><td>retest</td><td>10/21 342.5C</td><td class='num'>0.38</td></tr><tr><td class='num'>2026-10-21 07:30 PT</td><td class='ticker'>AMZN</td><td>entry</td><td class='side put'>put</td><td class='num'>260.50</td><td class='num'>260.23</td><td>retest</td><td>10/21 257.5P</td><td class='num'>0.28</td></tr></tbody></table></section><section id='contracts'><h2>Contracts</h2><p>The chosen row is the contract the checker would take. Same-day expiration is eligible until noon Pacific. A 0DTE strike past the halfway point between the stock and the far target is not taken. The strike is the closest one at or under $1 that the far target can still reach. The other rows use that same fill. Return is the percent change in the premium. Nothing here is an order.</p><table><thead><tr><th>Time</th><th>Ticker</th><th>Level</th><th>Role</th><th>Contract</th><th>Entry</th><th>Price</th><th>Return</th><th>State</th></tr></thead><tbody><tr><td class='num'>2026-10-20 07:00 PT</td><td class='ticker'>SPCX</td><td class='num'>146.50</td><td>chosen</td><td>none</td><td class='num'></td><td class='num'></td><td class='num'></td><td>exit</td></tr><tr><td class='num'>2026-10-20 07:00 PT</td><td class='ticker'>SPCX</td><td class='num'>146.50</td><td>first</td><td>none</td><td class='num'></td><td class='num'></td><td class='num'></td><td>exit</td></tr><tr><td class='num'>2026-10-20 07:00 PT</td><td class='ticker'>SPCX</td><td class='num'>146.50</td><td>cheap</td><td>none</td><td class='num'></td><td class='num'></td><td class='num'></td><td>exit</td></tr><tr><td class='num'>2026-10-20 07:50 PT</td><td class='ticker'>NVDA</td><td class='num'>217.50</td><td>chosen</td><td>10/21 222.5C</td><td class='num'>0.44</td><td class='num'>0.34</td><td class='num down'>-22.7%</td><td>exit</td></tr><tr><td class='num'>2026-10-20 07:50 PT</td><td class='ticker'>NVDA</td><td class='num'>217.50</td><td>first</td><td>none</td><td class='num'></td><td class='num'></td><td class='num'></td><td>exit</td></tr><tr><td class='num'>2026-10-20 07:50 PT</td><td class='ticker'>NVDA</td><td class='num'>217.50</td><td>cheap</td><td>10/21 225C</td><td class='num'>0.17</td><td class='num'>0.11</td><td class='num down'>-35.3%</td><td>exit</td></tr><tr><td class='num'>2026-10-20 07:50 PT</td><td class='ticker'>NVDA</td><td class='num'>217.50</td><td>week</td><td>10/23 225C</td><td class='num'>0.78</td><td class='num'>0.66</td><td class='num down'>-15.4%</td><td>exit</td></tr><tr><td class='num'>2026-10-20 07:50 PT</td><td class='ticker'>SPCX</td><td class='num'>146.60</td><td>chosen</td><td>none</td><td class='num'></td><td class='num'></td><td class='num'></td><td>exit</td></tr><tr><td class='num'>2026-10-20 07:50 PT</td><td class='ticker'>SPCX</td><td class='num'>146.60</td><td>first</td><td>none</td><td class='num'></td><td class='num'></td><td class='num'></td><td>exit</td></tr><tr><td class='num'>2026-10-20 07:50 PT</td><td class='ticker'>SPCX</td><td class='num'>146.60</td><td>cheap</td><td>none</td><td class='num'></td><td class='num'></td><td class='num'></td><td>exit</td></tr><tr><td class='num'>2026-10-20 08:00 PT</td><td class='ticker'>AAPL</td><td class='num'>340.00</td><td>chosen</td><td>10/21 345C</td><td class='num'>0.93</td><td class='num'>0.39</td><td class='num down'>-58.1%</td><td>exit</td></tr><tr><td class='num'>2026-10-20 08:00 PT</td><td class='ticker'>AAPL</td><td class='num'>340.00</td><td>first</td><td>none</td><td class='num'></td><td class='num'></td><td class='num'></td><td>exit</td></tr><tr><td class='num'>2026-10-20 08:00 PT</td><td class='ticker'>AAPL</td><td class='num'>340.00</td><td>cheap</td><td>10/21 350C</td><td class='num'>0.14</td><td class='num'>0.04</td><td class='num down'>-71.4%</td><td>exit</td></tr><tr><td class='num'>2026-10-20 08:00 PT</td><td class='ticker'>AAPL</td><td class='num'>340.00</td><td>week</td><td>10/23 350C</td><td class='num'>0.83</td><td class='num'>0.45</td><td class='num down'>-45.8%</td><td>exit</td></tr><tr><td class='num'>2026-10-20 05:30 PT</td><td class='ticker'>META</td><td class='num'>700.00</td><td>chosen</td><td>none</td><td class='num'></td><td class='num'></td><td class='num'></td><td>exit</td></tr><tr><td class='num'>2026-10-20 05:30 PT</td><td class='ticker'>META</td><td class='num'>700.00</td><td>dte</td><td>none</td><td class='num'></td><td class='num'></td><td class='num'></td><td>exit</td></tr><tr><td class='num'>2026-10-20 05:30 PT</td><td class='ticker'>META</td><td class='num'>700.00</td><td>first</td><td>none</td><td class='num'></td><td class='num'></td><td class='num'></td><td>exit</td></tr><tr><td class='num'>2026-10-20 05:30 PT</td><td class='ticker'>META</td><td class='num'>700.00</td><td>cheap</td><td>none</td><td class='num'></td><td class='num'></td><td class='num'></td><td>exit</td></tr><tr><td class='num'>2026-10-20 05:30 PT</td><td class='ticker'>META</td><td class='num'>700.00</td><td>week</td><td>none</td><td class='num'></td><td class='num'></td><td class='num'></td><td>exit</td></tr><tr><td class='num'>2026-10-20 07:00 PT</td><td class='ticker'>SPCX</td><td class='num'>146.50</td><td>dte</td><td>none</td><td class='num'></td><td class='num'></td><td class='num'></td><td>exit</td></tr><tr><td class='num'>2026-10-20 07:50 PT</td><td class='ticker'>NVDA</td><td class='num'>217.50</td><td>dte</td><td>none</td><td class='num'></td><td class='num'></td><td class='num'></td><td>exit</td></tr><tr><td class='num'>2026-10-20 07:50 PT</td><td class='ticker'>SPCX</td><td class='num'>146.60</td><td>dte</td><td>none</td><td class='num'></td><td class='num'></td><td class='num'></td><td>exit</td></tr><tr><td class='num'>2026-10-20 08:00 PT</td><td class='ticker'>AAPL</td><td class='num'>340.00</td><td>dte</td><td>none</td><td class='num'></td><td class='num'></td><td class='num'></td><td>exit</td></tr><tr><td class='num'>2026-10-20 08:20 PT</td><td class='ticker'>TSLA</td><td class='num'>370.00</td><td>chosen</td><td>none</td><td class='num'></td><td class='num'></td><td class='num'></td><td>exit</td></tr><tr><td class='num'>2026-10-20 08:20 PT</td><td class='ticker'>TSLA</td><td class='num'>370.00</td><td>dte</td><td>none</td><td class='num'></td><td class='num'></td><td class='num'></td><td>exit</td></tr><tr><td class='num'>2026-10-20 08:20 PT</td><td class='ticker'>TSLA</td><td class='num'>370.00</td><td>first</td><td>none</td><td class='num'></td><td class='num'></td><td class='num'></td><td>exit</td></tr><tr><td class='num'>2026-10-20 08:20 PT</td><td class='ticker'>TSLA</td><td class='num'>370.00</td><td>cheap</td><td>none</td><td class='num'></td><td class='num'></td><td class='num'></td><td>exit</td></tr><tr><td class='num'>2026-10-21 07:30 PT</td><td class='ticker'>AAPL</td><td class='num'>340.00</td><td>chosen</td><td>10/21 342.5C</td><td class='num'>0.38</td><td class='num'>0.18</td><td class='num down'>-52.6%</td><td>exit</td></tr><tr><td class='num'>2026-10-21 07:30 PT</td><td class='ticker'>AAPL</td><td class='num'>340.00</td><td>cheap</td><td>10/21 345C</td><td class='num'>0.08</td><td class='num'>0.03</td><td class='num down'>-62.5%</td><td>exit</td></tr><tr><td class='num'>2026-10-21 07:30 PT</td><td class='ticker'>AAPL</td><td class='num'>340.00</td><td>week</td><td>none</td><td class='num'></td><td class='num'></td><td class='num'></td><td>exit</td></tr><tr><td class='num'>2026-10-21 07:30 PT</td><td class='ticker'>AMZN</td><td class='num'>260.50</td><td>chosen</td><td>10/21 257.5P</td><td class='num'>0.28</td><td class='num'>0.15</td><td class='num down'>-46.4%</td><td>exit</td></tr><tr><td class='num'>2026-10-21 07:30 PT</td><td class='ticker'>AMZN</td><td class='num'>260.50</td><td>first</td><td>none</td><td class='num'></td><td class='num'></td><td class='num'></td><td>exit</td></tr><tr><td class='num'>2026-10-21 07:30 PT</td><td class='ticker'>AMZN</td><td class='num'>260.50</td><td>cheap</td><td>10/21 255P</td><td class='num'>0.07</td><td class='num'>0.04</td><td class='num down'>-42.9%</td><td>exit</td></tr><tr><td class='num'>2026-10-21 07:30 PT</td><td class='ticker'>AMZN</td><td class='num'>260.50</td><td>week</td><td>none</td><td class='num'></td><td class='num'></td><td class='num'></td><td>exit</td></tr></tbody></table></section><section id='book'><h2>Live book</h2><p>Armed 2026-10-20T23:05:37-07:00. charts/inbox is not the live book.</p><table><thead><tr><th>Ticker</th><th>Price</th><th>Allows</th><th>Targets</th><th>Stop</th><th>Note</th></tr></thead><tbody><tr><td class='ticker'>SNOW</td><td>320</td><td>long</td><td>335</td><td></td><td>More downside until 320, then 335 can be claimed and held</td></tr><tr><td class='ticker'>SNOW</td><td>335</td><td>long</td><td></td><td></td><td>335 claimed and held</td></tr><tr><td class='ticker'>SNOW</td><td>281</td><td>long</td><td></td><td></td><td>281 is the ultimate long, if we reach it</td></tr><tr><td class='ticker'>CRWD</td><td>214</td><td>short</td><td>190, 170</td><td></td><td>Heads 214, then 190, then 170. 170 might be too far</td></tr><tr><td class='ticker'>CRWD</td><td>190</td><td>short</td><td>170</td><td></td><td>Then 190</td></tr><tr><td class='ticker'>CRWD</td><td>170</td><td>short</td><td></td><td></td><td>170 might be too far of a drop</td></tr><tr><td class='ticker'>AAPL</td><td>355.5</td><td>short</td><td></td><td></td><td>355.5 remains the first level to break for downside</td></tr><tr><td class='ticker'>AAPL</td><td>333.25</td><td>both</td><td>330.7, 328.25, 324.75, up 340, 343, 345.4</td><td></td><td>Interested in 333.25. A bounce on the trend line is possible. If 333 breaks, 330.7</td></tr><tr><td class='ticker'>AAPL</td><td>330.7</td><td>long</td><td>333.25, 340, 343, 345.4</td><td></td><td>If 333 breaks, look to 330.7 for a bounce</td></tr><tr><td class='ticker'>AAPL</td><td>330</td><td>short</td><td>328.25, 324.75</td><td></td><td>If 330 breaks, 328.25 then 324.75</td></tr><tr><td class='ticker'>AAPL</td><td>328.25</td><td>short</td><td>324.75</td><td></td><td>Then 328.25</td></tr><tr><td class='ticker'>AAPL</td><td>324.75</td><td>short</td><td></td><td></td><td>Then 324.75</td></tr><tr><td class='ticker'>AAPL</td><td>340</td><td>long</td><td>343, 345.4</td><td></td><td>A bounce claims broken levels, then 340, then 343, then 345.4</td></tr><tr><td class='ticker'>AAPL</td><td>343</td><td>long</td><td>345.4</td><td></td><td>Then 343</td></tr><tr><td class='ticker'>AAPL</td><td>345.4</td><td>long</td><td></td><td></td><td>Then 345.4</td></tr><tr><td class='ticker'>AMZN</td><td>264.2</td><td>long</td><td>265.35, 267, 269.58</td><td></td><td>Claims at 264.2, then 265.35, then 267, then 269.58. Want an open above 263.7</td></tr><tr><td class='ticker'>AMZN</td><td>265.35</td><td>long</td><td>267, 269.58</td><td></td><td>Then 265.35</td></tr><tr><td class='ticker'>AMZN</td><td>267</td><td>long</td><td>269.58</td><td></td><td>Then 267</td></tr><tr><td class='ticker'>AMZN</td><td>269.58</td><td>long</td><td></td><td></td><td>Then 269.58</td></tr><tr><td class='ticker'>AMZN</td><td>260.5</td><td>short</td><td>257.95, 256.18, 254.4</td><td></td><td>Break 260.5, then 257.95, then 256.18, then 254.4</td></tr><tr><td class='ticker'>AMZN</td><td>257.95</td><td>short</td><td>256.18, 254.4</td><td></td><td>Then 257.95</td></tr><tr><td class='ticker'>AMZN</td><td>256.18</td><td>short</td><td>254.4</td><td></td><td>Then 256.18</td></tr><tr><td class='ticker'>AMZN</td><td>254.4</td><td>short</td><td></td><td></td><td>Then 254.4</td></tr><tr><td class='ticker'>AVGO</td><td>340.75</td><td>long</td><td>343, 344.43, 356.75</td><td></td><td>Did not claim 340.75. Can open above it. Then the 343 fib, then 344.43, then 356.75</td></tr><tr><td class='ticker'>AVGO</td><td>343</td><td>long</td><td>344.43, 356.75</td><td></td><td>The 343 fib</td></tr><tr><td class='ticker'>AVGO</td><td>344.43</td><td>long</td><td>356.75</td><td></td><td>Needs to claim 344.43 to have a chance to push</td></tr><tr><td class='ticker'>AVGO</td><td>356.75</td><td>long</td><td></td><td></td><td>356.75 is the key level for an explosive push</td></tr><tr><td class='ticker'>NVDA</td><td>224.5</td><td>long</td><td>229.25, 232</td><td></td><td>Push to 224.5, then 229.25, then 232. 4h resistance at 225.25, be wary there</td></tr><tr><td class='ticker'>NVDA</td><td>229.25</td><td>long</td><td>232</td><td></td><td>Then 229.25</td></tr><tr><td class='ticker'>NVDA</td><td>232</td><td>long</td><td></td><td></td><td>Then 232</td></tr><tr><td class='ticker'>GOOGL</td><td>344</td><td>long</td><td>345.82, 347.35, 350, 352.66</td><td></td><td>Needs to claim 344. Above that 345.82, then 347.35, then 350, then 352.66</td></tr><tr><td class='ticker'>GOOGL</td><td>345.82</td><td>long</td><td>347.35, 350, 352.66</td><td></td><td>Then 345.82</td></tr><tr><td class='ticker'>GOOGL</td><td>347.35</td><td>long</td><td>350, 352.66</td><td></td><td>Then 347.35</td></tr><tr><td class='ticker'>GOOGL</td><td>350</td><td>long</td><td>352.66</td><td></td><td>Then 350</td></tr><tr><td class='ticker'>GOOGL</td><td>352.66</td><td>long</td><td></td><td></td><td>Then 352.66</td></tr><tr><td class='ticker'>GOOGL</td><td>338.4</td><td>short</td><td>335.5</td><td></td><td>If 338.4 breaks, 335.5</td></tr><tr><td class='ticker'>GOOGL</td><td>335.5</td><td>short</td><td></td><td></td><td>Then 335.5</td></tr><tr><td class='ticker'>INTC</td><td>90.5</td><td>long</td><td>95, 97.5, 100, 102, 103</td><td></td><td>If 95 does not break immediately, look for a bounce on 90.5</td></tr><tr><td class='ticker'>INTC</td><td>95</td><td>long</td><td>97.5, 100, 102, 103</td><td></td><td>Claim 95, then 97.5, then 100, then 102, maybe 103</td></tr><tr><td class='ticker'>INTC</td><td>97.5</td><td>long</td><td>100, 102, 103</td><td></td><td>Then 97.5</td></tr><tr><td class='ticker'>INTC</td><td>100</td><td>long</td><td>102, 103</td><td></td><td>Then 100</td></tr><tr><td class='ticker'>INTC</td><td>102</td><td>long</td><td>103</td><td></td><td>Then 102, maybe 103</td></tr><tr><td class='ticker'>INTC</td><td>103</td><td>long</td><td></td><td></td><td>Maybe 103</td></tr><tr><td class='ticker'>INTC</td><td>90</td><td>short</td><td></td><td></td><td>Do not want to see 90 break</td></tr><tr><td class='ticker'>PLTR</td><td>193.85</td><td>long</td><td>197, 200, 203.7, 210</td><td></td><td>Hold the 4h 20 and the fib at 193.85, then 197, then 200, then 203.7, then 210</td></tr><tr><td class='ticker'>PLTR</td><td>197</td><td>long</td><td>200, 203.7, 210</td><td></td><td>Then 197</td></tr><tr><td class='ticker'>PLTR</td><td>200</td><td>long</td><td>203.7, 210</td><td></td><td>Then 200</td></tr><tr><td class='ticker'>PLTR</td><td>203.7</td><td>long</td><td>210</td><td></td><td>Then 203.7</td></tr><tr><td class='ticker'>PLTR</td><td>210</td><td>long</td><td></td><td></td><td>Then 210</td></tr><tr><td class='ticker'>PLTR</td><td>191.5</td><td>short</td><td>186.5</td><td></td><td>A break below 191.5 could see 186.5 or the 4h 200</td></tr><tr><td class='ticker'>PLTR</td><td>186.5</td><td>short</td><td></td><td></td><td>Then 186.5</td></tr><tr><td class='ticker'>PLTR</td><td>190</td><td>short</td><td>185</td><td></td><td>Easy slide to 185 if 190 breaks</td></tr><tr><td class='ticker'>PLTR</td><td>185</td><td>short</td><td></td><td></td><td>Then 185</td></tr></tbody></table></section><section id='lessons'><h2>Lessons</h2><h3>2026-10-21</h3><pre class='sheet'># 2026-10-21 review
 
@@ -578,6 +588,11 @@ function percent(value) {
   return (value > 0 ? "+" : "") + (Number(value) * 100).toFixed(1) + "%";
 }
 
+function share(value) {
+  if (value === null || value === undefined || Number.isNaN(value)) return "";
+  return (Number(value) * 100).toFixed(1) + "%";
+}
+
 function cell(row, text, className) {
   const td = document.createElement("td");
   td.textContent = text;
@@ -586,11 +601,145 @@ function cell(row, text, className) {
   return td;
 }
 
-function renderRuns(runs) {
-  const wrap = document.createElement("div");
+function ratio(value) {
+  if (value === null || value === undefined || Number.isNaN(value)) return "—";
+  return Number(value).toFixed(2);
+}
+
+function metric(label, text, className) {
+  const box = document.createElement("div");
+  box.className = "metric";
+  const name = document.createElement("span");
+  name.textContent = label;
+  const value = document.createElement("strong");
+  value.textContent = text || "—";
+  if (className) value.className = className;
+  box.append(name, value);
+  return box;
+}
+
+function tone(value) {
+  if (value > 0) return "up";
+  if (value < 0) return "down";
+  return "";
+}
+
+function overview(report) {
+  const stats = report.summary.strategy;
+  const hold = report.buy_hold || {};
+  const grid = document.createElement("div");
+  grid.className = "metrics";
+  const drawdown = stats.max_drawdown_percent == null
+    ? points(-stats.max_drawdown)
+    : points(-stats.max_drawdown) + " (" + (stats.max_drawdown_percent * 100).toFixed(1) + "% of peak)";
+  const cards = [
+    ["Net points", points(stats.net) + (stats.return == null ? "" : " (" + percent(stats.return) + ")"), tone(stats.net)],
+    ["Gross profit", points(stats.gross_profit), tone(stats.gross_profit)],
+    ["Gross loss", points(-stats.gross_loss), stats.gross_loss ? "down" : ""],
+    ["Profit factor", factor(stats), ""],
+    ["Max drawdown", drawdown, stats.max_drawdown ? "down" : ""],
+    ["Expected payoff", points(stats.expected), tone(stats.expected)],
+    ["Closed net", points(stats.closed_net), tone(stats.closed_net)],
+    ["Open points", points(stats.open_points) + " (" + stats.open_trades + ")", tone(stats.open_points)],
+    ["Buy and hold", points(hold.points) + (hold.return == null ? "" : " (" + percent(hold.return) + ")"), tone(hold.points)],
+    ["Total trades", String(stats.trades), ""],
+    ["Win rate", share(stats.win_rate), ""],
+    ["Winning trades", String(stats.wins), ""],
+    ["Losing trades", String(stats.losses), ""],
+    ["Breakeven", String(stats.breakeven), ""],
+    ["Avg winning trade", points(stats.avg_win), tone(stats.avg_win)],
+    ["Avg losing trade", points(stats.avg_loss), tone(stats.avg_loss)],
+    ["Payoff ratio", ratio(stats.payoff_ratio), ""],
+    ["Largest win", points(stats.largest_win), tone(stats.largest_win)],
+    ["Largest loss", points(stats.largest_loss), tone(stats.largest_loss)],
+    ["Max win streak", String(stats.max_win_streak), ""],
+    ["Max loss streak", String(stats.max_loss_streak), ""]
+  ];
+  cards.forEach((card) => grid.appendChild(metric(card[0], card[1], card[2])));
+  return grid;
+}
+
+function equityChart(values) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 600 140");
+  svg.setAttribute("class", "equity");
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", "Equity curve");
+  if (!values || !values.length) return svg;
+  const min = Math.min(0, ...values);
+  const max = Math.max(0, ...values);
+  const span = max - min || 1;
+  const coords = values.map((value, index) => {
+    const x = values.length === 1 ? 300 : (index / (values.length - 1)) * 600;
+    const y = 128 - ((value - min) / span) * 112;
+    return x.toFixed(1) + "," + y.toFixed(1);
+  });
+  const zero = 128 - ((0 - min) / span) * 112;
+  const axis = document.createElementNS(svg.namespaceURI, "line");
+  axis.setAttribute("x1", "0");
+  axis.setAttribute("x2", "600");
+  axis.setAttribute("y1", String(zero));
+  axis.setAttribute("y2", String(zero));
+  axis.setAttribute("stroke", "currentColor");
+  axis.setAttribute("stroke-opacity", "0.35");
+  const path = document.createElementNS(svg.namespaceURI, "polyline");
+  path.setAttribute("fill", "none");
+  path.setAttribute("stroke", "currentColor");
+  path.setAttribute("stroke-width", "2");
+  path.setAttribute("points", coords.join(" "));
+  svg.append(axis, path);
+  return svg;
+}
+
+function tradeTable(trades) {
+  const wrap = document.createElement("details");
+  const heading = document.createElement("summary");
+  heading.textContent = trades.length + (trades.length === 1 ? " trade" : " trades");
+  wrap.appendChild(heading);
+  if (!trades.length) {
+    const empty = document.createElement("p");
+    empty.textContent = "No round trip on these bars.";
+    wrap.appendChild(empty);
+    return wrap;
+  }
   const table = document.createElement("table");
   const head = document.createElement("tr");
-  ["Preset", "Book", "Trades", "Net points", "Return", "Profit factor", "Option net", "Option factor"].forEach((name) => {
+  ["Time", "Ticker", "Side", "Level", "Exit", "Points", "Return"].forEach((name) => {
+    const th = document.createElement("th");
+    th.textContent = name;
+    head.appendChild(th);
+  });
+  const thead = document.createElement("thead");
+  thead.appendChild(head);
+  table.appendChild(thead);
+  const body = document.createElement("tbody");
+  trades.forEach((trade) => {
+    const row = document.createElement("tr");
+    cell(row, trade.time);
+    cell(row, trade.ticker, "ticker");
+    cell(row, trade.side, trade.side === "put" ? "put" : "call");
+    cell(row, Number(trade.level).toFixed(2));
+    cell(row, trade.marked ? "open mark" : trade.exit_reason);
+    cell(row, points(trade.points), tone(trade.points));
+    cell(row, percent(trade.return), tone(trade.return));
+    body.appendChild(row);
+  });
+  table.appendChild(body);
+  wrap.appendChild(table);
+  return wrap;
+}
+
+function comparison(runs) {
+  const wrap = document.createElement("div");
+  const heading = document.createElement("h3");
+  heading.textContent = "Exit comparison";
+  wrap.appendChild(heading);
+  const note = document.createElement("p");
+  note.textContent = "Live stays the retest and the target exit. The other columns use the entry and buffers above, each with its own exit.";
+  wrap.appendChild(note);
+  const table = document.createElement("table");
+  const head = document.createElement("tr");
+  ["Test", "Trades", "Win rate", "Net points", "Return", "Profit factor", "Max drawdown", "Expected"].forEach((name) => {
     const th = document.createElement("th");
     th.textContent = name;
     head.appendChild(th);
@@ -600,52 +749,57 @@ function renderRuns(runs) {
   table.appendChild(thead);
   const body = document.createElement("tbody");
   runs.forEach((run) => {
-    ["fits", "paper"].forEach((book) => {
-      const stock = run.summary[book].stock;
-      const option = run.summary[book].option;
-      const row = document.createElement("tr");
-      cell(row, run.name);
-      cell(row, book, book === "paper" ? "put" : "call");
-      cell(row, String(stock.trades));
-      cell(row, points(stock.net), stock.net < 0 ? "down" : "up");
-      cell(row, percent(stock.return));
-      cell(row, factor(stock));
-      cell(row, money(option.net));
-      cell(row, factor(option));
-      body.appendChild(row);
-    });
+    const stock = run.summary.strategy;
+    const row = document.createElement("tr");
+    cell(row, run.name);
+    cell(row, String(stock.trades));
+    cell(row, share(stock.win_rate));
+    cell(row, points(stock.net), tone(stock.net));
+    cell(row, percent(stock.return));
+    cell(row, factor(stock));
+    cell(row, points(-stock.max_drawdown), stock.max_drawdown ? "down" : "");
+    cell(row, points(stock.expected), tone(stock.expected));
+    body.appendChild(row);
   });
   table.appendChild(body);
   wrap.appendChild(table);
-  const custom = runs[runs.length - 1];
-  const heading = document.createElement("h3");
-  heading.textContent = custom.name + " trades";
-  wrap.appendChild(heading);
-  custom.trades.forEach((trade) => {
-    const card = document.createElement("p");
-    const inputs = trade.inputs || {};
-    const candle = inputs.candle || {};
-    card.textContent = [
-      trade.time, trade.ticker, trade.side, "level " + Number(trade.level).toFixed(2),
-      trade.contract || "no contract", trade.book || "left out",
-      "fill " + Number(trade.fill).toFixed(2),
-      trade.exit_reason, Number(trade.exit_close).toFixed(2),
-      points(trade.points) + " stock",
-      money(trade.option_dollars),
-      candle.color ? (candle.color + " O" + candle.o.toFixed(2) + " H" + candle.h.toFixed(2) + " L" + candle.l.toFixed(2) + " C" + candle.c.toFixed(2)) : "",
-      inputs.purple == null ? "" : ("purple " + Number(inputs.purple).toFixed(2)),
-      inputs.yellow == null ? "" : ("yellow " + Number(inputs.yellow).toFixed(2)),
-      inputs.atr == null ? "" : ("ATR " + Number(inputs.atr).toFixed(2) + " band " + Number(inputs.band).toFixed(2)),
-      inputs.nearby || "",
-      inputs.volume == null ? "" : (inputs.volume.toLocaleString() + " shares")
-    ].filter(Boolean).join(" · ");
-    wrap.appendChild(card);
-  });
-  if (custom.summary.no_contract) {
-    const note = document.createElement("p");
-    note.textContent = custom.summary.no_contract + " trades have no contract and are not in the factors.";
-    wrap.appendChild(note);
-  }
+  return wrap;
+}
+
+function renderReport(body) {
+  const wrap = document.createElement("div");
+  const report = body.report || body.runs[body.runs.length - 1];
+  const windowInfo = body.window || {};
+  const intro = document.createElement("p");
+  const from = windowInfo.from && windowInfo.to ? (windowInfo.from + " to " + windowInfo.to + ". ") : "";
+  const days = windowInfo.days && windowInfo.days.length ? (windowInfo.days.length + " saved sessions. ") : "";
+  const missing = windowInfo.missing && windowInfo.missing.length
+    ? (" No bars for " + windowInfo.missing.join(", ") + ".")
+    : "";
+  const note = windowInfo.note ? (" " + windowInfo.note) : "";
+  intro.textContent = days + from + windowInfo.bars + " finished 10-minute bars. " +
+    (windowInfo.source ? ("Source: " + windowInfo.source + ". ") : "") +
+    missing + note;
+  wrap.appendChild(intro);
+  const settings = report.settings || {};
+  const line = document.createElement("p");
+  line.textContent = [
+    "Entry " + (settings.entry || ""),
+    "exit " + (settings.exit || ""),
+    settings.stop_mode ? ("stop " + settings.stop_mode) : "",
+    settings.take ? ("take " + settings.take) : "",
+    settings.flatten ? ("clock " + settings.flatten) : "",
+    "touch " + settings.touch,
+    "chase " + settings.chase,
+    "SMA band " + settings.sma_band,
+    "ATR fraction " + settings.break_atr,
+    "near " + settings.profit_near
+  ].filter(Boolean).join(" · ");
+  wrap.appendChild(line);
+  wrap.appendChild(overview(report));
+  wrap.appendChild(equityChart(report.summary.strategy.equity));
+  wrap.appendChild(tradeTable(report.trades));
+  if (body.runs) wrap.appendChild(comparison(body.runs));
   return wrap;
 }
 
@@ -679,53 +833,50 @@ function collectLevels() {
   }).filter((level) => level.ticker && level.price !== "");
 }
 
-function collectPremiums() {
-  const premiums = {};
-  document.querySelectorAll("#premium-rows tr").forEach((row) => {
-    const read = (name) => row.querySelector("[name=" + name + "]").value.trim();
-    const ticker = read("ticker").toUpperCase();
-    const level = read("level");
-    if (!ticker || !level) return;
-    const key = ticker + "|" + row.querySelector("[name=side]").value + "|" + Number(level).toFixed(2);
-    premiums[key] = {
-      contract: read("contract"),
-      entry: read("entry") === "" ? null : Number(read("entry")),
-      exit: read("exit") === "" ? null : Number(read("exit"))
-    };
-  });
-  return premiums;
-}
-
 function payload() {
-  const num = (id) => Number(document.getElementById(id).value);
+  const num = (id) => {
+    const value = document.getElementById(id).value.trim();
+    if (value === "") return null;
+    const number = Number(value);
+    return Number.isNaN(number) ? null : number;
+  };
   return {
     armed_at: document.getElementById("armed-at").value,
     levels: collectLevels(),
+    bars: document.getElementById("bars-source").value,
+    range: document.getElementById("bar-range").value,
     touch: num("touch"),
     chase: num("chase"),
+    sma_band: num("sma-band"),
     break_atr: num("break-atr"),
     profit_near: num("profit-near"),
-    threshold: num("threshold"),
-    custom: {
-      stop_mode: document.getElementById("stop-mode").value,
-      take: document.getElementById("take-mode").value,
-      flatten: document.getElementById("flatten-mode").value
-    },
-    premiums: collectPremiums()
+    entry: document.getElementById("entry").value,
+    exit: document.getElementById("exit-rule").value,
+    exit_test: document.getElementById("exit-test").value,
+    stop_mode: document.getElementById("stop-mode").value,
+    take: document.getElementById("take-mode").value,
+    flatten: document.getElementById("flatten-mode").value
   };
+}
+
+function syncExitTest() {
+  const custom = document.getElementById("exit-test").value === "custom";
+  ["stop-mode", "take-mode", "flatten-mode"].forEach((id) => {
+    const field = document.getElementById(id);
+    if (field && field.parentElement) field.parentElement.hidden = !custom;
+  });
 }
 
 function bindDesk() {
   const run = document.getElementById("run-backtest");
   if (!run) return;
+  const exitTest = document.getElementById("exit-test");
+  if (exitTest) {
+    syncExitTest();
+    exitTest.addEventListener("change", syncExitTest);
+  }
   document.getElementById("add-level").addEventListener("click", () => {
     const body = document.getElementById("level-rows");
-    const copy = body.rows[0].cloneNode(true);
-    copy.querySelectorAll("input").forEach((input) => { input.value = ""; });
-    body.appendChild(copy);
-  });
-  document.getElementById("add-premium").addEventListener("click", () => {
-    const body = document.getElementById("premium-rows");
     const copy = body.rows[0].cloneNode(true);
     copy.querySelectorAll("input").forEach((input) => { input.value = ""; });
     body.appendChild(copy);
@@ -741,7 +892,7 @@ function bindDesk() {
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || "The backtest failed.");
-      out.replaceChildren(renderRuns(body.runs));
+      out.replaceChildren(renderReport(body));
     } catch (error) {
       out.textContent = error.message + " Start the desk with python3 scripts/dashboard.py serve.";
     }
