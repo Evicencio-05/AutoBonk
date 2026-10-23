@@ -6,7 +6,9 @@
 # A lost support flips to resistance. A claimed resistance flips to support.
 # Resistance is long. Support is short.
 # AAPL's last support is printed 241.37. META resistance includes 573 as printed.
-# SPCX and TSLA are in the note. That forward had no chart for them.
+# SPCX and TSLA charts arrived at 06:51 PT. White labels and fib prices
+# replace the rounded note. 153.74, 380, 388, and 367.75 stay as written.
+# SMA labels are not levels.
 # Unnumbered SMAs, fibs, channels, and trend lines are not separate orders.
 # OS and gamma comments are not orders.
 armed_at: "2026-10-23T06:24:30-07:00"
@@ -579,65 +581,65 @@ levels:
   targets: []
   note: Then 165
 - ticker: SPCX
-  price: 150
+  price: 150.1
   side: claim
   allows: long
   targets:
   - 152.3
   - 153.74
-  - 158
-  note: Resistance 150, then 152.3, 153.74, 158
+  - 157.94
+  note: Resistance 150.10, then 152.3, 153.74, 157.94
 - ticker: SPCX
   price: 152.3
   side: claim
   allows: long
   targets:
   - 153.74
-  - 158
+  - 157.94
   note: Then 152.3
 - ticker: SPCX
   price: 153.74
   side: claim
   allows: long
   targets:
-  - 158
+  - 157.94
   note: Then 153.74
 - ticker: SPCX
-  price: 158
+  price: 157.94
   side: claim
   allows: long
   targets: []
-  note: Then 158
+  note: Then 157.94
 - ticker: SPCX
-  price: 146.6
+  price: 146.59
   side: lose
   allows: short
   targets:
   - 142.87
-  - 138.5
-  - 130.6
-  note: Support 146.6, then 142.87, 138.5, 130.6
+  - 138.62
+  - 130.64
+  note: Support 146.59, then 142.87, 138.62, 130.64
 - ticker: SPCX
   price: 142.87
   side: lose
   allows: short
   targets:
-  - 138.5
-  - 130.6
+  - 138.62
+  - 130.64
   note: Then 142.87
 - ticker: SPCX
-  price: 138.5
+  price: 138.62
   side: lose
   allows: short
   targets:
-  - 130.6
-  note: Then 138.5
+  - 130.64
+  note: Then 138.62
 - ticker: SPCX
-  price: 130.6
+  price: 130.64
   side: lose
   allows: short
   targets: []
-  note: Then 130.6
+  note: Then 130.64
 - ticker: TSLA
   price: 380
   side: claim
@@ -660,16 +662,16 @@ levels:
   targets: []
   note: Then 388
 - ticker: TSLA
-  price: 372.75
+  price: 372.77
   side: lose
   allows: short
   targets:
   - 367.75
   - 365.3
   - 360.45
-  - 352
+  - 352.01
   - 342.5
-  note: Support 372.75, then 367.75, 365.3, 360.45, 352, 342.5
+  note: Support 372.77, then 367.75, 365.3, 360.45, 352.01, 342.5
 - ticker: TSLA
   price: 367.75
   side: lose
@@ -677,7 +679,7 @@ levels:
   targets:
   - 365.3
   - 360.45
-  - 352
+  - 352.01
   - 342.5
   note: Then 367.75
 - ticker: TSLA
@@ -686,7 +688,7 @@ levels:
   allows: short
   targets:
   - 360.45
-  - 352
+  - 352.01
   - 342.5
   note: Then 365.3
 - ticker: TSLA
@@ -694,16 +696,16 @@ levels:
   side: lose
   allows: short
   targets:
-  - 352
+  - 352.01
   - 342.5
   note: Then 360.45
 - ticker: TSLA
-  price: 352
+  price: 352.01
   side: lose
   allows: short
   targets:
   - 342.5
-  note: Then 352
+  note: Then 352.01
 - ticker: TSLA
   price: 342.5
   side: lose
