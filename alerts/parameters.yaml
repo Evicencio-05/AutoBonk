@@ -1,0 +1,20 @@
+# Buffer sizes from scripts/recap.py.
+# The checker reads apply and the four buffers. Entry in this file is ignored.
+# This file does not place an order.
+apply: false
+reason: the forward day has fewer than 2 closes
+forward_day: '2026-10-16'
+train_days:
+- '2026-10-14'
+- '2026-10-15'
+adopted:
+  touch: 0.0556
+  sma_band: 1.0
+  chase: 0.6667
+  break_atr: 0.0
+train_net: 28.8222
+train_trades: 10
+forward_net: 2.18
+forward_trades: 1
+baseline_forward_net: 2.18
+forward_difference: 0.0
