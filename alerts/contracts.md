@@ -1,12 +1,12 @@
 # Contract comparison
 
-The chosen row is the contract the checker would take. Same-day expiration is eligible until noon Pacific. A 0DTE strike past the halfway point between the stock and the far target is not taken. A name with no listing that day uses the nearest expiration that is listed. The strike is the closest one at or under $1 that the far target can still reach. The other rows are that same fill. Price is the latest print while the row is open, and the exit bar once it closes. Return is the percent change in the premium. A rule that picks the same contract as an earlier row is not repeated. Nothing here is an order.
+The chosen row is the strike at or under $1. On a next-day expiration the live plan names the cash row, the nearest strike one contract can buy at or under $0.50, when the far target can still reach it. Same-day expiration is eligible until noon Pacific. A 0DTE strike past the halfway point between the stock and the far target is not taken. Halfway does not refuse a next-day strike. A name with no listing that day uses the nearest expiration that is listed. The other rows are that same fill. Price is the latest print while the row is open, and the exit bar once it closes. Return is the percent change in the premium. A rule that picks the same contract as an earlier row is not repeated. The cash row is kept either way, so the halfway flag stays. Nothing here is an order.
 
 - dte: the same strike rule on same-day expiration
 - first: the first target is the ceiling
 - cheap: the furthest strike under $1 that is still inside the far target
 - week: Friday's expiration, the same strike rule as chosen
-- cash: the nearest strike at or under $0.50 that the far target can still reach. A live plan shows it and does not switch to it.
+- cash: the nearest strike at or under $0.50 that the far target can still reach. This is the named live contract on a next-day expiration. The chosen row stays on the plan as the $1 comparison.
 
 | Time | Ticker | Level | Role | Contract | Entry | Price | Return | State |
 |------|--------|-------|------|----------|-------|-------|--------|-------|

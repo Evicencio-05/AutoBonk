@@ -84,13 +84,20 @@ def test_the_first_goal_is_sniping_the_contract_bottom():
         yaml.safe_load((root / "learning" / "goals.yaml").read_text())
     )
     lesson = (root / "learning" / "lessons" / "snipe-bottom.md").read_text()
+    training = (root / "learning" / "training.md").read_text()
 
     assert goal["id"] == "snipe-bottom"
     assert goal["title"] == "Sniping the bottom on contracts"
     assert "Buy calls on a red candle" in goal["says"]
+
     assert "not an order" in lesson
     assert "0.43 stock points" in lesson
+    assert "did not wick within 15 cents of 146.5" in lesson
+    assert "The live entry stays the retest." in lesson
     assert "not a priced premium" in lesson
+    assert "1 bar early, 0.43 less stock-price strength" in training
+    assert "16 bars early, 2.72 of the drop left behind" in training
+    assert "did not wick within 15 cents of 146.5" in training
 
 
 def test_the_live_retest_buys_the_confirmed_spcx_bottom():
@@ -144,3 +151,116 @@ def test_the_live_retest_buys_the_confirmed_spcx_bottom():
     assert entries[0]["bar"]["close_at"] == nine_twenty
     assert abs(entries[0]["fill"] - pushed["c"]) < 0.02
     assert claim.live_settings()["entry"] == "retest"
+
+
+def test_the_spcx_drill_scores_the_frozen_file_without_a_refetch():
+    import yaml
+
+    root = Path(__file__).resolve().parents[2]
+    drills = yaml.safe_load((root / "learning" / "drills.yaml").read_text())
+    drill = drills["drills"][0]
+
+    def refetch(ticker):
+        raise AssertionError(ticker)
+
+    bars = train_intraday.bars_for_drill(drill, fetch=refetch)
+    train_intraday.add_rsi(bars)
+    buy_at = train_intraday._clock(drill["ideal_buy"], drill["session"])
+    sell_at = train_intraday._clock(drill["ideal_sell"], drill["session"])
+    scored = train_intraday.score_put(bars, float(drill["level"]), buy_at, sell_at)
+    sentence = train_intraday.wick_sentence(drill["side"], float(drill["level"]), scored["naive_buy"])
+
+    assert drill["id"] == "spcx-2026-10-16-put"
+    assert scored["buy_bars_early"] == 1
+    assert round(scored["buy_price_gap"], 2) == 0.43
+    assert scored["sell_bars_early"] == 16
+    assert round(scored["sell_price_gap"], 2) == 2.72
+    assert "09:10 PT green did not wick within 15 cents of 146.5" in sentence
+    assert "skip" not in sentence.lower()
+    assert train_intraday.WICK == 0.15
+
+
+def test_a_missing_session_is_frozen_once_and_then_read():
+    import json
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    zone = ZoneInfo("America/Los_Angeles")
+    start = int(datetime(2026, 10, 16, 9, 0, tzinfo=zone).timestamp())
+    calls = {"n": 0}
+
+    def fetch(ticker):
+        calls["n"] += 1
+        assert ticker == "QQQ"
+        return [
+            (start, 10.0, 10.2, 9.8, 10.1),
+            (start + 300, 10.1, 10.4, 10.0, 10.3),
+        ]
+
+    root = Path(__file__).resolve().parents[2]
+    fixtures = root / "bench" / "fixtures"
+    # Keep the freeze off the real bench files.
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        drill = {"ticker": "QQQ", "session": "2026-10-16"}
+        first = train_intraday.bars_for_drill(drill, fixtures=Path(tmp), fetch=fetch)
+        second = train_intraday.bars_for_drill(
+            drill,
+            fixtures=Path(tmp),
+            fetch=lambda ticker: (_ for _ in ()).throw(AssertionError(ticker)),
+        )
+        stored = json.loads((Path(tmp) / "2026-10-16-bars.json").read_text())
+
+    assert calls["n"] == 1
+    assert first[0]["open"] == 10.0
+    assert first[0]["high"] == 10.4
+    assert first[0]["low"] == 9.8
+    assert first[0]["close"] == 10.3
+    assert second == first
+    assert stored["tickers"]["QQQ"][0]["h"] == 10.4
+    assert fixtures == train_intraday.FIXTURES
+
+
+def test_a_frozen_file_without_the_ticker_is_not_refetched():
+    import json
+    import tempfile
+
+    def refetch(ticker):
+        raise AssertionError(ticker)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "2026-10-23-bars.json"
+        path.write_text(json.dumps({"tickers": {"AAPL": []}}))
+        before = path.read_text()
+        try:
+            train_intraday.bars_for_drill(
+                {"ticker": "QQQ", "session": "2026-10-23"},
+                fixtures=Path(tmp),
+                fetch=refetch,
+            )
+        except SystemExit as stopped:
+            message = str(stopped)
+        else:
+            raise AssertionError("expected the frozen file to stop the refetch")
+        assert path.read_text() == before
+
+    assert "no QQQ bars" in message
+    assert "does not refetch" in message
+
+
+def test_a_tagged_call_wick_does_not_change_the_entry():
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    close_at = int(datetime(2026, 10, 16, 10, 0, tzinfo=ZoneInfo("America/Los_Angeles")).timestamp())
+    tagged = {"close_at": close_at, "low": 10.10, "high": 10.50}
+    short = {"close_at": close_at, "low": 10.20, "high": 10.50}
+    text = train_intraday.wick_sentence("call", 10.0, tagged)
+
+    assert train_intraday.wick_tagged("call", 10.0, tagged) is True
+    assert train_intraday.wick_tagged("call", 10.0, short) is False
+    assert "10:00 PT red wicked within 15 cents of 10" in text
+    assert "The checker could take that candle." in text
+    assert "The live entry stays the retest." in text
+    assert "skip" not in text.lower()
