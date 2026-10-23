@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Alert a retest entry, an exit, or a skipped fill. Never place an order.
+"""Alert a retest entry, an exit, or a skipped fill.
+
+A qualifying live entry is sent on the Agentic account. So is the sell when
+that contract is still open. Anything else stays a plan.
 
 Yahoo has no 10-minute bars. Two finished 5-minute bars are one 10-minute
 bar. A claim or a lose is a close beyond the level by half the 14-period ATR.
@@ -23,6 +26,7 @@ import json
 import math
 import subprocess
 import time
+import uuid
 import urllib.error
 from concurrent.futures import ThreadPoolExecutor
 import urllib.parse
@@ -83,6 +87,9 @@ LIVE_FROM = date(2026, 10, 22)
 LIVE_CASH = 50.0
 LIVE_DEBIT = LIVE_CASH / 100
 LIVE_PATH = ROOT / "alerts" / "live.md"
+BROKER_PATH = ROOT / "alerts" / "broker.json"
+# Tests turn this off. The timer leaves it on.
+SEND_ORDERS = True
 PAPER_HEADER = (
     "| Time | Ticker | Action | Side | Level | Fill | Reason | Contract | Premium |\n"
     "|------|--------|--------|------|-------|------|--------|----------|---------|\n"
@@ -2234,16 +2241,190 @@ def _live_cash_sentence(event: dict) -> str:
 
 
 def live_notice(event: dict) -> str:
-    """The checker text for a live plan. It still is not an order."""
+    """The checker text for a live plan. A sent order replaces the confirm line."""
     text = format_live(event)
     if text.endswith(" Not an order."):
         text = text[: -len(" Not an order.")]
+    order = event.get("order_id")
     if event.get("kind") == "exit":
+        if order:
+            return text + f" Live session. Sold at {event.get('order_price')}. Order {order}."
         return text + " Live session. Not an order."
+    if order:
+        return text + f" Live session. Order {order} at {event.get('order_price')}."
     return (
         text
         + f" Live session. {_live_cash_sentence(event)} Waiting for confirm. Not an order."
     )
+
+
+def entry_order_block(event: dict) -> str:
+    """Why this live entry is not sent. Empty means one qualifying contract."""
+    if event.get("kind") != "entry":
+        return "exit"
+    close_at = int(event.get("close_at") or 0)
+    if session_kind(close_at) != "live":
+        return "paper"
+    rows = event.get("contracts") or []
+    if not rows:
+        return "empty"
+    cash = _role_row(rows, "cash") or {}
+    label = cash.get("contract") or ""
+    if label in ("", "none"):
+        return "none"
+    if halfway_blocks(rows, close_at) == "blocks":
+        return "halfway"
+    named, premium = named_live_contract(rows, close_at)
+    if named != label or premium is None:
+        return "none"
+    if float(premium) > LIVE_DEBIT:
+        return "over"
+    return ""
+
+
+def _broker_book(path: Path) -> dict:
+    if not path.is_file():
+        return {}
+    try:
+        data = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _remember_order(path: Path, key: str, record: dict) -> None:
+    book = _broker_book(path)
+    book[key] = record
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(book, indent=2) + "\n")
+
+
+def route_live_order(event: dict, broker=None, book_path: Path | None = None) -> dict:
+    """Buy a qualifying entry, or sell the open Agentic contract on its exit.
+
+    A cash strike of none, an empty ladder, a 0DTE halfway block, or a debit
+    over $0.50 writes nothing to the broker. A sell that is already working
+    is not sent again.
+    """
+    if event.get("kind") not in ("entry", "exit"):
+        return event
+    close_at = int(event.get("close_at") or 0)
+    if session_kind(close_at) != "live":
+        return event
+    path = book_path or BROKER_PATH
+    key = event_id(event.get("ticker") or "", event)
+    book = _broker_book(path)
+    prior = book.get(key) or {}
+    if prior.get("status") in ("sent", "working", "skip"):
+        if prior.get("order_id"):
+            event["order_id"] = prior["order_id"]
+            event["order_price"] = prior.get("price") or ""
+        return event
+    retry = prior.get("status") == "error" and prior.get("qualified") is True
+    label = event.get("contract") or prior.get("contract") or ""
+    if event.get("kind") == "entry":
+        if event.get("open") is False:
+            return event
+        if not retry and entry_order_block(event):
+            return event
+        if not label:
+            label = ((_role_row(event.get("contracts"), "cash") or {}).get("contract")) or ""
+    elif label in ("", "none"):
+        return event
+    if not label:
+        return event
+    if broker is None:
+        if not SEND_ORDERS:
+            return event
+        from robinhood_mcp import RobinhoodBroker
+
+        broker = RobinhoodBroker()
+    year = datetime.fromtimestamp(close_at, PT).year
+    ref = str(uuid.uuid5(uuid.NAMESPACE_URL, "autobonk:" + key))
+    try:
+        if event["kind"] == "entry":
+            result = broker.buy(event["ticker"], label, year, ref)
+        else:
+            result = broker.sell(event["ticker"], label, year, ref)
+    except Exception:
+        attempts = int(prior.get("attempts") or 0) + 1
+        _remember_order(
+            path,
+            key,
+            {
+                "status": "skip" if attempts > 2 else "error",
+                "qualified": event.get("kind") == "entry",
+                "attempts": attempts,
+                "kind": event["kind"],
+                "ticker": event.get("ticker") or "",
+                "contract": label,
+                "side": event.get("side") or "",
+                "level": event.get("level"),
+                "close_at": close_at,
+                "reason": event.get("reason") or "",
+            },
+        )
+        return event
+    reason = "" if result.get("sent") else (result.get("reason") or "skip")
+    if result.get("sent"):
+        status = "sent"
+    elif reason == "working":
+        status = "working"
+    elif reason in ("quote", "broker"):
+        status = "error"
+    else:
+        status = "skip"
+    attempts = int(prior.get("attempts") or 0) + 1
+    if status == "error" and attempts > 2:
+        status = "skip"
+    price = ""
+    if result.get("price") not in (None, ""):
+        try:
+            price = f"{float(result['price']):.2f}"
+        except (TypeError, ValueError):
+            price = str(result.get("price") or "")
+    _remember_order(
+        path,
+        key,
+        {
+            "status": status,
+            "qualified": event.get("kind") == "entry",
+            "attempts": attempts,
+            "order_id": result.get("order_id") or "",
+            "price": price,
+            "kind": event["kind"],
+            "ticker": event.get("ticker") or "",
+            "contract": label,
+            "side": event.get("side") or "",
+            "level": event.get("level"),
+            "close_at": close_at,
+            "reason": event.get("reason") or "",
+            "broker_reason": reason,
+        },
+    )
+    if result.get("sent"):
+        event["order_id"] = result.get("order_id") or ""
+        event["order_price"] = price
+    return event
+
+
+def retry_live_orders(book_path: Path | None = None, broker=None) -> None:
+    """Try once more when the last send failed. A sent or working order stays put."""
+    path = book_path or BROKER_PATH
+    book = _broker_book(path)
+    for key, record in list(book.items()):
+        if record.get("status") != "error":
+            continue
+        event = {
+            "kind": record.get("kind") or "",
+            "ticker": record.get("ticker") or "",
+            "side": record.get("side") or "",
+            "level": record.get("level"),
+            "close_at": record.get("close_at") or 0,
+            "reason": record.get("reason") or "",
+            "contract": record.get("contract") or "",
+        }
+        route_live_order(event, broker=broker, book_path=path)
 
 
 def paper_line(event: dict) -> str | None:
@@ -2653,6 +2834,7 @@ def fill_missing_contracts(
                     "side": padded[3],
                     "level": padded[4],
                     "fill": padded[5],
+                    "reason": padded[6],
                     "contract": padded[7],
                     "premium": float(premium) if premium else None,
                 },
@@ -2727,7 +2909,16 @@ def fill_missing_contracts(
         else:
             lines[index] = _paint_contract(lines[index], contract, premium)
         changed = True
-        events.append({**event, "contracts": found})
+        events.append(
+            {
+                **event,
+                "contracts": found,
+                "contract": contract,
+                "premium": premium,
+                "reason": row.get("reason") or "retest",
+                "open": index not in exit_for,
+            }
+        )
         paired = exit_for.get(index)
         if paired is None or paired[1]["contract"]:
             continue
@@ -2762,6 +2953,8 @@ def fill_missing_contracts(
                 "ticker": row["ticker"],
                 "side": row["side"],
                 "level": float(row["level"]),
+                "reason": exit_row.get("reason") or "reclaim",
+                "contract": contract,
                 "close_at": int(_row_clock(exit_row["time"]).timestamp()),
             }
         )
@@ -2772,6 +2965,13 @@ def fill_missing_contracts(
         rewritten += "\n"
     path.write_text(rewritten + separator + marks)
     record_contracts(events, contracts_path)
+    for item in events:
+        if item.get("kind") == "entry" and item.get("open") is False:
+            continue
+        try:
+            route_live_order(item)
+        except Exception:
+            pass
     return True
 
 
@@ -3478,6 +3678,11 @@ def check(now: int | None = None, notify: bool = False) -> list[str]:
         kept = event.get("kept") is True
         if routed == "drop" and event.get("reason") != "expiry" and not kept:
             return
+        if live_row and event.get("kind") in ("entry", "exit"):
+            try:
+                route_live_order(event)
+            except Exception:
+                pass
         if routed != "drop" or kept:
             line = live_notice(event) if live_row else format_live(event)
             if routed == "alert":
@@ -3527,11 +3732,15 @@ def check(now: int | None = None, notify: bool = False) -> list[str]:
         or repaired_live
         or repaired_premium
         or repaired_premium_live
-        or comparison
+        or         comparison
         or refresh_open_marks(now=moment)
         or refresh_contract_marks(now=moment)
     ):
         refresh_dashboard()
+    try:
+        retry_live_orders()
+    except Exception:
+        pass
     return logged
 
 
