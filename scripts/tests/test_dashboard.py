@@ -433,6 +433,23 @@ def test_the_calendar_rejects_an_end_before_the_start():
         raise AssertionError("a backwards calendar was accepted")
 
 
+def test_the_report_gives_the_days_profit_under_both_parameter_sets():
+    bars = {"AAPL": _replay_bars()}
+    same = dashboard.backtest_payload(_strategy_payload(), bars)
+    row = same["parameter_days"][0]
+
+    assert len(same["parameter_days"]) == 1
+    assert round(row["new"] - row["old"], 2) == round(row["difference"], 2)
+    assert round(row["difference"], 2) == 0
+    assert round(row["new"], 2) == round(same["report"]["summary"]["strategy"]["net"], 2)
+
+    changed = dashboard.backtest_payload(_strategy_payload(break_atr=0), bars)
+    moved = changed["parameter_days"][0]
+    assert round(moved["new"] - moved["old"], 2) == round(moved["difference"], 2)
+    assert round(moved["difference"], 2) != 0
+    assert round(moved["old"], 2) == round(row["old"], 2)
+
+
 def test_a_range_check_graphs_ten_values_of_one_buffer():
     bars = {"AAPL": _replay_bars()}
     payload = _strategy_payload(

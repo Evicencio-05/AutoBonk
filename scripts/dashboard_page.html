@@ -614,6 +614,48 @@ function comparison(runs) {
   return wrap;
 }
 
+function parameterDays(rows) {
+  if (!rows || !rows.length) return null;
+  const wrap = document.createElement("div");
+  const heading = document.createElement("h3");
+  heading.textContent = "Parameters";
+  const note = document.createElement("p");
+  note.textContent = "Old is the live checker. New is this test. Difference is the new day's stock points minus the old day's stock points.";
+  wrap.append(heading, note);
+  const table = document.createElement("table");
+  const head = document.createElement("tr");
+  ["Day", "Old", "New", "Difference"].forEach((name) => {
+    const th = document.createElement("th");
+    th.textContent = name;
+    head.appendChild(th);
+  });
+  const thead = document.createElement("thead");
+  thead.appendChild(head);
+  table.appendChild(thead);
+  const body = document.createElement("tbody");
+  rows.forEach((row) => {
+    const line = document.createElement("tr");
+    cell(line, row.day);
+    cell(line, points(row.old), tone(row.old));
+    cell(line, points(row.new), tone(row.new));
+    cell(line, points(row.difference), tone(row.difference));
+    body.appendChild(line);
+  });
+  if (rows.length > 1) {
+    const oldNet = rows.reduce((sum, row) => sum + Number(row.old), 0);
+    const newNet = rows.reduce((sum, row) => sum + Number(row.new), 0);
+    const line = document.createElement("tr");
+    cell(line, "All days");
+    cell(line, points(oldNet), tone(oldNet));
+    cell(line, points(newNet), tone(newNet));
+    cell(line, points(newNet - oldNet), tone(newNet - oldNet));
+    body.appendChild(line);
+  }
+  table.appendChild(body);
+  wrap.appendChild(table);
+  return wrap;
+}
+
 function renderReport(body) {
   const wrap = document.createElement("div");
   const report = body.report || body.runs[body.runs.length - 1];
@@ -647,6 +689,8 @@ function renderReport(body) {
     "near " + settings.profit_near
   ].filter(Boolean).join(" · ");
   wrap.appendChild(line);
+  const compared = parameterDays(body.parameter_days);
+  if (compared) wrap.appendChild(compared);
   (body.sweeps || []).forEach((sweep) => wrap.appendChild(rangeChart(sweep)));
   wrap.appendChild(overview(report));
   wrap.appendChild(equityChart(report.summary.strategy.equity));
