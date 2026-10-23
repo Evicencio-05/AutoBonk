@@ -36,7 +36,12 @@ _ENV_FILE = re.compile(r"(^|/)\.env(\.[\w-]+)?$")
 
 _SHELL_RULES = (
     (
-        re.compile(r"claim_alerts\.py\b[^|;&]*\bcheck\b"),
+        # Run as a program (python, uv, or the path itself), not named in a message or a grep.
+        re.compile(
+            r"(\b(python3?(\.\d+)?|uv\s+run|uvx)\s+(-\S+\s+)*|(^|[;&|(]\s*)(\./)?)"
+            r"[^\s;&|'\"`]*claim_alerts(\.py)?\b[^|;&]*\bcheck\b"
+            r"|-m\s+(scripts\.)?claim_alerts\b[^|;&]*\bcheck\b"
+        ),
         "claim_alerts.py check sends the live Agentic entry and exit on a live session. "
         "Only the systemd timer runs it. Use pytest or scripts/bench.py instead.",
     ),

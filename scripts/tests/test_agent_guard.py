@@ -23,7 +23,11 @@ def _run(mode, payload, monkeypatch, capsys):
 def test_the_live_check_is_refused_and_its_tests_are_not():
     assert guard.shell_refusal("python3 scripts/claim_alerts.py check")
     assert guard.shell_refusal("cd x && /usr/bin/python3 scripts/claim_alerts.py check --notify")
+    assert guard.shell_refusal("scripts/claim_alerts.py check")
+    assert guard.shell_refusal(".venv/bin/python3 -u scripts/claim_alerts.py check")
     assert guard.shell_refusal("python3 -m pytest scripts/tests/test_claim_alerts.py") is None
+    assert guard.shell_refusal("gh pr create --body 'no `claim_alerts.py check` from agents'") is None
+    assert guard.shell_refusal("grep -n 'claim_alerts.py check' AGENTS.md") is None
     assert guard.shell_refusal("python3 scripts/bench.py run --levels a --bars b --as-of c --out d") is None
 
 
