@@ -937,6 +937,7 @@ def _studio(root: Path) -> str:
 <p>Change the entry, the exit, and the buffers, then run the test.
 The report is stock points on finished 10-minute closes: net profit, gross profit,
 gross loss, profit factor, max drawdown, win rate, and the average trade.
+It also gives each day's profit under these parameters and under the live parameters, and the difference.
 The armed menu is when this book started. It applies to recent sessions.
 Saved sessions keep each day's own armed time.
 The calendar keeps closes on those dates for both.
@@ -1278,7 +1279,76 @@ def _sweep_points(days: list[dict], kwargs: dict, name: str, values: list[float]
     return points
 
 
+def _session_days(days: list[dict]) -> list[dict]:
+    """One row per cash session. A recent fetch that spans dates is split on the PT date."""
+    sessions = []
+    for day in days:
+        if day.get("day"):
+            sessions.append(day)
+            continue
+        by_date: dict[str, dict[str, list[dict]]] = {}
+        for ticker, bars in day["bars"].items():
+            for bar in bars:
+                stamp = datetime.fromtimestamp(bar["close_at"], claim_alerts.PT).date().isoformat()
+                by_date.setdefault(stamp, {}).setdefault(ticker, []).append(bar)
+        for stamp, bars in sorted(by_date.items()):
+            sessions.append(
+                {
+                    "day": stamp,
+                    "bars": bars,
+                    "levels": day["levels"],
+                    "armed_at": day["armed_at"],
+                }
+            )
+    return sessions
+
+
+def _day_net(day: dict, settings: dict, kwargs: dict) -> float:
+    result = desk.run_backtest(
+        day["bars"],
+        day["levels"],
+        day["armed_at"],
+        settings,
+        kwargs.get("premiums"),
+        kwargs.get("threshold") or 1,
+    )
+    return desk.performance(result["trades"], day["bars"])["summary"]["strategy"]["net"]
+
+
+def _live_run_settings() -> dict:
+    defaults = claim_alerts.live_settings()
+    return desk._settings(
+        defaults["touch"],
+        defaults["chase"],
+        defaults["break_atr"],
+        0.15,
+        defaults["sma_band"],
+        defaults["entry"],
+        None,
+    )
+
+
+def _parameter_days(days: list[dict], kwargs: dict) -> list[dict]:
+    """Stock points for the day under the live parameters and under this test."""
+    new = _this_settings(kwargs, {})
+    old = _live_run_settings()
+    rows = []
+    for day in _session_days(days):
+        old_net = _day_net(day, old, kwargs)
+        new_net = _day_net(day, new, kwargs)
+        rows.append(
+            {
+                "day": day["day"],
+                "old": old_net,
+                "new": new_net,
+                "difference": new_net - old_net,
+            }
+        )
+    return rows
+
+
 def _attach_sweeps(packed: dict, days: list[dict], kwargs: dict, payload: dict) -> dict:
+    packed["parameter_days"] = _parameter_days(days, kwargs)
     ranges = _parse_ranges(payload)
     if not ranges:
         return packed
