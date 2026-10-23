@@ -1129,6 +1129,16 @@ def _discord_get(token: str, path: str):
         return json.loads(response.read().decode())
 
 
+def _send_alert(text: str, notify: bool) -> None:
+    """Post one alert. A Discord refusal does not stop the rest of the check."""
+    if not notify:
+        return
+    try:
+        notify_discord(text)
+    except urllib.error.HTTPError:
+        return
+
+
 def notify_discord(text: str) -> None:
     """Post one alert to #ta. The token is never printed."""
     token = _token()
@@ -1590,16 +1600,31 @@ def _strike_span(low: float, high: float) -> list[float]:
 
 
 def fetch_option_minutes(symbol: str, span: str = "1d") -> list[tuple]:
-    """One-minute option bars from Yahoo. The checker cannot call Robinhood."""
+    """One-minute option bars from Yahoo. The checker cannot call Robinhood.
+
+    An unlisted strike is an empty list. A rate limit is asked again. Treating
+    that limit as a missing strike empties the ladder and leaves no status.
+    A minute that printed a close still counts when the open is blank.
+    """
     query = urllib.parse.urlencode(
         {"interval": "1m", "range": span, "includePrePost": "true"}
     )
     url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?{query}"
-    request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-    try:
-        with urllib.request.urlopen(request, timeout=8) as response:
-            payload = json.loads(response.read().decode())
-    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError):
+    payload = None
+    for attempt in range(3):
+        request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        try:
+            with urllib.request.urlopen(request, timeout=8) as response:
+                payload = json.loads(response.read().decode())
+            break
+        except urllib.error.HTTPError as exc:
+            if exc.code in (429, 503) and attempt < 2:
+                time.sleep(0.4 * (attempt + 1))
+                continue
+            return []
+        except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError):
+            return []
+    if not payload:
         return []
     result = (payload.get("chart") or {}).get("result") or []
     if not result:
@@ -1611,11 +1636,18 @@ def fetch_option_minutes(symbol: str, span: str = "1d") -> list[tuple]:
     highs = quote.get("high") or []
     lows = quote.get("low") or []
     closes = quote.get("close") or []
-    return [
-        (stamp, open_, high, low, close)
-        for stamp, open_, high, low, close in zip(stamps, opens, highs, lows, closes)
-        if None not in (open_, high, low, close)
-    ]
+    bars = []
+    for stamp, open_, high, low, close in zip(stamps, opens, highs, lows, closes):
+        if stamp is None or close is None:
+            continue
+        if open_ is None:
+            open_ = close
+        if high is None:
+            high = close
+        if low is None:
+            low = close
+        bars.append((stamp, open_, high, low, close))
+    return bars
 
 
 def option_price(bars: list[tuple], start: int, which: str) -> float | None:
@@ -3449,8 +3481,7 @@ def check(now: int | None = None, notify: bool = False) -> list[str]:
         if routed != "drop" or kept:
             line = live_notice(event) if live_row else format_live(event)
             if routed == "alert":
-                if notify:
-                    notify_discord(line)
+                _send_alert(line, notify)
                 messages.append(line)
                 if live_row:
                     notify_live(event)
