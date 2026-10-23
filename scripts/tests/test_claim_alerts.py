@@ -1280,7 +1280,7 @@ def test_spx_is_not_cut_at_twelve_forty_five():
     entry = _open_contract(ticker="SPX", contract="10/21 6000C", fill="6001.00")
     at_cutoff = int(datetime(2026, 10, 21, 12, 45, tzinfo=ZoneInfo("America/Los_Angeles")).timestamp())
     clock = int(datetime(2026, 10, 21, 12, 50, tzinfo=ZoneInfo("America/Los_Angeles")).timestamp())
-    session_end = int(datetime(2026, 10, 21, 13, 15, tzinfo=ZoneInfo("America/Los_Angeles")).timestamp())
+    session_end = int(datetime(2026, 10, 21, 13, 0, tzinfo=ZoneInfo("America/Los_Angeles")).timestamp())
     clock_event = {
         "kind": "exit",
         "ticker": "SPX",
@@ -1293,9 +1293,16 @@ def test_spx_is_not_cut_at_twelve_forty_five():
     }
 
     assert claim_alerts.apply_contract_exits([], [entry], at_cutoff) == []
-    kept = claim_alerts.apply_contract_exits([clock_event], [entry], clock + 60)
-    assert kept[0]["reason"] == "clock"
-    assert kept[0]["close_at"] == clock
+    assert claim_alerts.apply_contract_exits([clock_event], [entry], clock + 60) == []
+    held = claim_alerts.apply_contract_exits(
+        [clock_event],
+        [entry],
+        session_end,
+        option_mark=lambda symbol, moment: 1.25,
+    )
+    assert len(held) == 1
+    assert held[0]["reason"] == "expiry"
+    assert held[0]["close_at"] == session_end
 
     expired = claim_alerts.apply_contract_exits(
         [],
@@ -1305,7 +1312,7 @@ def test_spx_is_not_cut_at_twelve_forty_five():
     )
     assert expired[0]["reason"] == "expiry"
     assert expired[0]["close_at"] == session_end
-    assert "1:15" in claim_alerts.format_live(expired[0])
+    assert "1:00" in claim_alerts.format_live(expired[0])
 
 
 def test_a_closed_contract_is_not_exited_again():
@@ -1421,7 +1428,194 @@ def test_spcx_is_not_cut_at_twelve_forty_five():
 
     deadline = claim_alerts.contract_deadline(entry)
 
-    assert deadline == datetime(2026, 10, 22, 13, 15, tzinfo=ZoneInfo("America/Los_Angeles"))
+    assert deadline == datetime(2026, 10, 22, 13, 0, tzinfo=ZoneInfo("America/Los_Angeles"))
+
+
+def test_a_broker_sellout_is_the_cutoff_and_an_unknown_one_stays_later():
+    pt = ZoneInfo("America/Los_Angeles")
+    early = _open_contract(sellout=datetime(2026, 10, 21, 12, 30, tzinfo=pt))
+    later = _open_contract(sellout=datetime(2026, 10, 21, 16, 0, tzinfo=pt))
+    before = int(datetime(2026, 10, 21, 12, 29, tzinfo=pt).timestamp())
+    at_sellout = int(datetime(2026, 10, 21, 12, 30, tzinfo=pt).timestamp())
+    afternoon = int(datetime(2026, 10, 21, 12, 50, tzinfo=pt).timestamp())
+    clock = {
+        "kind": "exit",
+        "ticker": "AAPL",
+        "side": "call",
+        "level": 340.0,
+        "reason": "clock",
+        "close_at": afternoon,
+        "bar": _bar(afternoon - 600, 340, 341, 339, 339.2),
+        "fill": None,
+    }
+
+    assert claim_alerts.contract_deadline(early) == datetime(2026, 10, 21, 12, 30, tzinfo=pt)
+    assert claim_alerts.apply_contract_exits([], [early], before) == []
+    assert claim_alerts.apply_contract_exits([], [_open_contract()], at_sellout) == []
+    sold = claim_alerts.apply_contract_exits(
+        [],
+        [early],
+        at_sellout,
+        stock_bar=_priced_bar(at_sellout),
+    )
+    assert sold[0]["reason"] == "expiry"
+    assert sold[0]["close_at"] == at_sellout
+    assert "12:30" in claim_alerts.format_live(sold[0])
+    assert claim_alerts.apply_contract_exits([clock], [later], afternoon + 60) == []
+    assert claim_alerts.contract_deadline(later) == datetime(2026, 10, 21, 16, 0, tzinfo=pt)
+
+
+def test_the_late_close_list_marks_only_the_names_it_returned():
+    class Broker:
+        def late_closes(self):
+            return {"SPY", "QQQ"}
+
+        def index_options(self):
+            return {"NDX", "SPX"}
+
+        def sellout(self, ticker, label, year):
+            del ticker, label, year
+            return None
+
+    rows = [
+        _open_contract(ticker="AAPL"),
+        _open_contract(ticker="SPY", contract="10/21 580C"),
+        _open_contract(ticker="NDX", contract="10/21 20000C"),
+    ]
+
+    claim_alerts.stamp_sellouts(rows, Broker())
+
+    assert rows[0]["late_close"] is False
+    assert rows[1]["late_close"] is True
+    assert rows[2]["index_option"] is True
+    assert "late_close" not in rows[2]
+
+    unread = [_open_contract(ticker="AAPL"), _open_contract(ticker="SPY", contract="10/21 580C")]
+
+    class LateOnly:
+        def late_closes(self):
+            return {"SPY"}
+
+        def index_options(self):
+            return None
+
+        def sellout(self, ticker, label, year):
+            del ticker, label, year
+            return None
+
+    claim_alerts.stamp_sellouts(unread, LateOnly())
+
+    assert "late_close" not in unread[0]
+    assert unread[1]["late_close"] is True
+
+
+def test_a_late_close_name_is_not_cut_at_twelve_thirty():
+    pt = ZoneInfo("America/Los_Angeles")
+    entry = _open_contract(ticker="SPY", contract="10/21 580C", fill="580.10", late_close=True)
+    early = int(datetime(2026, 10, 21, 12, 30, tzinfo=pt).timestamp())
+    cutoff = int(datetime(2026, 10, 21, 12, 45, tzinfo=pt).timestamp())
+
+    assert claim_alerts.apply_contract_exits([], [entry], early) == []
+    exits = claim_alerts.apply_contract_exits(
+        [],
+        [entry],
+        cutoff,
+        stock_bar=_priced_bar(cutoff),
+    )
+
+    assert exits[0]["reason"] == "expiry"
+    assert exits[0]["close_at"] == cutoff
+    assert "12:45" in claim_alerts.format_live(exits[0])
+
+
+def test_a_name_off_the_late_close_list_is_out_at_twelve_thirty():
+    pt = ZoneInfo("America/Los_Angeles")
+    entry = _open_contract(late_close=False)
+    before = int(datetime(2026, 10, 21, 12, 29, tzinfo=pt).timestamp())
+    cutoff = int(datetime(2026, 10, 21, 12, 30, tzinfo=pt).timestamp())
+    held = _open_contract(
+        late_close=False,
+        sellout=datetime(2026, 10, 21, 16, 0, tzinfo=pt),
+    )
+    afternoon = int(datetime(2026, 10, 21, 12, 50, tzinfo=pt).timestamp())
+    clock = {
+        "kind": "exit",
+        "ticker": "AAPL",
+        "side": "call",
+        "level": 340.0,
+        "reason": "clock",
+        "close_at": afternoon,
+        "bar": _bar(afternoon - 600, 340, 341, 339, 339.2),
+        "fill": None,
+    }
+
+    assert claim_alerts.apply_contract_exits([], [entry], before) == []
+    exits = claim_alerts.apply_contract_exits(
+        [],
+        [entry],
+        cutoff,
+        stock_bar=_priced_bar(cutoff),
+    )
+    assert exits[0]["reason"] == "expiry"
+    assert exits[0]["close_at"] == cutoff
+    assert claim_alerts.apply_contract_exits([clock], [held], afternoon + 60) == []
+
+
+def test_a_listed_index_is_not_cut_with_the_equity_names():
+    pt = ZoneInfo("America/Los_Angeles")
+    entry = _open_contract(
+        ticker="NDX",
+        contract="10/21 20000C",
+        fill="20001.00",
+        index_option=True,
+        late_close=False,
+    )
+    afternoon = int(datetime(2026, 10, 21, 12, 50, tzinfo=pt).timestamp())
+    session_end = int(datetime(2026, 10, 21, 13, 0, tzinfo=pt).timestamp())
+    clock = {
+        "kind": "exit",
+        "ticker": "NDX",
+        "side": "call",
+        "level": 340.0,
+        "reason": "clock",
+        "close_at": afternoon,
+        "bar": _bar(afternoon - 600, 20000, 20010, 19990, 20004),
+        "fill": None,
+    }
+
+    assert claim_alerts.contract_deadline(entry) == datetime(2026, 10, 21, 13, 0, tzinfo=pt)
+    assert claim_alerts.apply_contract_exits([clock], [entry], afternoon + 60) == []
+    expired = claim_alerts.apply_contract_exits([], [entry], session_end)
+    assert expired[0]["reason"] == "expiry"
+    assert expired[0]["close_at"] == session_end
+
+
+def test_an_index_is_not_sold_on_the_twelve_fifty_bar():
+    clock = _pt(2026, 10, 19, 12, 50)
+    bars = [
+        _stamp(_pt(2026, 10, 19, 9, 40), 6001),
+        _stamp(clock, 6004),
+    ]
+    row = _open_row(ticker="SPX", contract="10/19 6000C", fill="6001.00", level="6000.00")
+
+    assert (
+        claim_alerts.settle_open_entries(
+            [row],
+            [],
+            clock,
+            lambda ticker, at: bars,
+        )
+        == []
+    )
+    assert (
+        claim_alerts.settle_open_entries(
+            [row],
+            [],
+            _pt(2026, 10, 19, 13, 0),
+            lambda ticker, at: bars,
+        )
+        == []
+    )
 
 
 def test_a_none_contract_closes_on_the_twelve_fifty_bar():

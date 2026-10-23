@@ -9,9 +9,12 @@ bar. A claim or a lose is a close beyond the level by half the 14-period ATR.
 A close inside that band has not broken the level. That same close flips
 the level: a lost support is resistance, and a claimed resistance is support.
 A wick within 15 cents only counts as the touch. The fill is the next bar's open.
-A 0DTE contract is out at 12:45 PT on expiration. SPX and SPCX are not cut at 12:45.
-An open row whose 12:50 bar has passed is closed on a later check. That close
-does not add an entry from an old book.
+A contract is out at its broker sellout when the instrument has one.
+Otherwise a late-close name is out at 12:45 PT, any other equity option at
+12:30 PT, and an index at 1:00 PM PT. If that list cannot be read, the equity
+cutoff stays 12:45 PT so the checker does not sell early. An open row past
+that cutoff is closed on a later check. A contract with no expiration still
+leaves on the 12:50 bar. That close does not add an entry from an old book.
 RSI is printed and does not block.
 
   python3 scripts/claim_alerts.py check
@@ -1064,6 +1067,12 @@ def format_event(ticker: str, event: dict, note: str) -> str:
     return text + " Not an order."
 
 
+def _clock_label(close_at: int) -> str:
+    when = datetime.fromtimestamp(close_at, PT)
+    hour = when.hour % 12 or 12
+    return f"{hour}:{when.minute:02d} PT"
+
+
 def format_live(event: dict) -> str:
     when = datetime.fromtimestamp(event["close_at"], PT).strftime("%Y-%m-%d %H:%M PT")
     price = f"{event['level']:.2f}"
@@ -1080,10 +1089,7 @@ def format_live(event: dict) -> str:
     elif event["kind"] == "skip":
         extra = " Fill bar closed back through the level."
     elif event["kind"] == "exit" and event["reason"] == "expiry":
-        if _is_spx(event["ticker"]):
-            extra = " SPX expiration. Out at 1:15 PT."
-        else:
-            extra = " 0DTE is out at 12:45 PT."
+        extra = f" Out at {_clock_label(event['close_at'])}."
     elif event["kind"] == "exit" and event["reason"] == "target":
         extra = " Close through the last target."
     elif event["kind"] == "exit" and event["reason"] == "reclaim":
@@ -3238,18 +3244,80 @@ def contract_expiration(row: dict) -> date | None:
     return expiration
 
 
+def _known_sellout(row: dict) -> datetime | None:
+    """A broker sellout already on the row. None when this contract has no time."""
+    raw = row.get("sellout")
+    if isinstance(raw, datetime):
+        when = raw if raw.tzinfo is not None else raw.replace(tzinfo=PT)
+        return when.astimezone(PT)
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    text = raw.strip()
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        when = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=PT)
+    return when.astimezone(PT)
+
+
+def _is_index(row: dict) -> bool:
+    if row.get("index_option") is True:
+        return True
+    return _is_spx(row.get("ticker") or "")
+
+
+def fallback_cutoff(ticker: str, day: date, late_close=None) -> datetime:
+    """The cutoff when the broker did not name a sellout.
+
+    An index is out at 1:00 PM PT. A name Robinhood does not list as late
+    close is out at 12:30 PT. A late-close name, or a name whose list was
+    not read, stays at 12:45 PT.
+    """
+    if _is_spx(ticker):
+        hour, minute = 13, 0
+    elif late_close is False:
+        hour, minute = 12, 30
+    else:
+        hour, minute = 12, 45
+    return datetime(day.year, day.month, day.day, hour, minute, tzinfo=PT)
+
+
 def contract_deadline(row: dict) -> datetime | None:
     """When this contract has to be out.
 
-    Equity 0DTE is out at 12:45 PT on the expiration date. SPX is not cut then.
-    SPX keeps the session and is out at 1:15 PT.
+    The broker sellout is the cutoff when the instrument has one. It is not
+    moved earlier or later to match another name. When that time is unknown,
+    an index is out at 1:00 PM PT. A late-close equity option is out at
+    12:45 PT, and any other equity option at 12:30 PT. If the late-close
+    list was not read, the equity cutoff stays 12:45 PT. A blank or none
+    contract has no option cutoff.
     """
+    known = _known_sellout(row)
+    if known is not None:
+        return known
     expiration = contract_expiration(row)
     if expiration is None:
         return None
-    if _is_spx(row.get("ticker") or ""):
-        return datetime(expiration.year, expiration.month, expiration.day, 13, 15, tzinfo=PT)
-    return datetime(expiration.year, expiration.month, expiration.day, 12, 45, tzinfo=PT)
+    if _is_index(row):
+        return datetime(expiration.year, expiration.month, expiration.day, 13, 0, tzinfo=PT)
+    return fallback_cutoff(row.get("ticker") or "", expiration, row.get("late_close"))
+
+
+def _clock_before_cutoff(event: dict, deadline: datetime | None) -> bool:
+    """A 12:50 clock that would sell this contract before its own cutoff."""
+    if deadline is None or event.get("reason") != "clock":
+        return False
+    try:
+        close_at = int(event["close_at"])
+    except (TypeError, ValueError, KeyError):
+        return False
+    if close_at >= int(deadline.timestamp()):
+        return False
+    return datetime.fromtimestamp(close_at, PT).date() == deadline.date()
 
 
 def _same_position(row: dict, event: dict) -> bool:
@@ -3504,10 +3572,14 @@ def settle_open_entries(
 ) -> list[dict]:
     """Close an entry the current book no longer replays, once its session is over.
 
-    A contract that expires at or before the 12:50 bar stays with the expiration
-    close. A `none` contract and a later expiration still leave at 12:50, or
-    earlier when the level is reclaimed or the last target is lost. The first
-    target does not close the trade. This does not add an entry.
+    A contract whose cutoff has passed stays with that expiration close.
+    The cutoff is the broker sellout when the row has one. Otherwise a
+    late-close name is out at 12:45 PT, any other equity option at 12:30 PT,
+    and an index at 1:00 PM PT. A clock before that cutoff is not an exit.
+    A `none` contract and a later
+    expiration still leave at 12:50, or earlier when the level is reclaimed
+    or the last target is lost. The first target does not close the trade.
+    This does not add an entry.
     """
     settings = live_settings() if settings is None else settings
     bars_for = session_bars if stock_bars is None else stock_bars
@@ -3522,11 +3594,7 @@ def settle_open_entries(
         if moment < flat_at:
             continue
         deadline = contract_deadline(entry)
-        if (
-            deadline is not None
-            and int(deadline.timestamp()) <= flat_at
-            and moment >= int(deadline.timestamp())
-        ):
+        if deadline is not None and moment >= int(deadline.timestamp()):
             continue
         last, nxt = _targets_for(entry, levels, path)
         position = {
@@ -3546,7 +3614,7 @@ def settle_open_entries(
         except (SystemExit, OSError, urllib.error.URLError, ValueError):
             continue
         event = _walk_exit(position, int(opened.timestamp()), bars or [], settings)
-        if event is None:
+        if event is None or _clock_before_cutoff(event, deadline):
             continue
         event["contract"] = entry.get("contract") or ""
         event["premium"] = None
@@ -3580,11 +3648,13 @@ def apply_contract_exits(
     stock_bar=None,
     option_mark=None,
 ) -> list[dict]:
-    """Close a contract once its expiration cutoff has passed.
+    """Close a contract once its own cutoff has passed.
 
-    A replay exit at or after that cutoff moves to the cutoff. A contract that
-    is still open gets an exit there. An equity 0DTE is out at 12:45 PT. SPX
-    is not cut at 12:45.
+    The cutoff is the broker sellout when the row has one. Otherwise a
+    late-close name is out at 12:45 PT, any other equity option at 12:30 PT,
+    and an index at 1:00 PM PT. A replay exit at or after that cutoff moves
+    to the cutoff. A clock before it is left open. A contract that is still
+    open gets an exit at the cutoff.
     """
     marks = marks or {}
     opens = _open_entries(rows)
@@ -3609,6 +3679,9 @@ def apply_contract_exits(
             adjusted.append(event)
             continue
         deadline = contract_deadline(entry)
+        if _clock_before_cutoff(event, deadline):
+            opens.append(entry)
+            continue
         cutoff = None if deadline is None else int(deadline.timestamp())
         if cutoff is not None and moment >= cutoff and event["close_at"] >= cutoff:
             bar = _bar_at(entry, cutoff, stock_bar)
@@ -3666,6 +3739,58 @@ def close_expired_contracts(
         return False
     path.write_text(_contracts_text(rows))
     return True
+
+
+def stamp_sellouts(rows: list[dict], broker=None) -> None:
+    """Copy each open contract's broker sellout, and whether it closes late.
+
+    A missing sellout leaves that field unset. A late-close list that cannot
+    be read leaves the row unclassified, so the equity cutoff stays 12:45 PT.
+    """
+    if broker is None and not SEND_ORDERS:
+        return
+    if broker is None:
+        try:
+            from robinhood_mcp import RobinhoodBroker
+
+            broker = RobinhoodBroker()
+        except Exception:
+            return
+    try:
+        late = broker.late_closes()
+    except Exception:
+        late = None
+    try:
+        indexes = broker.index_options()
+    except Exception:
+        indexes = None
+    cache: dict[tuple, datetime | None] = {}
+    for row in rows:
+        ticker = (row.get("ticker") or "").upper()
+        on_index = _is_spx(ticker) or (isinstance(indexes, set) and ticker in indexes)
+        if on_index:
+            row["index_option"] = True
+        elif isinstance(late, set) and isinstance(indexes, set):
+            row["late_close"] = ticker in late
+        elif isinstance(late, set) and ticker in late:
+            row["late_close"] = True
+        if row.get("action") not in (None, "entry"):
+            continue
+        label = (row.get("contract") or "").strip()
+        if not label or label == "none" or row.get("sellout"):
+            continue
+        try:
+            year = _row_clock(row["time"]).year
+        except (ValueError, KeyError, AttributeError):
+            continue
+        key = (row.get("ticker") or "", label, year)
+        if key not in cache:
+            try:
+                cache[key] = broker.sellout(key[0], label, year)
+            except Exception:
+                cache[key] = None
+        if cache[key] is not None:
+            row["sellout"] = cache[key]
 
 
 def read_agentic_cash(broker=None) -> float | None:
@@ -3730,9 +3855,12 @@ def check(now: int | None = None, notify: bool = False) -> list[str]:
             other.append(event)
     paper_text = PAPER_PATH.read_text() if PAPER_PATH.is_file() else ""
     live_text = LIVE_PATH.read_text() if LIVE_PATH.is_file() else ""
+    paper_open = paper_rows(paper_text)
+    live_open = paper_rows(live_text)
+    stamp_sellouts(live_open)
     final_paper = apply_contract_exits(
         quote_paper(paper_src, spec["levels"]) if paper_src else [],
-        paper_rows(paper_text),
+        paper_open,
         moment,
         marks=_mark_premiums(paper_text),
         stock_bar=_stock_bar_at,
@@ -3740,7 +3868,7 @@ def check(now: int | None = None, notify: bool = False) -> list[str]:
     )
     final_live = apply_contract_exits(
         quote_paper(live_src, spec["levels"], path=LIVE_PATH, cash=cash) if live_src else [],
-        paper_rows(live_text),
+        live_open,
         moment,
         marks=_mark_premiums(live_text),
         stock_bar=_stock_bar_at,
@@ -3754,13 +3882,13 @@ def check(now: int | None = None, notify: bool = False) -> list[str]:
         return [bar for bar in cached[ticker] if bar["close_at"] <= at]
 
     settled_paper = settle_open_entries(
-        _still_open(paper_rows(paper_text), final_paper),
+        _still_open(paper_open, final_paper),
         spec["levels"],
         moment,
         bars_for,
     )
     settled_live = settle_open_entries(
-        _still_open(paper_rows(live_text), final_live),
+        _still_open(live_open, final_live),
         spec["levels"],
         moment,
         bars_for,

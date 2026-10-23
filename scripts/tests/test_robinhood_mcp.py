@@ -4,7 +4,9 @@ import hashlib
 import importlib.util
 import json
 import subprocess
+from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 _SPEC = importlib.util.spec_from_file_location(
     "robinhood_mcp",
@@ -53,6 +55,38 @@ def test_spendable_cash_is_the_buying_power_the_account_can_pay():
     assert robinhood_mcp.spendable_amount({"data": {"cash": "38"}}) == 38.0
     assert robinhood_mcp.spendable_amount({}) is None
     assert robinhood_mcp.spendable_amount({"data": {"buying_power": {}}}) is None
+
+
+def test_sellout_time_is_the_instrument_clock():
+    payload = {
+        "data": {
+            "instruments": [
+                {"id": "abc", "sellout_datetime": "2026-10-23T19:30:00+00:00"}
+            ]
+        }
+    }
+    found = robinhood_mcp.sellout_moment(payload)
+    assert found == datetime(2026, 10, 23, 12, 30, tzinfo=ZoneInfo("America/Los_Angeles"))
+    assert robinhood_mcp.sellout_moment({"data": {"instruments": [{}]}}) is None
+    assert robinhood_mcp.sellout_moment({}) is None
+    assert robinhood_mcp.sellout_moment({"data": {"instruments": [{"sellout_datetime": ""}]}}) is None
+
+
+def test_a_late_close_list_is_the_symbols_robinhood_returned():
+    payload = {
+        "data": {
+            "display_name": "Late close options",
+            "items": [
+                {"symbol": "SPY"},
+                {"symbol": "QQQ"},
+                {"symbol": "iwm"},
+            ],
+        }
+    }
+    assert robinhood_mcp.list_symbols(payload) == {"SPY", "QQQ", "IWM"}
+    assert "GOOGL" not in robinhood_mcp.list_symbols(payload)
+    assert robinhood_mcp.list_symbols({}) is None
+    assert robinhood_mcp.list_symbols({"data": {"items": []}}) is None
 
 
 def test_a_contract_label_splits_into_the_strike():

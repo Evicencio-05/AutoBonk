@@ -17,12 +17,17 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
+PT = ZoneInfo("America/Los_Angeles")
+# Robinhood's published lists. The symbols come from the broker, not from here.
+LATE_CLOSE_LIST = "85127738-b52d-404a-ad0a-d30288592543"
+INDEX_OPTION_LIST = "f79523c4-7ac3-4592-91dc-7887039a4ad2"
 MCP_URL = "https://agent.robinhood.com/mcp/trading"
 TOKEN_URL = "https://api.robinhood.com/oauth2/token/"
 TOKEN_PATH = Path.home() / ".config" / "autobonk" / "robinhood-mcp.json"
@@ -246,6 +251,56 @@ def contract_parts(label: str, year: int) -> tuple[date, float, str] | None:
     return expiration, strike, side
 
 
+def sellout_moment(payload) -> datetime | None:
+    """The instrument sellout in Pacific time. None when the field is absent."""
+    if not isinstance(payload, dict):
+        return None
+    data = payload.get("data") if isinstance(payload.get("data"), dict) else payload
+    if not isinstance(data, dict):
+        return None
+    instruments = data.get("instruments")
+    source = None
+    if isinstance(instruments, list) and instruments and isinstance(instruments[0], dict):
+        source = instruments[0]
+    elif data.get("sellout_datetime"):
+        source = data
+    if not isinstance(source, dict):
+        return None
+    raw = source.get("sellout_datetime")
+    if raw in (None, ""):
+        return None
+    text = str(raw).strip()
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        when = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=PT)
+    return when.astimezone(PT)
+
+
+def list_symbols(payload) -> set[str] | None:
+    """Tickers on a Robinhood list. None when the list was not read."""
+    if not isinstance(payload, dict):
+        return None
+    data = payload.get("data") if isinstance(payload.get("data"), dict) else payload
+    if not isinstance(data, dict):
+        return None
+    items = data.get("items")
+    if not isinstance(items, list) or not items:
+        return None
+    symbols = set()
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        symbol = str(item.get("symbol") or "").upper().strip()
+        if symbol:
+            symbols.add(symbol)
+    return symbols or None
+
+
 def spendable_amount(payload) -> float | None:
     """Dollars one new contract can debit.
 
@@ -394,6 +449,42 @@ class RobinhoodBroker:
         if not instruments:
             return ""
         return str(instruments[0].get("id") or "")
+
+    def sellout(self, ticker: str, label: str, year: int) -> datetime | None:
+        """This contract's broker sellout. None when the instrument has no time."""
+        parsed = contract_parts(label, year)
+        if parsed is None:
+            return None
+        expiration, strike, side = parsed
+        try:
+            payload = self.tool(
+                "get_option_instruments",
+                {
+                    "chain_symbol": ticker,
+                    "expiration_dates": expiration.isoformat(),
+                    "strike_price": f"{strike:.4f}",
+                    "type": side,
+                },
+            )
+        except (BrokerError, OSError, TimeoutError, ValueError, TypeError):
+            return None
+        return sellout_moment(payload)
+
+    def watch_symbols(self, list_id: str) -> set[str] | None:
+        """Symbols on a Robinhood list. None when the list cannot be read."""
+        try:
+            payload = self.tool("get_watchlist_items", {"list_id": list_id})
+        except (BrokerError, OSError, TimeoutError, ValueError, TypeError):
+            return None
+        return list_symbols(payload)
+
+    def late_closes(self) -> set[str] | None:
+        """Underlyings Robinhood lists as late-close options. None if unread."""
+        return self.watch_symbols(LATE_CLOSE_LIST)
+
+    def index_options(self) -> set[str] | None:
+        """Index underlyings Robinhood lists. None if unread."""
+        return self.watch_symbols(INDEX_OPTION_LIST)
 
     def position(self, ticker: str, label: str, year: int) -> dict | None:
         option_id = self.find(ticker, label, year)
