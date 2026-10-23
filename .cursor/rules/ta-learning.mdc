@@ -14,3 +14,9 @@ Before drafting the next plan, read the journal and `learning/training.md`. Call
 When the operator confirms the candles of a play, add a drill to `learning/drills.yaml` and run `python3 scripts/train_intraday.py score`. A live read uses finished 10-minute bars only. The score is how far the first green or first red sits from the confirmed candle. One drill does not change `rules/ta_rules.md`.
 
 Leave `rules/ta_rules.md` unchanged. Record options-exposure comments as their words, and do not treat them as a reason to trade. Do not place an order because a journal pattern matched.
+
+`learning/goals.yaml` holds goals. The first is sniping the bottom on contracts. A goal is a lesson, not a live rule.
+
+After the cash close, fill `learning/daily_review.md` into `learning/reviews/YYYY-MM-DD.md` and append that day's fade fills in `alerts/fade_forward.md`. A review is not a pattern and does not change the live checker.
+
+`scripts/bench.py` replays one frozen levels file and one settings snapshot. A replay is an observation. It does not change `rules/ta_rules.md` or the live defaults.

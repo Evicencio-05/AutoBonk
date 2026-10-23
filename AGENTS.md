@@ -1,0 +1,51 @@
+# Agents in AutoBonk
+
+This file is for every coding agent in this repo: Claude Code, Cursor in the editor, and Cursor cloud agents. The project overview is in `PROJECT.md`, and the trading rules are in `.cursor/rules/`. This file covers what an agent may do and which agent takes which task.
+
+`scripts/agent_guard.py` enforces the limits below through hooks (`.claude/settings.json`, `.cursor/hooks.json`). If a hook refuses a call, the refusal stands. Do not reword the command to get around it. Tell the operator what you were trying to do.
+
+## Never
+
+- **Send, change, or cancel an order.** The systemd timer (`alerts/systemd/autobonk-claims.timer`) runs the checker, and the checker sends the qualifying Agentic entry and its exit. No agent calls `place_option_order`, a `buy`/`sell` on `scripts/robinhood_mcp.py`, or any broker tool that moves money. This holds after the operator replies confirm too. A confirmed manual trade is placed by the operator.
+- **Run `scripts/claim_alerts.py check`**, with or without `--notify`. On a live session it sends a real order. Use `pytest` or `scripts/bench.py` to see what it would do.
+- **Start, stop, enable, or disable the `autobonk-claims` systemd units.**
+- **Read, print, or write `.env` or `.env.*`**, or print `TA_BOT_TOKEN`. Scripts load it themselves.
+- **Read or print `config/accounts.yaml`**, or any account number.
+- **Write `config/agentic.yaml`** (the operator's $100 cap), **`rules/ta_rules.md`** (the operator's TA), **`alerts/state.json`, or `alerts/broker.json`** (checker state. A hand edit can resend an order).
+- **Push to `master` or force-push.** Work on a branch and open a PR.
+- **Remove `robinhood-trading` from `.cursor/mcp.json`.** The live checker borrows that server's Cursor OAuth login (`_cursor_oauth` in `scripts/robinhood_mcp.py`).
+- **Invent a TA rule** or call one observation a pattern (see `.cursor/rules/ta-learning.mdc`).
+
+## Allowed
+
+- Read and change code under `scripts/`, and run the tests: `uvx --with pyyaml --with flask --with 'psycopg[binary]' pytest -q scripts/tests`.
+- Replay with `scripts/bench.py` and `scripts/regime_search.py`. A replay is an observation.
+- `scripts/discord_ta.py read|ingest`. Chart images land in `charts/inbox/`.
+- Write a levels file from an operator note, plus `learning/journal.md`, `learning/reviews/*.md`, `learning/drills.yaml`, and `alerts/fade_forward.md`, as the learning rules describe.
+- Read-only broker calls: quotes, positions, balance, `review_option_order`.
+
+## Who does what
+
+| Task | Agent | Why |
+|---|---|---|
+| Checker logic: retests, flips, ATR band, skips, cutoffs, sizing, sells (`claim_alerts.py`, `robinhood_mcp.py`) | **Claude Code** | Rules interact across a 4,000-line file. Needs tests and bench replays, done with the operator present. |
+| Reviewing a Cursor PR before merge | **Claude Code** (`/code-review`) | A second model reads any code that can send an order. |
+| Reading chart images into `alerts/levels.yaml`, journal, daily review, drills | **Claude Code** | Reads images and follows the exact wording in the learning rules. |
+| Backtests, fade and regime replays | **Claude Code** with the `backtest-expert` skill | Overfitting and robustness checks. |
+| Debugging a failure, or a refactor across files | **Claude Code** | Needs to read widely and run things. |
+| Recurring work after the close | **Claude Code** `/loop`, run locally | Needs the local `.env`. A cloud routine cannot reach it. |
+| Small change with a clear spec, one PR each (a field, a column, a Neon/Vercel/blotter/desk tweak) | **Cursor cloud agent** | Runs unattended and comes back as a PR. Run `/code-review` in Claude Code before merging if it touches the checker. |
+| Dashboard HTML/CSS, wording, a rename, a typo | **Cursor in the editor** (Tab / Cmd-K) | Quick, visual, one file. |
+| Placing, closing, or changing a trade | **No agent** | Checker or operator only. |
+
+If a task names the checker's order logic and also the page (for example, "show the cutoff on the dashboard"), it goes to Claude Code.
+
+## Routing check
+
+`beforeSubmitPrompt` (Cursor) and `UserPromptSubmit` (Claude Code) run the same router. A prompt that clearly belongs to the other tool is stopped with a note saying where to take it. Put `!here` in the prompt to run it where you are anyway. To check a task by hand:
+
+```bash
+python3 scripts/agent_guard.py route "describe the task"
+```
+
+When a task you were handed belongs to another agent in the table, say so in the first line of your reply before doing any work.
