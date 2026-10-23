@@ -43,3 +43,22 @@ Start the record only if the profit factor is at least 2, the net stock points a
 ## Record
 
 The three-day gate passed. Profit factor 3.17, net +8.56 stock points, 13 closes. The record is paper. The live checker stays on the retest. A pass does not place an order. Real money waits until the operator says so.
+
+## 2026-10-22
+
+After the gate. These closes are not in the three-day record. The live entry stays the retest.
+
+| Day | Ticker | Side | Level | Fill | Exit | Stock |
+|-----|--------|------|-------|------|------|-------|
+| 2026-10-22 | AAPL | put | 345.40 | 344.94 | 345.47 stop | -0.54 |
+| 2026-10-22 | AAPL | call | 342.50 | 342.95 | 347.77 clock | +4.82 |
+| 2026-10-22 | AMZN | call | 250.00 | 250.18 | 249.93 stop | -0.25 |
+| 2026-10-22 | AMD | call | 523.75 | 523.59 | 519.47 reclaim | -4.12 |
+| 2026-10-22 | NVDA | call | 212.85 | 213.11 | 212.81 stop | -0.30 |
+| 2026-10-22 | NVDA | call | 212.85 | 212.98 | 212.77 stop | -0.21 |
+| 2026-10-22 | PLTR | put | 200.00 | 199.77 | 195.26 clock | +4.51 |
+| 2026-10-22 | SPCX | call | 153.84 | 154.19 | 152.68 reclaim | -1.51 |
+| 2026-10-22 | SPCX | call | 150.00 | 150.01 | 149.75 stop | -0.26 |
+| 2026-10-22 | SPCX | call | 146.60 | 146.90 | 146.38 stop | -0.53 |
+
+Thursday fade net +1.62 stock points, 10 closes, 2 wins and 8 losses. This day does not move the three-day gate. The live checker stays on the retest. No order was placed.

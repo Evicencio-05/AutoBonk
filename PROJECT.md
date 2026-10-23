@@ -28,6 +28,7 @@ Agentic trading from the operator's own technical analysis. Ideas come from char
 ```bash
 python3 scripts/discord_ta.py read --channel ta
 python3 scripts/discord_ta.py ingest --channel ta
+python3 scripts/recap.py               # after the cash close
 python3 scripts/claim_alerts.py check   # the timer runs this; agents do not
 ```
 
