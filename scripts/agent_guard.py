@@ -26,28 +26,52 @@ OVERRIDE = "!here"
 NO_WRITE = (
     "config/agentic.yaml",
     "config/accounts.yaml",
+    "config/freeze.yaml",
     "rules/ta_rules.md",
     "alerts/state.json",
     "alerts/broker.json",
+    # The checker's tapes. A row written by anything else can hide an open position from it:
+    # on 2026-10-23 a hand-added GOOGL exit row meant the real put was never sold.
+    "alerts/live.md",
+    "alerts/paper.md",
+    "alerts/log.md",
+    "alerts/context.md",
+    "alerts/contracts.md",
+    "alerts/events.jsonl",
+    "alerts/alarms.json",
+    "learning/trades.jsonl",
+    "learning/trades.csv",
 )
+# Directories no agent writes into.
+NO_WRITE_UNDER = ("bench/golden/",)
 # Files no agent reads. Secrets and account numbers.
 NO_READ = ("config/accounts.yaml",)
 _ENV_FILE = re.compile(r"(^|/)\.env(\.[\w-]+)?$")
 
+# A script run as a program (python, uv, or the path itself), not named in a message, a grep, or a heredoc.
+_RUN = r"(\b(python3?(\.\d+)?|uv\s+run|uvx)\s+(-\S+\s+)*|(^|[;&|(]\s*)(\./)?)[^\s;&|'\"`]*"
+
+
+def _runs(script: str, command: str) -> re.Pattern:
+    return re.compile(
+        _RUN + script + r"(\.py)?\b[^|;&\n]*\b" + command + r"\b"
+        r"|-m\s+(scripts\.)?" + script + r"\b[^|;&\n]*\b" + command + r"\b"
+    )
+
+
 _SHELL_RULES = (
     (
-        # Run as a program (python, uv, or the path itself), not named in a message or a grep.
-        re.compile(
-            r"(\b(python3?(\.\d+)?|uv\s+run|uvx)\s+(-\S+\s+)*|(^|[;&|(]\s*)(\./)?)"
-            r"[^\s;&|'\"`]*claim_alerts(\.py)?\b[^|;&]*\bcheck\b"
-            r"|-m\s+(scripts\.)?claim_alerts\b[^|;&]*\bcheck\b"
-        ),
+        _runs("claim_alerts", "check"),
         "claim_alerts.py check sends the live Agentic entry and exit on a live session. "
         "Only the systemd timer runs it. Use pytest or scripts/bench.py instead.",
     ),
     (
         re.compile(r"robinhood_mcp\b.*\b(buy|sell|_place|place_option_order)\b"),
         "Calling the broker's buy, sell, or place from an agent is an order. Orders come from the checker only.",
+    ),
+    (
+        _runs("freeze", "bless"),
+        "Blessing new golden decisions lifts the freeze for that change. Only the operator runs it.",
     ),
     (
         re.compile(r"systemctl\b.*\b(start|stop|restart|enable|disable|kill)\b.*autobonk"),
@@ -98,14 +122,20 @@ def path_refusal(path: str, writing: bool) -> str | None:
         return f"{rel} holds secrets. Agents do not read or write .env files."
     if rel in NO_READ:
         return f"{rel} holds account numbers. Agents do not read or write it."
-    if writing and rel in NO_WRITE:
-        return f"{rel} belongs to the operator. Agents do not write it."
+    if writing and (rel in NO_WRITE or rel.startswith(NO_WRITE_UNDER)):
+        return f"{rel} belongs to the operator or the checker. Agents do not write it."
     return None
 
 
+_HEREDOC = re.compile(r"<<-?\s*['\"]?(\w+)['\"]?[^\n]*\n.*?\n\s*\1\s*(\n|$)", re.DOTALL)
+_SHELL_FED = re.compile(r"\b(ba|z)?sh\s*(-\w+\s*)*<<")
+
+
 def shell_refusal(command: str) -> str | None:
+    # A heredoc body is file content, unless it is fed to a shell.
+    text = command if _SHELL_FED.search(command) else _HEREDOC.sub("<<heredoc\n", command)
     for pattern, reason in _SHELL_RULES:
-        if pattern.search(command):
+        if pattern.search(text):
             return reason
     return None
 

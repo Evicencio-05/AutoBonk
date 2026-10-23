@@ -157,8 +157,10 @@ def test_saved_sessions_forward_test_the_last_day():
     days = recap.dashboard._saved_days(recap.ROOT)
     result = recap.search(days)
 
-    assert result["train_days"] == ["2026-10-14", "2026-10-15"]
-    assert result["forward_day"] == "2026-10-16"
+    # Every saved session but the last trains. The last is the forward day. ledger.py snapshot adds a day each session.
+    saved = sorted(day["day"] for day in days)
+    assert result["train_days"] == saved[:-1]
+    assert result["forward_day"] == saved[-1]
     assert set(result["winner"]) == set(recap.LIVE)
     text = recap.render(result)
     difference = recap._gap(result["forward"]["net"], result["baseline_forward"]["net"])

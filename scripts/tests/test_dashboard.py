@@ -309,7 +309,8 @@ def test_saved_sessions_score_each_posted_book():
     stats = result["report"]["summary"]["strategy"]
 
     assert result["window"]["source"] == "saved"
-    assert result["window"]["days"] == ["2026-10-14", "2026-10-15", "2026-10-16"]
+    saved = sorted(path.name[:10] for path in (dashboard.ROOT / "bench" / "fixtures").glob("*-levels.yaml"))
+    assert result["window"]["days"] == saved
     assert stats["trades"] > 0
     assert stats["gross_profit"] >= 0
     assert stats["gross_loss"] >= 0

@@ -12,7 +12,18 @@
       "Edit(./alerts/state.json)",
       "Edit(./alerts/broker.json)",
       "Bash(python3 scripts/claim_alerts.py check:*)",
-      "Bash(git push --force:*)"
+      "Bash(git push --force:*)",
+      "Edit(./config/freeze.yaml)",
+      "Edit(./bench/golden/**)",
+      "Edit(./alerts/live.md)",
+      "Edit(./alerts/paper.md)",
+      "Edit(./alerts/log.md)",
+      "Edit(./alerts/context.md)",
+      "Edit(./alerts/contracts.md)",
+      "Edit(./alerts/events.jsonl)",
+      "Edit(./learning/trades.jsonl)",
+      "Edit(./learning/trades.csv)",
+      "Bash(python3 scripts/freeze.py bless:*)"
     ]
   },
   "hooks": {
@@ -20,14 +31,22 @@
       {
         "matcher": "Bash|Read|Edit|Write|MultiEdit|NotebookEdit|mcp__.*",
         "hooks": [
-          { "type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/agent_guard.py\" claude-tool", "timeout": 10 }
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/agent_guard.py\" claude-tool",
+            "timeout": 10
+          }
         ]
       }
     ],
     "UserPromptSubmit": [
       {
         "hooks": [
-          { "type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/agent_guard.py\" claude-prompt", "timeout": 10 }
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/agent_guard.py\" claude-prompt",
+            "timeout": 10
+          }
         ]
       }
     ]
