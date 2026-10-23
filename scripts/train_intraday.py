@@ -3,7 +3,9 @@
 
 Only finished bars are visible. The forming candle is ignored. The score is
 how many bars early the first legal candle is, and how much price that costs.
-This script never places an order.
+The bars come from the frozen session file. A session that has no file is
+fetched once and written, and later scores read that file. This script never
+places an order and does not change the live checker.
 
   python3 scripts/train_intraday.py score
 """
@@ -24,20 +26,27 @@ DRILLS_PATH = ROOT / "learning" / "drills.yaml"
 GOALS_PATH = ROOT / "learning" / "goals.yaml"
 TRAINING_PATH = ROOT / "learning" / "training.md"
 LESSONS_DIR = ROOT / "learning" / "lessons"
+FIXTURES = ROOT / "bench" / "fixtures"
 PT = ZoneInfo("America/Los_Angeles")
 FIVE_MIN = 300
 TEN_MIN = 600
 RSI_LENGTH = 14
+# The checker's wick. The lesson names it. Chase and the half-ATR flip stay on the checker.
+WICK = 0.15
 
 
 def ten_minute_bars(
-    five_minute: list[tuple[int, float, float]], now: int
+    five_minute: list[tuple[int, float, float, float, float]], now: int
 ) -> list[dict]:
-    """Roll finished 5-minute (start, open, close) bars into 10-minute bars."""
-    grouped: dict[int, list[tuple[int, float, float]]] = {}
-    for start, open_, close in five_minute:
+    """Roll finished 5-minute bars into 10-minute bars, once, for a new freeze.
+
+    Each item is (start, open, high, low, close). A later score reads the file
+    this writes. It does not roll the file again.
+    """
+    grouped: dict[int, list[tuple[int, float, float, float, float]]] = {}
+    for start, open_, high, low, close in five_minute:
         bucket = start - (start % TEN_MIN)
-        grouped.setdefault(bucket, []).append((start, open_, close))
+        grouped.setdefault(bucket, []).append((start, open_, high, low, close))
     bars = []
     for bucket in sorted(grouped):
         if bucket + TEN_MIN > now:
@@ -51,7 +60,9 @@ def ten_minute_bars(
             {
                 "close_at": bucket + TEN_MIN,
                 "open": opening[0][1],
-                "close": ending[-1][2],
+                "high": max(item[2] for item in parts),
+                "low": min(item[3] for item in parts),
+                "close": ending[-1][4],
             }
         )
     return bars
@@ -254,7 +265,12 @@ def _clock(close_at: int, session: str) -> int:
     return int(when.timestamp())
 
 
-def fetch_five_minute(ticker: str) -> list[tuple[int, float, float]]:
+def fetch_five_minute(ticker: str) -> list[tuple[int, float, float, float, float]]:
+    """One fetch, used only when the session file does not exist yet.
+
+    A score that already has the ticker in bench/fixtures/{session}-bars.json
+    does not call this. The written file is the later source.
+    """
     query = urllib.parse.urlencode(
         {"interval": "5m", "range": "5d", "includePrePost": "true"}
     )
@@ -265,11 +281,126 @@ def fetch_five_minute(ticker: str) -> list[tuple[int, float, float]]:
     row = payload["chart"]["result"][0]
     quote = row["indicators"]["quote"][0]
     bars = []
-    for start, open_, close in zip(row["timestamp"], quote["open"], quote["close"]):
-        if open_ is None or close is None:
+    for start, open_, high, low, close in zip(
+        row["timestamp"], quote["open"], quote["high"], quote["low"], quote["close"]
+    ):
+        if None in (open_, high, low, close):
             continue
-        bars.append((start, float(open_), float(close)))
+        bars.append((start, float(open_), float(high), float(low), float(close)))
     return bars
+
+
+def _fixture_path(session: str, fixtures: Path) -> Path:
+    return fixtures / f"{session}-bars.json"
+
+
+def _read_frozen(path: Path, ticker: str, session: str) -> list[dict] | None:
+    """Finished 10-minute bars already stored for this ticker and session."""
+    if not path.is_file():
+        return None
+    payload = json.loads(path.read_text())
+    rows = (payload.get("tickers") or {}).get(ticker)
+    if not rows:
+        return None
+    bars = []
+    for row in rows:
+        bar = {
+            "close_at": int(row["close_at"]),
+            "open": float(row["o"]),
+            "high": float(row["h"]),
+            "low": float(row["l"]),
+            "close": float(row["c"]),
+        }
+        when = datetime.fromtimestamp(bar["close_at"], PT).date().isoformat()
+        if when == session:
+            bars.append(bar)
+    return bars or None
+
+
+def _freeze_once(path: Path, ticker: str, session: str, fetch) -> None:
+    """Write the session's finished 10-minute bars. Do not replace a file."""
+    if path.is_file():
+        raise SystemExit(f"{path.name} is already frozen. The score does not refetch it.")
+    now = int(datetime.now(PT).timestamp())
+    rolled = ten_minute_bars(fetch(ticker), now)
+    chosen = [
+        bar
+        for bar in rolled
+        if datetime.fromtimestamp(bar["close_at"], PT).date().isoformat() == session
+    ]
+    if not chosen:
+        raise SystemExit(f"no finished 10-minute bars for {ticker} {session}")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "tickers": {
+            ticker: [
+                {
+                    "close_at": bar["close_at"],
+                    "o": bar["open"],
+                    "h": bar["high"],
+                    "l": bar["low"],
+                    "c": bar["close"],
+                }
+                for bar in chosen
+            ]
+        }
+    }
+    path.write_text(json.dumps(payload))
+
+
+def bars_for_drill(drill: dict, fixtures: Path = FIXTURES, fetch=None) -> list[dict]:
+    """The frozen 10-minute bars for one drill.
+
+    An existing ticker in the session file is the answer key. A missing file
+    is fetched once and then read back. A file that does not contain the
+    ticker is left as it is.
+    """
+    ticker = drill["ticker"]
+    session = drill["session"]
+    path = _fixture_path(session, fixtures)
+    frozen = _read_frozen(path, ticker, session)
+    if frozen is not None:
+        return frozen
+    if path.is_file():
+        raise SystemExit(
+            f"{path.name} has no {ticker} bars. The score does not refetch over a frozen file."
+        )
+    _freeze_once(path, ticker, session, fetch_five_minute if fetch is None else fetch)
+    frozen = _read_frozen(path, ticker, session)
+    if not frozen:
+        raise SystemExit(f"{path.name} did not keep {ticker} {session}")
+    return frozen
+
+
+def wick_tagged(side: str, level: float, bar: dict) -> bool:
+    """Whether the candle's wick reached within 15 cents of the level.
+
+    A put approaches from below, so the high is the wick. A call approaches
+    from above, so the low is the wick. This does not choose an entry.
+    """
+    if side == "put":
+        return float(bar["high"]) >= level - WICK
+    if side == "call":
+        return float(bar["low"]) <= level + WICK
+    raise ValueError(f"unknown side {side}")
+
+
+def wick_sentence(side: str, level: float, bar: dict) -> str:
+    """One lesson line. The distance stays the score. The entry stays the retest."""
+    color = "green" if side == "put" else "red"
+    when = datetime.fromtimestamp(bar["close_at"], PT).strftime("%H:%M")
+    price = f"{level:g}"
+    if wick_tagged(side, level, bar):
+        fact = (
+            f"The {when} PT {color} wicked within 15 cents of {price}. "
+            "The checker could take that candle."
+        )
+    else:
+        fact = f"The {when} PT {color} did not wick within 15 cents of {price}."
+    return (
+        f"{fact} The bars-and-points score is unchanged. "
+        "The live entry stays the retest."
+    )
 
 
 def _fmt(bar: dict) -> str:
@@ -312,7 +443,7 @@ def _snipe_line(side: str, bottom: dict) -> str:
     )
 
 
-def render(drill: dict, scored: dict, bottom: dict) -> str:
+def render(drill: dict, scored: dict, bottom: dict, wick: str) -> str:
     buy_gap = scored["buy_price_gap"]
     sell_gap = scored["sell_price_gap"]
     side = drill["side"]
@@ -357,6 +488,8 @@ def render(drill: dict, scored: dict, bottom: dict) -> str:
             f"- Confirmed buy versus the bottom: {bottom['ideal_left']:.2f} stock points",
             f"- First color versus the bottom: {bottom['naive_left']:.2f} stock points",
             "",
+            wick,
+            "",
             "The feed did contain the confirmed candles. " + color_line,
             _snipe_line(side, bottom),
             "",
@@ -379,7 +512,7 @@ def render_lesson(goal: dict, blocks: list[str]) -> str:
     return "\n".join(body)
 
 
-def render_snipe_block(drill: dict, bottom: dict) -> str:
+def render_snipe_block(drill: dict, bottom: dict, wick: str) -> str:
     return "\n".join(
         [
             f"## {drill['ticker']} {drill['session']} {drill['side']}",
@@ -391,6 +524,8 @@ def render_snipe_block(drill: dict, bottom: dict) -> str:
             f"- Confirmed buy: {_fmt(bottom['ideal'])}",
             f"- First entry candle: {_fmt(bottom['naive'])}",
             f"- First candle off the bottom: {bottom['naive_left']:.2f} stock points",
+            "",
+            wick,
             "",
             _snipe_line(drill["side"], bottom),
             "One drill is an observation.",
@@ -431,22 +566,17 @@ def score_drills() -> str:
     ]
     lesson_blocks = []
     for drill in spec["drills"]:
-        now = int(datetime.now(PT).timestamp())
-        bars = ten_minute_bars(fetch_five_minute(drill["ticker"]), now)
-        add_rsi(bars)
-        session = [
-            bar
-            for bar in bars
-            if datetime.fromtimestamp(bar["close_at"], PT).date().isoformat()
-            == drill["session"]
-        ]
+        session = bars_for_drill(drill)
+        add_rsi(session)
         buy_at = _clock(drill["ideal_buy"], drill["session"])
         sell_at = _clock(drill["ideal_sell"], drill["session"])
-        bottom = score_bottom(session, drill["side"], float(drill["level"]), buy_at)
+        level = float(drill["level"])
+        bottom = score_bottom(session, drill["side"], level, buy_at)
         scored = _score_side(drill, session, buy_at, sell_at)
-        sections.append(render(drill, scored, bottom))
+        wick = wick_sentence(drill["side"], level, scored["naive_buy"])
+        sections.append(render(drill, scored, bottom, wick))
         if drill.get("goal", goal["id"]) == goal["id"]:
-            lesson_blocks.append(render_snipe_block(drill, bottom))
+            lesson_blocks.append(render_snipe_block(drill, bottom, wick))
     text = "\n".join(sections)
     TRAINING_PATH.write_text(text)
     LESSONS_DIR.mkdir(parents=True, exist_ok=True)
