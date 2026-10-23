@@ -11,6 +11,7 @@ _SPEC = importlib.util.spec_from_file_location(
 )
 claim_alerts = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(claim_alerts)
+claim_alerts.SEND_ORDERS = False
 
 
 def test_ten_minute_close_uses_the_second_five_minute_bar():
@@ -1777,3 +1778,125 @@ def test_a_discord_refusal_does_not_stop_the_check():
         claim_alerts._send_alert("GOOGL call entry", True)
     finally:
         claim_alerts.notify_discord = original
+
+
+def _cash_entry(contract="10/23 655C", premium=0.32, halfway="inside", close=None):
+    when = close or datetime(2026, 10, 23, 9, 10, tzinfo=ZoneInfo("America/Los_Angeles"))
+    rows = [
+        {"role": "chosen", "contract": "10/23 650C", "premium": 1.00},
+        {"role": "cash", "contract": contract, "premium": premium, "halfway": halfway},
+    ]
+    return {
+        "kind": "entry",
+        "ticker": "META",
+        "side": "call",
+        "level": 645.0,
+        "reason": "retest",
+        "close_at": int(when.timestamp()),
+        "fill": 645.41,
+        "contract": contract,
+        "premium": premium,
+        "contracts": rows,
+        "bar": {"o": 646.06, "h": 646.08, "l": 644.73, "c": 645.43, "purple": 52.09, "yellow": 54.07},
+    }
+
+
+class _Broker:
+    def __init__(self, sell_result=None):
+        self.buys = []
+        self.sells = []
+        self.sell_result = sell_result or {
+            "sent": True,
+            "order_id": "sell-1",
+            "price": "0.02",
+            "state": "filled",
+        }
+
+    def buy(self, ticker, label, year, ref_id):
+        self.buys.append((ticker, label, year, ref_id))
+        return {"sent": True, "order_id": "buy-1", "price": "0.32", "state": "filled"}
+
+    def sell(self, ticker, label, year, ref_id):
+        self.sells.append((ticker, label, year, ref_id))
+        return self.sell_result
+
+
+def test_a_qualifying_live_entry_is_sent_once():
+    book = Path("/tmp/autobonk-broker-once.json")
+    book.unlink(missing_ok=True)
+    broker = _Broker()
+    event = _cash_entry()
+    claim_alerts.route_live_order(event, broker, book)
+    assert event["order_id"] == "buy-1"
+    assert event["order_price"] == "0.32"
+    assert len(broker.buys) == 1
+    claim_alerts.route_live_order(dict(event), broker, book)
+    assert len(broker.buys) == 1
+    notice = claim_alerts.live_notice(event)
+    assert "Order buy-1 at 0.32." in notice
+    assert "Waiting for confirm" not in notice
+
+
+def test_a_plan_is_not_sent_when_the_cash_strike_cannot_be_bought():
+    book = Path("/tmp/autobonk-broker-skip.json")
+    book.unlink(missing_ok=True)
+    broker = _Broker()
+    none = _cash_entry(contract="none", premium=None, halfway="")
+    none["contracts"] = [
+        {"role": "chosen", "contract": "10/23 650C", "premium": 1.00},
+        {"role": "cash", "contract": "none", "premium": None},
+    ]
+    empty = _cash_entry()
+    empty["contracts"] = []
+    empty["contract"] = ""
+    over = _cash_entry(premium=0.80)
+    same_day = datetime(2026, 10, 23, 9, 10, tzinfo=ZoneInfo("America/Los_Angeles"))
+    blocked = _cash_entry(contract="10/23 327.5C", halfway="past", close=same_day)
+    assert claim_alerts.entry_order_block(none) == "none"
+    assert claim_alerts.entry_order_block(empty) == "empty"
+    assert claim_alerts.entry_order_block(over) == "over"
+    assert claim_alerts.entry_order_block(blocked) == "halfway"
+    for event in (none, empty, over, blocked):
+        claim_alerts.route_live_order(event, broker, book)
+    assert broker.buys == []
+    wednesday = _cash_entry(
+        close=datetime(2026, 10, 21, 9, 10, tzinfo=ZoneInfo("America/Los_Angeles"))
+    )
+    assert claim_alerts.entry_order_block(wednesday) == "paper"
+
+
+def test_an_exit_sells_an_open_contract_and_a_working_sell_is_not_repeated():
+    book = Path("/tmp/autobonk-broker-sell.json")
+    book.unlink(missing_ok=True)
+    working = _Broker(sell_result={"sent": False, "reason": "working"})
+    event = {
+        "kind": "exit",
+        "ticker": "GOOGL",
+        "side": "call",
+        "level": 322.75,
+        "reason": "reclaim",
+        "close_at": int(datetime(2026, 10, 23, 10, 30, tzinfo=ZoneInfo("America/Los_Angeles")).timestamp()),
+        "contract": "10/23 327.5C",
+        "fill": 322.14,
+        "bar": {"o": 322.45, "h": 322.54, "l": 322.08, "c": 322.14, "purple": 39.52, "yellow": 49.21},
+    }
+    claim_alerts.route_live_order(event, working, book)
+    claim_alerts.route_live_order(dict(event), working, book)
+    assert len(working.sells) == 1
+    assert "order_id" not in event
+
+    flat_book = Path("/tmp/autobonk-broker-flat.json")
+    flat_book.unlink(missing_ok=True)
+    flat = _Broker(sell_result={"sent": False, "reason": "flat"})
+    claim_alerts.route_live_order(dict(event), flat, flat_book)
+    assert len(flat.sells) == 1
+    assert "order_id" not in event
+
+    filled_book = Path("/tmp/autobonk-broker-filled.json")
+    filled_book.unlink(missing_ok=True)
+    filled = _Broker()
+    sold = dict(event)
+    claim_alerts.route_live_order(sold, filled, filled_book)
+    assert sold["order_id"] == "sell-1"
+    assert sold["order_price"] == "0.02"
+    assert "Sold at 0.02." in claim_alerts.live_notice(sold)
