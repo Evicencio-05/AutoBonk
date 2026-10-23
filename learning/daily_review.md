@@ -32,6 +32,10 @@ For each recorded role, the entry premium, the exit-bar premium, and the percent
 
 Replay events that are missing from `alerts/paper.md`, and premiums on the tape that are not the exit bar. Leave the tape as the checker wrote it.
 
+## Parameters
+
+Score the day twice. The new pass uses the live parameters. The old pass uses those same parameters with `break_atr` at 0, the one-tick close, and changes nothing else. Stock points are each pass's net on that day. The difference is the new net minus the old net. When an entry premium and the exit-bar premium were both recorded, give the option-dollar difference the same way. The comparison is an observation. It does not change the live checker.
+
 ## Fade day
 
 Append only the closes whose reason is fade to `alerts/fade_forward.md`. Score stock points. The live entry stays the retest. The 2026-10-21 gate is recorded in that file. A pass does not place an order.
