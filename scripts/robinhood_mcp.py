@@ -329,6 +329,66 @@ def spendable_amount(payload) -> float | None:
     return None
 
 
+def _number(value) -> float | None:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def contract_label(expiration: str, strike, option_type: str) -> str:
+    """'2026-10-23', '327.5000', 'call' -> '10/23 327.5C', the label the checker writes."""
+    try:
+        day = date.fromisoformat(expiration)
+        price = float(strike)
+    except (TypeError, ValueError):
+        return ""
+    text = f"{price:.4f}".rstrip("0").rstrip(".")
+    return f"{day.month}/{day.day} {text}{'C' if option_type == 'call' else 'P'}"
+
+
+def normal_order(row: dict) -> dict:
+    """One broker option order with the account fields dropped. Single-leg only."""
+    leg = (row.get("legs") or [{}])[0]
+    executions = [
+        {
+            "price": _number(item.get("price")),
+            "quantity": _number(item.get("quantity")),
+            "at": item.get("timestamp") or "",
+        }
+        for item in leg.get("executions") or []
+    ]
+    filled = sum(item["quantity"] or 0 for item in executions)
+    average = (
+        sum((item["price"] or 0) * (item["quantity"] or 0) for item in executions) / filled
+        if filled
+        else None
+    )
+    return {
+        "id": row.get("id") or "",
+        "ticker": row.get("chain_symbol") or "",
+        "state": row.get("state") or "",
+        "direction": row.get("direction") or "",
+        "side": leg.get("side") or "",
+        "effect": leg.get("position_effect") or "",
+        "option_id": leg.get("option_id") or "",
+        "expiration": leg.get("expiration_date") or "",
+        "strike": _number(leg.get("strike_price")),
+        "option_type": leg.get("option_type") or "",
+        "contract": contract_label(
+            leg.get("expiration_date") or "", leg.get("strike_price"), leg.get("option_type") or ""
+        ),
+        "limit": _number(row.get("price")),
+        "fill": average,
+        "filled_quantity": filled,
+        "premium": _number(row.get("processed_premium")),
+        "pending_quantity": _number(row.get("pending_quantity")),
+        "created_at": row.get("created_at") or "",
+        "updated_at": row.get("updated_at") or "",
+        "filled_at": executions[-1]["at"] if executions else "",
+    }
+
+
 def agentic_account(path: Path | None = None) -> str:
     file = path or (ROOT / "config" / "accounts.yaml")
     data = yaml.safe_load(file.read_text())
@@ -507,6 +567,52 @@ class RobinhoodBroker:
             "quantity": float(row.get("quantity") or 0),
             "pending_sell": float(row.get("pending_sell_quantity") or 0),
         }
+
+    def agent_orders(self, since: str) -> list[dict]:
+        """Option orders this agent placed on the Agentic account since an ISO time. Read only."""
+        payload = self.tool(
+            "get_option_orders",
+            {"account_number": self.account(), "created_at_gte": since, "agent_initiated": True},
+        )
+        return [normal_order(row) for row in (payload.get("data") or payload).get("orders") or []]
+
+    def held(self, option_id: str) -> dict | None:
+        """Quantity and pending sell on one option. None when flat."""
+        payload = self.tool(
+            "get_option_positions",
+            {"account_number": self.account(), "option_ids": option_id, "nonzero": True},
+        )
+        rows = (payload.get("data") or {}).get("positions") or []
+        if not rows:
+            return None
+        return {
+            "option_id": option_id,
+            "quantity": float(rows[0].get("quantity") or 0),
+            "pending_sell": float(rows[0].get("pending_sell_quantity") or 0),
+        }
+
+    def option_bars(self, option_id: str, start: str, end: str, interval: str = "5minute") -> list[dict]:
+        """Regular-session bars for one option. Prices are per share."""
+        payload = self.tool(
+            "get_option_historicals",
+            {"instrument_ids": [option_id], "start_time": start, "end_time": end, "interval": interval},
+        )
+        results = (payload.get("data") or payload).get("results") or []
+        bars = []
+        for bar in (results[0].get("bars") if results else None) or []:
+            try:
+                bars.append(
+                    {
+                        "begins_at": bar["begins_at"],
+                        "o": float(bar["open_price"]),
+                        "h": float(bar["high_price"]),
+                        "l": float(bar["low_price"]),
+                        "c": float(bar["close_price"]),
+                    }
+                )
+            except (KeyError, TypeError, ValueError):
+                continue
+        return bars
 
     def _quote(self, option_id: str) -> tuple[float, float]:
         payload = self.tool("get_option_quotes", {"instrument_ids": [option_id]})

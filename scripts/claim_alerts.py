@@ -40,6 +40,14 @@ from zoneinfo import ZoneInfo
 
 import yaml
 
+import sys
+
+_SCRIPTS = Path(__file__).resolve().parent
+if str(_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS))
+
+import alarm  # noqa: E402
+
 ROOT = Path(__file__).resolve().parents[1]
 LEVELS_PATH = ROOT / "alerts" / "levels.yaml"
 STATE_PATH = ROOT / "alerts" / "state.json"
@@ -92,6 +100,8 @@ CONTRACT_CAP = 1.0
 LIVE_FROM = date(2026, 10, 22)
 LIVE_PATH = ROOT / "alerts" / "live.md"
 BROKER_PATH = ROOT / "alerts" / "broker.json"
+EVENTS_PATH = ROOT / "alerts" / "events.jsonl"
+FREEZE_PATH = ROOT / "config" / "freeze.yaml"
 # Tests turn this off. The timer leaves it on.
 SEND_ORDERS = True
 
@@ -510,8 +520,24 @@ def live_settings() -> dict:
     return {name: _default_of(name, spec) for name, spec in VARIABLES.items()}
 
 
+def frozen(path: Path | None = None) -> bool:
+    """True while the operator's rule freeze is on. A missing or broken file is not a freeze."""
+    file = FREEZE_PATH if path is None else path
+    try:
+        data = yaml.safe_load(file.read_text()) or {}
+    except (OSError, yaml.YAMLError):
+        return False
+    return isinstance(data, dict) and data.get("active") is True
+
+
 def applied_buffers(path: Path | None = None) -> dict:
-    """Buffer sizes the forward test wrote. Entry and exit in that file are ignored."""
+    """Buffer sizes the forward test wrote. Entry and exit in that file are ignored.
+
+    While config/freeze.yaml is active the checker keeps the code defaults, so
+    the frozen sample is scored on one set of rules.
+    """
+    if path is None and frozen():
+        return {}
     file = PARAMETERS_PATH if path is None else path
     if not file.is_file():
         return {}
@@ -2458,11 +2484,13 @@ def route_live_order(
             result = broker.sell(event["ticker"], label, year, ref)
     except Exception:
         attempts = int(prior.get("attempts") or 0) + 1
+        # An entry gives up after three tries. An exit keeps trying: a contract left open is the worse failure.
+        gave_up = attempts > 2 and event["kind"] == "entry"
         _remember_order(
             path,
             key,
             {
-                "status": "skip" if attempts > 2 else "error",
+                "status": "skip" if gave_up else "error",
                 "qualified": event.get("kind") == "entry",
                 "attempts": attempts,
                 "kind": event["kind"],
@@ -2485,7 +2513,7 @@ def route_live_order(
     else:
         status = "skip"
     attempts = int(prior.get("attempts") or 0) + 1
-    if status == "error" and attempts > 2:
+    if status == "error" and attempts > 2 and event["kind"] == "entry":
         status = "skip"
     price = ""
     if result.get("price") not in (None, ""):
@@ -2758,10 +2786,14 @@ def refresh_dashboard() -> None:
 
 
 def notify_live(event: dict) -> None:
-    """Desktop toast for a live plan. The toast is not an order."""
+    """Desktop toast for a live entry or exit. The order, when one went out, is in alerts/broker.json."""
     headline = f"{event['ticker']} live {event['kind']}"
     price = event["fill"] if event.get("fill") is not None else event["bar"]["c"]
-    body = f"{event['side']} {event['level']:.2f} at {price:.2f}. Waiting for confirm. Not an order."
+    if event.get("order_id"):
+        sent = f"Order sent at {event.get('order_price') or '?'}."
+    else:
+        sent = "No order sent. The plan stays in alerts/live.md."
+    body = f"{event['side']} {event['level']:.2f} at {price:.2f}. {sent}"
     try:
         subprocess.run(
             [
@@ -3841,6 +3873,138 @@ def read_agentic_cash(broker=None) -> float | None:
     return balance_amount(amount)
 
 
+def _plain(value):
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    return str(value)
+
+
+def record_events(events: list[dict], mode: str, path: Path | None = None) -> None:
+    """Every field of each entry and exit, one JSON line each, for the trade ledger.
+
+    The markdown tapes are for reading. This file keeps the candle, indicators,
+    targets, ladder, balance, and order the checker saw, so nothing has to be
+    parsed back out of a table later. Writing it changes no decision.
+    """
+    rows = [event for event in events if event.get("kind") in ("entry", "exit")]
+    if not rows:
+        return
+    file = path or EVENTS_PATH
+    file.parent.mkdir(parents=True, exist_ok=True)
+    with file.open("a") as handle:
+        for event in rows:
+            record = {"id": event_id(event.get("ticker") or "", event), "mode": mode, **event}
+            handle.write(json.dumps(record, default=_plain, sort_keys=True) + "\n")
+
+
+def _since_session(moment: int) -> str:
+    day = datetime.fromtimestamp(moment, PT).date()
+    start = datetime(day.year, day.month, day.day, 0, 0, tzinfo=PT)
+    return start.astimezone(ZoneInfo("UTC")).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _utc(text: str) -> datetime | None:
+    if not text:
+        return None
+    try:
+        return datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+# Minutes past a contract's cutoff before a held position raises an alarm.
+LATE_EXIT_MINUTES = 5
+# Minutes a working sell may sit unfilled before it raises an alarm.
+STUCK_SELL_MINUTES = 20
+
+
+def audit_positions(moment: int, broker=None, book_path: Path | None = None, raise_fn=None, clear_fn=None) -> list[str]:
+    """Alarm on any Agentic contract the checker opened that is not getting out.
+
+    The broker is the truth: today's agent buys, minus their filled sells, that
+    the account still holds. A held contract past its cutoff, a sell that sits
+    unfilled, or an exit that keeps failing to route raises an alarm. A clean
+    position clears it. Nothing here sends or cancels an order.
+    """
+    raise_fn = raise_fn or alarm.raise_alarm
+    clear_fn = clear_fn or alarm.clear_alarm
+    if broker is None:
+        from robinhood_mcp import RobinhoodBroker
+
+        broker = RobinhoodBroker()
+    orders = broker.agent_orders(_since_session(moment))
+    now = datetime.fromtimestamp(moment, PT)
+    opened: dict[str, dict] = {}
+    for order in sorted(orders, key=lambda row: row.get("created_at") or ""):
+        if order.get("effect") == "open" and (order.get("filled_quantity") or 0) > 0:
+            opened[order["option_id"]] = order
+    raised = []
+    for option_id, buy in opened.items():
+        key = f"open|{option_id}"
+        held = broker.held(option_id)
+        if not held or held["quantity"] <= 0:
+            for name in (key, f"stuck|{option_id}"):
+                clear_fn(name)
+            continue
+        label = buy.get("contract") or ""
+        row = {
+            "ticker": buy.get("ticker") or "",
+            "contract": label,
+            "time": now.strftime("%Y-%m-%d %H:%M PT"),
+            "action": "entry",
+        }
+        stamp_sellouts([row], broker)
+        deadline = contract_deadline(row)
+        if deadline is not None and now > deadline + timedelta(minutes=LATE_EXIT_MINUTES):
+            text = (
+                f"{row['ticker']} {label} is still held {int((now - deadline).total_seconds() // 60)} "
+                f"minutes past its {deadline.strftime('%H:%M')} PT cutoff. Sell it by hand."
+            )
+            raise_fn(key, text, now=moment)
+            raised.append(text)
+        else:
+            clear_fn(key)
+        sells = [
+            order
+            for order in orders
+            if order.get("option_id") == option_id
+            and order.get("effect") == "close"
+            and order.get("state") in ("queued", "confirmed", "unconfirmed", "partially_filled")
+        ]
+        stuck = [
+            order
+            for order in sells
+            if (_utc(order.get("created_at")) or now) < now - timedelta(minutes=STUCK_SELL_MINUTES)
+        ]
+        if held.get("pending_sell") and stuck:
+            text = (
+                f"{row['ticker']} {label} sell at {stuck[0].get('limit')} has not filled in "
+                f"{STUCK_SELL_MINUTES} minutes. Reprice it by hand."
+            )
+            raise_fn(f"stuck|{option_id}", text, now=moment)
+            raised.append(text)
+        else:
+            clear_fn(f"stuck|{option_id}")
+    for key, record in _broker_book(book_path or BROKER_PATH).items():
+        if record.get("kind") != "exit":
+            continue
+        name = f"exit|{key}"
+        if record.get("status") == "error" and int(record.get("attempts") or 0) >= 2:
+            text = (
+                f"{record.get('ticker')} {record.get('contract')} exit failed "
+                f"{record.get('attempts')} times. The checker keeps retrying; sell by hand if it is still open."
+            )
+            raise_fn(name, text, now=moment)
+            raised.append(text)
+        else:
+            clear_fn(name)
+    return raised
+
+
 def check(now: int | None = None, notify: bool = False) -> list[str]:
     spec = load_levels()
     cash = read_agentic_cash()
@@ -3944,8 +4108,12 @@ def check(now: int | None = None, notify: bool = False) -> list[str]:
         if live_row and event.get("kind") in ("entry", "exit"):
             try:
                 route_live_order(event, cash=cash)
-            except Exception:
-                pass
+            except Exception as exc:
+                alarm.raise_alarm(
+                    f"route|{identity}",
+                    f"{event['ticker']} live {event['kind']} could not be routed "
+                    f"({type(exc).__name__}). Check the Agentic account by hand.",
+                )
         if routed != "drop" or kept:
             line = live_notice(event) if live_row else format_live(event)
             if routed == "alert":
@@ -4002,8 +4170,30 @@ def check(now: int | None = None, notify: bool = False) -> list[str]:
         refresh_dashboard()
     try:
         retry_live_orders(cash=cash)
-    except Exception:
-        pass
+    except Exception as exc:
+        alarm.raise_alarm("retry", f"Retrying failed live orders broke ({type(exc).__name__}).")
+    record_events(live, "live")
+    record_events(paper, "paper")
+    if not SEND_ORDERS:
+        return logged
+    if session_kind(moment) == "live" and in_session(moment) and cash is None:
+        alarm.raise_alarm(
+            "cash",
+            "The Agentic balance could not be read, so no live entry can be sent. "
+            "The Robinhood login may have lapsed.",
+            now=moment,
+        )
+    else:
+        alarm.clear_alarm("cash")
+    if session_kind(moment) == "live":
+        try:
+            audit_positions(moment)
+        except Exception as exc:
+            alarm.raise_alarm(
+                "audit",
+                f"Open Agentic positions could not be checked ({type(exc).__name__}). Check them by hand.",
+                now=moment,
+            )
     return logged
 
 
@@ -4148,7 +4338,20 @@ def main() -> None:
         help="Post new alerts to Discord #ta",
     )
     args = parser.parse_args()
-    messages = check(notify=args.notify)
+    try:
+        messages = check(notify=args.notify)
+    except KeyboardInterrupt:
+        raise
+    except BaseException as exc:
+        if SEND_ORDERS:
+            alarm.raise_alarm(
+                "crash",
+                f"The 10-minute check crashed ({type(exc).__name__}: {str(exc)[:160]}). "
+                "Open positions are not being watched until it runs clean.",
+            )
+        raise
+    alarm.clear_alarm("crash")
+    alarm.heartbeat()
     if not messages:
         print("No new 10-minute entries, exits, or skips.")
         return
