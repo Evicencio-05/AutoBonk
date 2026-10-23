@@ -1701,3 +1701,79 @@ def test_bounce_and_trend_are_paper_timings():
     assert len(back) == 1
     assert back[0]["retested"] is True
     assert back[0]["reason"] == "clock"
+
+
+def test_a_rate_limit_is_asked_again_and_a_blank_open_still_counts():
+    import io
+    import json
+    import urllib.error
+
+    calls = {"n": 0}
+
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def read(self):
+            return json.dumps(
+                {
+                    "chart": {
+                        "result": [
+                            {
+                                "timestamp": [100],
+                                "indicators": {
+                                    "quote": [
+                                        {
+                                            "open": [None],
+                                            "high": [0.2],
+                                            "low": [0.2],
+                                            "close": [0.2],
+                                        }
+                                    ]
+                                },
+                            }
+                        ]
+                    }
+                }
+            ).encode()
+
+    def urlopen(request, timeout=8):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise urllib.error.HTTPError(
+                request.full_url, 429, "Too Many Requests", {}, io.BytesIO(b"")
+            )
+        return Response()
+
+    original = claim_alerts.urllib.request.urlopen
+    slept = claim_alerts.time.sleep
+    claim_alerts.urllib.request.urlopen = urlopen
+    claim_alerts.time.sleep = lambda seconds: None
+    try:
+        bars = claim_alerts.fetch_option_minutes("GOOGL261023C00327500")
+    finally:
+        claim_alerts.urllib.request.urlopen = original
+        claim_alerts.time.sleep = slept
+
+    assert calls["n"] == 2
+    assert bars == [(100, 0.2, 0.2, 0.2, 0.2)]
+
+
+def test_a_discord_refusal_does_not_stop_the_check():
+    import io
+    import urllib.error
+
+    def boom(text):
+        raise urllib.error.HTTPError(
+            "https://discord.com", 429, "Too Many Requests", {}, io.BytesIO(b"")
+        )
+
+    original = claim_alerts.notify_discord
+    claim_alerts.notify_discord = boom
+    try:
+        claim_alerts._send_alert("GOOGL call entry", True)
+    finally:
+        claim_alerts.notify_discord = original
