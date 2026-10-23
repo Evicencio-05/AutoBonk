@@ -246,6 +246,34 @@ def contract_parts(label: str, year: int) -> tuple[date, float, str] | None:
     return expiration, strike, side
 
 
+def spendable_amount(payload) -> float | None:
+    """Dollars one new contract can debit.
+
+    Unleveraged buying power is what a cash account can pay. The cash field
+    is the fallback when buying power is missing. None when neither was read.
+    """
+    if not isinstance(payload, dict):
+        return None
+    data = payload.get("data") if isinstance(payload.get("data"), dict) else payload
+    if not isinstance(data, dict):
+        return None
+    buying = data.get("buying_power") if isinstance(data.get("buying_power"), dict) else {}
+    for raw in (
+        buying.get("unleveraged_buying_power"),
+        buying.get("buying_power"),
+        data.get("cash"),
+    ):
+        if raw in (None, ""):
+            continue
+        try:
+            amount = float(raw)
+        except (TypeError, ValueError):
+            continue
+        if amount >= 0 and amount == amount and amount != float("inf"):
+            return amount
+    return None
+
+
 def agentic_account(path: Path | None = None) -> str:
     file = path or (ROOT / "config" / "accounts.yaml")
     data = yaml.safe_load(file.read_text())
@@ -338,6 +366,14 @@ class RobinhoodBroker:
             )
         )
 
+    def spendable(self) -> float | None:
+        """Dollars the Agentic account can pay for one contract. None when unread."""
+        try:
+            payload = self.tool("get_portfolio", {"account_number": self.account()})
+        except (BrokerError, OSError, TimeoutError, ValueError, TypeError):
+            return None
+        return spendable_amount(payload)
+
     def find(self, ticker: str, label: str, year: int) -> str:
         parsed = contract_parts(label, year)
         if parsed is None:
@@ -428,14 +464,22 @@ class RobinhoodBroker:
             "state": order.get("state") or "",
         }
 
-    def buy(self, ticker: str, label: str, year: int, ref_id: str) -> dict:
+    def buy(self, ticker: str, label: str, year: int, ref_id: str, cash=None) -> dict:
         option_id = self.find(ticker, label, year)
         if not option_id:
             return {"sent": False, "reason": "empty"}
         _bid, ask = self._quote(option_id)
         if ask <= 0:
             return {"sent": False, "reason": "quote"}
-        if ask > 0.50:
+        if cash is None:
+            cash = self.spendable()
+        try:
+            amount = float(cash)
+        except (TypeError, ValueError):
+            return {"sent": False, "reason": "unread"}
+        if amount < 0 or amount != amount or amount == float("inf"):
+            return {"sent": False, "reason": "unread"}
+        if int(round(ask * 10000)) > int(round(amount * 100)):
             return {"sent": False, "reason": "over"}
         held = self.position(ticker, label, year)
         if held and held["quantity"] > 0:

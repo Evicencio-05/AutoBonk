@@ -48,7 +48,7 @@ CONTRACTS_HEADER = (
     "# Contract comparison\n\n"
     "The chosen row is the strike at or under $1. "
     "On a next-day expiration the live plan names the cash row, "
-    "the nearest strike one contract can buy at or under $0.50, "
+    "the nearest strike one contract can buy with the account balance, "
     "when the far target can still reach it. "
     "Same-day expiration is eligible until noon Pacific. "
     "A 0DTE strike past the halfway point between the stock and the far target is not taken. "
@@ -64,7 +64,7 @@ CONTRACTS_HEADER = (
     "- first: the first target is the ceiling\n"
     "- cheap: the furthest strike under $1 that is still inside the far target\n"
     "- week: Friday's expiration, the same strike rule as chosen\n"
-    "- cash: the nearest strike at or under $0.50 that the far target can still reach. "
+    "- cash: the nearest strike the account balance can buy that the far target can still reach. "
     "This is the named live contract on a next-day expiration. "
     "The chosen row stays on the plan as the $1 comparison.\n\n"
     "| Time | Ticker | Level | Role | Contract | Entry | Price | Return | State |\n"
@@ -80,16 +80,51 @@ ATR_LENGTH = 14
 BREAK_ATR = 0.5
 CHASE = 0.50
 FRESH_SECONDS = 20 * 60
-# $100 a contract. The debit compared below is the price of one share of the option.
+# $1 comparison. The debit compared below is the price of one share of the option.
 CONTRACT_CAP = 1.0
-# Thursday 2026-10-22 is the first live session. Cash is $50, so one contract.
+# Thursday 2026-10-22 is the first live session. One contract.
+# The live premium ceiling is the Agentic balance read on that check.
 LIVE_FROM = date(2026, 10, 22)
-LIVE_CASH = 50.0
-LIVE_DEBIT = LIVE_CASH / 100
 LIVE_PATH = ROOT / "alerts" / "live.md"
 BROKER_PATH = ROOT / "alerts" / "broker.json"
 # Tests turn this off. The timer leaves it on.
 SEND_ORDERS = True
+
+
+def balance_amount(value) -> float | None:
+    """Dollars, when the figure was read. None when it was not."""
+    if isinstance(value, bool) or value is None:
+        return None
+    try:
+        amount = float(value)
+    except (TypeError, ValueError):
+        return None
+    if amount < 0 or amount != amount or amount == float("inf"):
+        return None
+    return amount
+
+
+def premium_cap(cash) -> float | None:
+    """Premium of one contract the balance can pay. None when the balance was not read."""
+    amount = balance_amount(cash)
+    if amount is None:
+        return None
+    return amount / 100
+
+
+def debit_fits(premium, cash) -> bool:
+    """True when one contract at this premium still fits the balance."""
+    amount = balance_amount(cash)
+    if amount is None or premium is None:
+        return False
+    return int(round(float(premium) * 10000)) <= int(round(amount * 100))
+
+
+def _debit_over(debit, cap) -> bool:
+    """True when the premium is past the cap. A missing cap does not refuse."""
+    if cap is None or debit is None:
+        return False
+    return int(round(float(debit) * 10000)) > int(round(float(cap) * 10000))
 PAPER_HEADER = (
     "| Time | Ticker | Action | Side | Level | Fill | Reason | Contract | Premium |\n"
     "|------|--------|--------|------|-------|------|--------|----------|---------|\n"
@@ -1062,7 +1097,7 @@ def format_live(event: dict) -> str:
         flip = event.get("flip") or ""
         prefix = f" {flip} " if flip else " "
         extra = (
-            f"{prefix}Fill {event['fill']:.2f}. {contract} debit at most $100. "
+            f"{prefix}Fill {event['fill']:.2f}. {contract} debit has to fit the account balance. "
             "OTM is allowed when theta and the target still leave room to gain."
         )
     return f"{head} {_candle(event['bar'])} {_rsi_text(event['bar'])}{extra} Not an order."
@@ -1247,11 +1282,11 @@ def _pick_contract(
 ) -> dict | None:
     in_the_money, out_the_money = _ordered_quotes(stock, side, quotes)
     for row in in_the_money:
-        if cap is not None and row["debit"] > cap:
+        if _debit_over(row["debit"], cap):
             continue
         return {**row, "otm": False}
     for row in out_the_money:
-        if cap is not None and row["debit"] > cap:
+        if _debit_over(row["debit"], cap):
             continue
         if far_target is not None and side == "call" and row["strike"] > far_target:
             continue
@@ -1328,6 +1363,7 @@ def assemble_contracts(
     first: float | None,
     far: float | None,
     start: int | None = None,
+    cash: float | None = None,
 ) -> list[dict]:
     """The chosen contract, plus the other rules priced at the same fill.
 
@@ -1423,7 +1459,12 @@ def assemble_contracts(
     if chosen_day is not None and far is not None and chosen_day in ladders:
         # Record the cash strike even when 0DTE halfway would refuse it.
         # The refusal is applied when the live row is named, not by dropping the strike.
-        picked = _pick_contract(stock, side, ladders[chosen_day], far, False, LIVE_DEBIT)
+        # A balance that was not read leaves the cash strike unnamed, so nothing is sent.
+        cap = premium_cap(cash)
+        if cap is None:
+            picked = None
+        else:
+            picked = _pick_contract(stock, side, ladders[chosen_day], far, False, cap)
         if picked is None:
             rows.append({"role": "cash", "contract": "none", "premium": None, "halfway": ""})
         else:
@@ -1731,9 +1772,19 @@ def _debit_at(
     return {"strike": strike, "debit": debit, "expiration": expiration}
 
 
-def _has_cash_strike(quotes: list[dict]) -> bool:
-    """True once the ladder holds a strike the $50 cash can buy."""
-    return any(row["debit"] <= LIVE_DEBIT for row in quotes)
+def _has_cash_strike(quotes: list[dict], cap: float | None) -> bool:
+    """True once the ladder holds a strike this premium cap can buy."""
+    if cap is None:
+        return False
+    return any(not _debit_over(row["debit"], cap) for row in quotes)
+
+
+def _ladder_ready(quotes: list[dict], cash_cap: float | None) -> bool:
+    """True once the walk can name the $1 strike and, when known, the cash strike."""
+    has_dollar = any(row["debit"] <= CONTRACT_CAP for row in quotes)
+    if cash_cap is None:
+        return has_dollar
+    return has_dollar and _has_cash_strike(quotes, cash_cap)
 
 
 def _priced_strikes(
@@ -1743,10 +1794,12 @@ def _priced_strikes(
     expiration: date,
     start: int,
     ceiling: float | None = None,
+    cash_cap: float | None = None,
 ) -> list[dict]:
-    """Price enough of the ladder to pick the chosen strike and the cheap one.
+    """Price enough of the ladder to pick the chosen strike and the cash one.
 
-    The walk stops once a strike at or under $1 is in hand, then prices the
+    The walk stops once a strike at or under $1 is in hand and, when the
+    balance was read, a strike that debit can still pay. Then it prices the
     far end of the target. A miss on the whole ladder is an empty list, which
     the checker treats as "ask again," not as a decision.
     """
@@ -1774,10 +1827,10 @@ def _priced_strikes(
         for row in rows:
             seen.add(row["strike"])
             quotes.append(row)
-        # The first strike under $1 is often over the $50 cash. Keep walking
-        # until a strike at or under $0.50 is in hand, so the cash row is the
-        # nearest one and not the far tail.
-        if _has_cash_strike(quotes):
+        # The first strike under $1 can still be more than the account can pay.
+        # Keep walking until a strike that fits the balance is in hand, so the
+        # cash row is the nearest one and not the far tail.
+        if _ladder_ready(quotes, cash_cap):
             break
     tail = [strike for strike in ordered[-4:] if strike not in seen]
     for row in price(tail):
@@ -1795,14 +1848,16 @@ def quote_contracts(
     start: int,
     first: float | None,
     far: float | None,
+    cash: float | None = None,
 ) -> list[dict]:
     """Price the chosen contract and the comparison rules at the fill."""
     session = datetime.fromtimestamp(start, PT).date()
+    cap = premium_cap(cash)
     ladders: dict[date, list[dict]] = {}
     tried: set[date] = set()
     for day in _quote_days(session):
         tried.add(day)
-        quotes = _priced_strikes(ticker, side, stock, day, start, far)
+        quotes = _priced_strikes(ticker, side, stock, day, start, far, cap)
         if not quotes:
             continue
         ladders[day] = quotes
@@ -1810,10 +1865,10 @@ def quote_contracts(
             break
     week = weekly_expiration(session)
     if week not in tried and week.weekday() < 5:
-        quotes = _priced_strikes(ticker, side, stock, week, start, far)
+        quotes = _priced_strikes(ticker, side, stock, week, start, far, cap)
         if quotes:
             ladders[week] = quotes
-    return assemble_contracts(session, ladders, side, stock, first, far, start)
+    return assemble_contracts(session, ladders, side, stock, first, far, start, cash)
 
 
 def quote_contract(ticker: str, side: str, stock: float, start: int, far_target: float | None) -> dict | None:
@@ -1897,7 +1952,12 @@ def _target_pair(levels: list[dict], event: dict) -> tuple[float | None, float |
     return None, None
 
 
-def quote_paper(events: list[dict], levels: list[dict], path: Path = PAPER_PATH) -> list[dict]:
+def quote_paper(
+    events: list[dict],
+    levels: list[dict],
+    path: Path = PAPER_PATH,
+    cash: float | None = None,
+) -> list[dict]:
     """Attach the contract and its print. A failure leaves the row without a premium."""
     text = path.read_text() if path.is_file() else ""
     known = paper_rows(text)
@@ -1919,6 +1979,7 @@ def quote_paper(events: list[dict], levels: list[dict], path: Path = PAPER_PATH)
                     start,
                     first,
                     far,
+                    cash,
                 )
                 if live_book:
                     contract, premium = named_live_contract(found, event["close_at"])
@@ -1930,6 +1991,7 @@ def quote_paper(events: list[dict], levels: list[dict], path: Path = PAPER_PATH)
                 event = {
                     **event,
                     "contracts": found,
+                    "cash": cash,
                     **fields,
                     "halfway": halfway_blocks(found, event["close_at"]),
                 }
@@ -2162,20 +2224,22 @@ def session_kind(close_at: int) -> str:
 
 
 def cash_fit(event: dict) -> str:
-    """A live contract has to fit the $50 cash. A missing quote is not a refusal."""
+    """A live contract has to fit the account balance. A missing quote is not a refusal."""
     contract = event.get("contract")
     premium = event.get("premium")
     if contract in (None, ""):
         return "quote"
+    if balance_amount(event.get("cash")) is None:
+        return "unread"
     if contract == "none" or premium is None:
         return "none"
-    if float(premium) > LIVE_DEBIT:
+    if not debit_fits(premium, event.get("cash")):
         return "over"
     return "fits"
 
 
 def _cash_alternative(event: dict) -> tuple[str, str]:
-    """The $0.50 strike and whether it sits past halfway. Blank when the ladder has none."""
+    """The strike the balance can buy, and whether it sits past halfway."""
     rows = event.get("contracts") or []
     cash = next((row for row in rows if row.get("role") == "cash"), None)
     if cash is None:
@@ -2197,6 +2261,8 @@ def _live_cash_sentence(event: dict) -> str:
     fit = cash_fit(event)
     if fit == "quote":
         return "The quote failed. The next check will price it again."
+    if fit == "unread":
+        return "The account balance could not be read, so this stays a plan."
     rows = event.get("contracts") or []
     cash = _role_row(rows, "cash") or {}
     dollar = _role_row(rows, "chosen") or {}
@@ -2217,23 +2283,23 @@ def _live_cash_sentence(event: dict) -> str:
             sentence += " The strike is in front of halfway."
         return sentence
     if fit == "fits":
-        return "The debit fits $50."
+        return "The debit fits the account balance."
     if fit == "over":
-        sentence = "The debit is over $50, so it is not the live contract."
+        sentence = "The debit is over the account balance, so it is not the live contract."
         if cash_label not in ("", "none"):
             if blocks == "blocks":
                 sentence += (
-                    f" The nearest strike at or under $0.50 is {cash_label}"
+                    f" The nearest strike the account can buy is {cash_label}"
                     f"{_premium_text(cash.get('premium'))}, and halfway blocks it on 0DTE."
                 )
             else:
                 where = "past halfway" if blocks == "past" else "in front of halfway"
                 sentence += (
-                    f" The nearest strike at or under $0.50 is {cash_label}"
+                    f" The nearest strike the account can buy is {cash_label}"
                     f"{_premium_text(cash.get('premium'))}, {where}."
                 )
         else:
-            sentence += " No strike at or under $0.50 was still in front of the far target."
+            sentence += " No strike the account can buy was still in front of the far target."
         return sentence
     if dollar and dollar.get("why") == "no-target":
         return "This level has no further number, so no contract was chosen."
@@ -2268,6 +2334,8 @@ def entry_order_block(event: dict) -> str:
     rows = event.get("contracts") or []
     if not rows:
         return "empty"
+    if balance_amount(event.get("cash")) is None:
+        return "unread"
     cash = _role_row(rows, "cash") or {}
     label = cash.get("contract") or ""
     if label in ("", "none"):
@@ -2277,7 +2345,7 @@ def entry_order_block(event: dict) -> str:
     named, premium = named_live_contract(rows, close_at)
     if named != label or premium is None:
         return "none"
-    if float(premium) > LIVE_DEBIT:
+    if not debit_fits(premium, event.get("cash")):
         return "over"
     return ""
 
@@ -2299,13 +2367,19 @@ def _remember_order(path: Path, key: str, record: dict) -> None:
     path.write_text(json.dumps(book, indent=2) + "\n")
 
 
-def route_live_order(event: dict, broker=None, book_path: Path | None = None) -> dict:
+def route_live_order(
+    event: dict, broker=None, book_path: Path | None = None, cash: float | None = None
+) -> dict:
     """Buy a qualifying entry, or sell the open Agentic contract on its exit.
 
-    A cash strike of none, an empty ladder, a 0DTE halfway block, or a debit
-    over $0.50 writes nothing to the broker. A sell that is already working
-    is not sent again.
+    A balance that was not read, a cash strike of none, an empty ladder, a
+    0DTE halfway block, or a debit the balance cannot pay writes nothing to
+    the broker. A sell that is already working is not sent again.
     """
+    if event.get("cash") is None and cash is not None:
+        event["cash"] = cash
+    if event.get("kind") == "entry" and balance_amount(event.get("cash")) is None:
+        return event
     if event.get("kind") not in ("entry", "exit"):
         return event
     close_at = int(event.get("close_at") or 0)
@@ -2343,7 +2417,7 @@ def route_live_order(event: dict, broker=None, book_path: Path | None = None) ->
     ref = str(uuid.uuid5(uuid.NAMESPACE_URL, "autobonk:" + key))
     try:
         if event["kind"] == "entry":
-            result = broker.buy(event["ticker"], label, year, ref)
+            result = broker.buy(event["ticker"], label, year, ref, cash=event.get("cash"))
         else:
             result = broker.sell(event["ticker"], label, year, ref)
     except Exception:
@@ -2408,7 +2482,9 @@ def route_live_order(event: dict, broker=None, book_path: Path | None = None) ->
     return event
 
 
-def retry_live_orders(book_path: Path | None = None, broker=None) -> None:
+def retry_live_orders(
+    book_path: Path | None = None, broker=None, cash: float | None = None
+) -> None:
     """Try once more when the last send failed. A sent or working order stays put."""
     path = book_path or BROKER_PATH
     book = _broker_book(path)
@@ -2423,8 +2499,9 @@ def retry_live_orders(book_path: Path | None = None, broker=None) -> None:
             "close_at": record.get("close_at") or 0,
             "reason": record.get("reason") or "",
             "contract": record.get("contract") or "",
+            "cash": cash,
         }
-        route_live_order(event, broker=broker, book_path=path)
+        route_live_order(event, broker=broker, book_path=path, cash=cash)
 
 
 def paper_line(event: dict) -> str | None:
@@ -2562,10 +2639,10 @@ def append_live(events: list[dict], path: Path = LIVE_PATH) -> None:
         path.write_text(
             "# Live plans\n\n"
             "Thursday 2026-10-22 is the first live session. Agentic only. "
-            "Cash is $50, so one contract at or under $0.50. "
-            "A row waits for confirm. It is not an order and it is not a paper row. "
+            "One contract. The live debit has to fit the account balance. "
+            "A row is the plan. It is not a paper row. "
             "The fade checker stays off. "
-            "On a next-day expiration the contract column is the nearest strike at or under $0.50 "
+            "On a next-day expiration the contract column is the nearest strike the balance can buy "
             "that the far target can still reach. Halfway does not refuse that expiration. "
             "On 0DTE, halfway still refuses that strike. "
             "The $1 strike and the cash strike are both recorded, with the entry premium, "
@@ -2802,6 +2879,7 @@ def fill_missing_contracts(
     levels: list[dict],
     path: Path = PAPER_PATH,
     contracts_path: Path = CONTRACTS_PATH,
+    cash: float | None = None,
 ) -> bool:
     """Price paper rows whose contract cell is still blank.
 
@@ -2879,6 +2957,7 @@ def fill_missing_contracts(
                 close_at - TEN_MIN,
                 first,
                 far,
+                cash,
             )
         except (urllib.error.URLError, TimeoutError, OSError, ValueError):
             continue
@@ -2894,7 +2973,13 @@ def fill_missing_contracts(
             continue
         fields = _candidate_fields(found)
         if live_table:
-            priced = {**event, "contract": contract, "premium": premium, "contracts": found}
+            priced = {
+                **event,
+                "contract": contract,
+                "premium": premium,
+                "contracts": found,
+                "cash": cash,
+            }
             lines[index] = _paint_live_contract(
                 lines[index],
                 contract,
@@ -2917,6 +3002,7 @@ def fill_missing_contracts(
                 "premium": premium,
                 "reason": row.get("reason") or "retest",
                 "open": index not in exit_for,
+                "cash": cash,
             }
         )
         paired = exit_for.get(index)
@@ -2969,7 +3055,7 @@ def fill_missing_contracts(
         if item.get("kind") == "entry" and item.get("open") is False:
             continue
         try:
-            route_live_order(item)
+            route_live_order(item, cash=cash)
         except Exception:
             pass
     return True
@@ -3582,8 +3668,27 @@ def close_expired_contracts(
     return True
 
 
+def read_agentic_cash(broker=None) -> float | None:
+    """Dollars one contract can debit on the Agentic account.
+
+    None when the read fails. The plan is still written, and no order is sent.
+    """
+    if broker is None and not SEND_ORDERS:
+        return None
+    try:
+        if broker is None:
+            from robinhood_mcp import RobinhoodBroker
+
+            broker = RobinhoodBroker()
+        amount = broker.spendable()
+    except Exception:
+        return None
+    return balance_amount(amount)
+
+
 def check(now: int | None = None, notify: bool = False) -> list[str]:
     spec = load_levels()
+    cash = read_agentic_cash()
     armed_at = int(spec["armed_at"].timestamp())
     moment = int(datetime.now(PT).timestamp()) if now is None else now
     fired = load_state()
@@ -3634,7 +3739,7 @@ def check(now: int | None = None, notify: bool = False) -> list[str]:
         option_mark=_option_mark_at,
     )
     final_live = apply_contract_exits(
-        quote_paper(live_src, spec["levels"], path=LIVE_PATH) if live_src else [],
+        quote_paper(live_src, spec["levels"], path=LIVE_PATH, cash=cash) if live_src else [],
         paper_rows(live_text),
         moment,
         marks=_mark_premiums(live_text),
@@ -3663,7 +3768,7 @@ def check(now: int | None = None, notify: bool = False) -> list[str]:
     if settled_paper:
         final_paper.extend(quote_paper(settled_paper, spec["levels"]))
     if settled_live:
-        final_live.extend(quote_paper(settled_live, spec["levels"], path=LIVE_PATH))
+        final_live.extend(quote_paper(settled_live, spec["levels"], path=LIVE_PATH, cash=cash))
     messages = []
     quiet = []
     paper = []
@@ -3680,7 +3785,7 @@ def check(now: int | None = None, notify: bool = False) -> list[str]:
             return
         if live_row and event.get("kind") in ("entry", "exit"):
             try:
-                route_live_order(event)
+                route_live_order(event, cash=cash)
             except Exception:
                 pass
         if routed != "drop" or kept:
@@ -3721,7 +3826,7 @@ def check(now: int | None = None, notify: bool = False) -> list[str]:
         if route_event(event, moment) == "alert":
             notify_paper(event)
     repaired = fill_missing_contracts(spec["levels"])
-    repaired_live = fill_missing_contracts(spec["levels"], LIVE_PATH)
+    repaired_live = fill_missing_contracts(spec["levels"], LIVE_PATH, cash=cash)
     repaired_premium = repair_exit_premiums(PAPER_PATH)
     repaired_premium_live = repair_exit_premiums(LIVE_PATH)
     comparison = close_expired_contracts(moment)
@@ -3738,7 +3843,7 @@ def check(now: int | None = None, notify: bool = False) -> list[str]:
     ):
         refresh_dashboard()
     try:
-        retry_live_orders()
+        retry_live_orders(cash=cash)
     except Exception:
         pass
     return logged
