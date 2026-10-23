@@ -1,0 +1,714 @@
+# Levels from the operator's 2026-10-23 06:24 PT premarket note.
+# Armed when that note arrived. Friday is live.
+# A claim or a lose is a finished 10-minute close beyond the level by half the 14-period ATR.
+# The 15-cent touch is only for a wick that tags the level.
+# allows: long, short, or both. targets are in order. The first does not close the trade.
+# A lost support flips to resistance. A claimed resistance flips to support.
+# Resistance is long. Support is short.
+# AAPL's last support is printed 241.37. META resistance includes 573 as printed.
+# SPCX and TSLA charts arrived at 06:51 PT. White labels and fib prices
+# replace the rounded note. 153.74, 380, 388, and 367.75 stay as written.
+# SMA labels are not levels.
+# Unnumbered SMAs, fibs, channels, and trend lines are not separate orders.
+# OS and gamma comments are not orders.
+armed_at: "2026-10-23T06:24:30-07:00"
+levels:
+- ticker: AAPL
+  price: 349
+  side: claim
+  allows: long
+  targets:
+  - 350.5
+  - 353
+  - 359.19
+  note: Resistance 349, then 350.5, 353, 359.19
+- ticker: AAPL
+  price: 350.5
+  side: claim
+  allows: long
+  targets:
+  - 353
+  - 359.19
+  note: Then 350.5
+- ticker: AAPL
+  price: 353
+  side: claim
+  allows: long
+  targets:
+  - 359.19
+  note: Then 353
+- ticker: AAPL
+  price: 359.19
+  side: claim
+  allows: long
+  targets: []
+  note: Then 359.19
+- ticker: AAPL
+  price: 345.37
+  side: lose
+  allows: short
+  targets:
+  - 343.8
+  - 342.5
+  - 241.37
+  note: Support 345.37, then 343.8, 342.5, 241.37
+- ticker: AAPL
+  price: 343.8
+  side: lose
+  allows: short
+  targets:
+  - 342.5
+  - 241.37
+  note: Then 343.8
+- ticker: AAPL
+  price: 342.5
+  side: lose
+  allows: short
+  targets:
+  - 241.37
+  note: Then 342.5
+- ticker: AAPL
+  price: 241.37
+  side: lose
+  allows: short
+  targets: []
+  note: Then 241.37
+- ticker: AMD
+  price: 524
+  side: claim
+  allows: long
+  targets:
+  - 551
+  - 556.75
+  - 562.42
+  note: Resistance 524, then 551, 556.75, 562.42
+- ticker: AMD
+  price: 551
+  side: claim
+  allows: long
+  targets:
+  - 556.75
+  - 562.42
+  note: Then 551
+- ticker: AMD
+  price: 556.75
+  side: claim
+  allows: long
+  targets:
+  - 562.42
+  note: Then 556.75
+- ticker: AMD
+  price: 562.42
+  side: claim
+  allows: long
+  targets: []
+  note: Then 562.42
+- ticker: AMD
+  price: 500
+  side: lose
+  allows: short
+  targets:
+  - 485.25
+  - 453.65
+  note: Support 500, then 485.25, 453.65
+- ticker: AMD
+  price: 485.25
+  side: lose
+  allows: short
+  targets:
+  - 453.65
+  note: Then 485.25
+- ticker: AMD
+  price: 453.65
+  side: lose
+  allows: short
+  targets: []
+  note: Then 453.65
+- ticker: AMZN
+  price: 254.95
+  side: claim
+  allows: long
+  targets:
+  - 260.75
+  - 264.2
+  - 267
+  note: Resistance 254.95, then 260.75, 264.2, 267
+- ticker: AMZN
+  price: 260.75
+  side: claim
+  allows: long
+  targets:
+  - 264.2
+  - 267
+  note: Then 260.75
+- ticker: AMZN
+  price: 264.2
+  side: claim
+  allows: long
+  targets:
+  - 267
+  note: Then 264.2
+- ticker: AMZN
+  price: 267
+  side: claim
+  allows: long
+  targets: []
+  note: Then 267
+- ticker: AMZN
+  price: 245.88
+  side: lose
+  allows: short
+  targets:
+  - 236.75
+  note: Support 245.88, then 236.75
+- ticker: AMZN
+  price: 236.75
+  side: lose
+  allows: short
+  targets: []
+  note: Then 236.75
+- ticker: AVGO
+  price: 324.6
+  side: claim
+  allows: long
+  targets:
+  - 331
+  - 341.1
+  - 345
+  note: Resistance 324.6, then 331, 341.1, 345
+- ticker: AVGO
+  price: 331
+  side: claim
+  allows: long
+  targets:
+  - 341.1
+  - 345
+  note: Then 331
+- ticker: AVGO
+  price: 341.1
+  side: claim
+  allows: long
+  targets:
+  - 345
+  note: Then 341.1
+- ticker: AVGO
+  price: 345
+  side: claim
+  allows: long
+  targets: []
+  note: Then 345
+- ticker: AVGO
+  price: 315.3
+  side: lose
+  allows: short
+  targets:
+  - 307.27
+  - 300
+  - 290.5
+  note: Support 315.3, then 307.27, 300, 290.5
+- ticker: AVGO
+  price: 307.27
+  side: lose
+  allows: short
+  targets:
+  - 300
+  - 290.5
+  note: Then 307.27
+- ticker: AVGO
+  price: 300
+  side: lose
+  allows: short
+  targets:
+  - 290.5
+  note: Then 300
+- ticker: AVGO
+  price: 290.5
+  side: lose
+  allows: short
+  targets: []
+  note: Then 290.5
+- ticker: GOOGL
+  price: 322.75
+  side: claim
+  allows: long
+  targets:
+  - 328
+  - 329.5
+  - 335
+  note: Resistance 322.75, then 328, 329.5, 335
+- ticker: GOOGL
+  price: 328
+  side: claim
+  allows: long
+  targets:
+  - 329.5
+  - 335
+  note: Then 328
+- ticker: GOOGL
+  price: 329.5
+  side: claim
+  allows: long
+  targets:
+  - 335
+  note: Then 329.5
+- ticker: GOOGL
+  price: 335
+  side: claim
+  allows: long
+  targets: []
+  note: Then 335
+- ticker: GOOGL
+  price: 317
+  side: lose
+  allows: short
+  targets:
+  - 310
+  - 305
+  - 300
+  note: Support 317, then 310, 305, 300
+- ticker: GOOGL
+  price: 310
+  side: lose
+  allows: short
+  targets:
+  - 305
+  - 300
+  note: Then 310
+- ticker: GOOGL
+  price: 305
+  side: lose
+  allows: short
+  targets:
+  - 300
+  note: Then 305
+- ticker: GOOGL
+  price: 300
+  side: lose
+  allows: short
+  targets: []
+  note: Then 300
+- ticker: META
+  price: 645
+  side: claim
+  allows: long
+  targets:
+  - 573
+  - 680
+  - 712
+  note: Resistance 645, then 573, 680, 712
+- ticker: META
+  price: 573
+  side: claim
+  allows: long
+  targets:
+  - 680
+  - 712
+  note: Then 573
+- ticker: META
+  price: 680
+  side: claim
+  allows: long
+  targets:
+  - 712
+  note: Then 680
+- ticker: META
+  price: 712
+  side: claim
+  allows: long
+  targets: []
+  note: Then 712
+- ticker: META
+  price: 636.75
+  side: lose
+  allows: short
+  targets:
+  - 600
+  - 554
+  note: Support 636.75, then 600, 554
+- ticker: META
+  price: 600
+  side: lose
+  allows: short
+  targets:
+  - 554
+  note: Then 600
+- ticker: META
+  price: 554
+  side: lose
+  allows: short
+  targets: []
+  note: Then 554
+- ticker: MSFT
+  price: 518.6
+  side: claim
+  allows: long
+  targets:
+  - 526.26
+  - 536
+  note: Resistance 518.6, then 526.26, 536
+- ticker: MSFT
+  price: 526.26
+  side: claim
+  allows: long
+  targets:
+  - 536
+  note: Then 526.26
+- ticker: MSFT
+  price: 536
+  side: claim
+  allows: long
+  targets: []
+  note: Then 536
+- ticker: MSFT
+  price: 514
+  side: lose
+  allows: short
+  targets:
+  - 510
+  - 502.25
+  - 497.5
+  note: Support 514, then 510, 502.25, 497.5
+- ticker: MSFT
+  price: 510
+  side: lose
+  allows: short
+  targets:
+  - 502.25
+  - 497.5
+  note: Then 510
+- ticker: MSFT
+  price: 502.25
+  side: lose
+  allows: short
+  targets:
+  - 497.5
+  note: Then 502.25
+- ticker: MSFT
+  price: 497.5
+  side: lose
+  allows: short
+  targets: []
+  note: Then 497.5
+- ticker: MU
+  price: 895
+  side: claim
+  allows: long
+  targets:
+  - 900
+  - 920
+  - 930
+  note: Resistance 895, then 900, 920, 930
+- ticker: MU
+  price: 900
+  side: claim
+  allows: long
+  targets:
+  - 920
+  - 930
+  note: Then 900
+- ticker: MU
+  price: 920
+  side: claim
+  allows: long
+  targets:
+  - 930
+  note: Then 920
+- ticker: MU
+  price: 930
+  side: claim
+  allows: long
+  targets: []
+  note: Then 930
+- ticker: MU
+  price: 844
+  side: lose
+  allows: short
+  targets:
+  - 800
+  - 783
+  - 737
+  - 670
+  note: Support 844, then 800, 783, 737, 670
+- ticker: MU
+  price: 800
+  side: lose
+  allows: short
+  targets:
+  - 783
+  - 737
+  - 670
+  note: Then 800
+- ticker: MU
+  price: 783
+  side: lose
+  allows: short
+  targets:
+  - 737
+  - 670
+  note: Then 783
+- ticker: MU
+  price: 737
+  side: lose
+  allows: short
+  targets:
+  - 670
+  note: Then 737
+- ticker: MU
+  price: 670
+  side: lose
+  allows: short
+  targets: []
+  note: Then 670
+- ticker: NVDA
+  price: 217.5
+  side: claim
+  allows: long
+  targets:
+  - 222
+  - 226
+  - 228
+  note: Resistance 217.5, then 222, 226, 228
+- ticker: NVDA
+  price: 222
+  side: claim
+  allows: long
+  targets:
+  - 226
+  - 228
+  note: Then 222
+- ticker: NVDA
+  price: 226
+  side: claim
+  allows: long
+  targets:
+  - 228
+  note: Then 226
+- ticker: NVDA
+  price: 228
+  side: claim
+  allows: long
+  targets: []
+  note: Then 228
+- ticker: NVDA
+  price: 211.18
+  side: lose
+  allows: short
+  targets:
+  - 208.9
+  - 204
+  - 202
+  note: Support 211.18, then 208.9, 204, 202
+- ticker: NVDA
+  price: 208.9
+  side: lose
+  allows: short
+  targets:
+  - 204
+  - 202
+  note: Then 208.9
+- ticker: NVDA
+  price: 204
+  side: lose
+  allows: short
+  targets:
+  - 202
+  note: Then 204
+- ticker: NVDA
+  price: 202
+  side: lose
+  allows: short
+  targets: []
+  note: Then 202
+- ticker: PLTR
+  price: 200
+  side: claim
+  allows: long
+  targets:
+  - 202.5
+  - 210
+  note: Resistance 200, then 202.5, 210
+- ticker: PLTR
+  price: 202.5
+  side: claim
+  allows: long
+  targets:
+  - 210
+  note: Then 202.5
+- ticker: PLTR
+  price: 210
+  side: claim
+  allows: long
+  targets: []
+  note: Then 210
+- ticker: PLTR
+  price: 194.68
+  side: lose
+  allows: short
+  targets:
+  - 188.37
+  - 184.99
+  - 174.25
+  - 165
+  note: Support 194.68, then 188.37, 184.99, 174.25, 165
+- ticker: PLTR
+  price: 188.37
+  side: lose
+  allows: short
+  targets:
+  - 184.99
+  - 174.25
+  - 165
+  note: Then 188.37
+- ticker: PLTR
+  price: 184.99
+  side: lose
+  allows: short
+  targets:
+  - 174.25
+  - 165
+  note: Then 184.99
+- ticker: PLTR
+  price: 174.25
+  side: lose
+  allows: short
+  targets:
+  - 165
+  note: Then 174.25
+- ticker: PLTR
+  price: 165
+  side: lose
+  allows: short
+  targets: []
+  note: Then 165
+- ticker: SPCX
+  price: 150.1
+  side: claim
+  allows: long
+  targets:
+  - 152.3
+  - 153.74
+  - 157.94
+  note: Resistance 150.10, then 152.3, 153.74, 157.94
+- ticker: SPCX
+  price: 152.3
+  side: claim
+  allows: long
+  targets:
+  - 153.74
+  - 157.94
+  note: Then 152.3
+- ticker: SPCX
+  price: 153.74
+  side: claim
+  allows: long
+  targets:
+  - 157.94
+  note: Then 153.74
+- ticker: SPCX
+  price: 157.94
+  side: claim
+  allows: long
+  targets: []
+  note: Then 157.94
+- ticker: SPCX
+  price: 146.59
+  side: lose
+  allows: short
+  targets:
+  - 142.87
+  - 138.62
+  - 130.64
+  note: Support 146.59, then 142.87, 138.62, 130.64
+- ticker: SPCX
+  price: 142.87
+  side: lose
+  allows: short
+  targets:
+  - 138.62
+  - 130.64
+  note: Then 142.87
+- ticker: SPCX
+  price: 138.62
+  side: lose
+  allows: short
+  targets:
+  - 130.64
+  note: Then 138.62
+- ticker: SPCX
+  price: 130.64
+  side: lose
+  allows: short
+  targets: []
+  note: Then 130.64
+- ticker: TSLA
+  price: 380
+  side: claim
+  allows: long
+  targets:
+  - 382.75
+  - 388
+  note: Resistance 380, then 382.75, 388
+- ticker: TSLA
+  price: 382.75
+  side: claim
+  allows: long
+  targets:
+  - 388
+  note: Then 382.75
+- ticker: TSLA
+  price: 388
+  side: claim
+  allows: long
+  targets: []
+  note: Then 388
+- ticker: TSLA
+  price: 372.77
+  side: lose
+  allows: short
+  targets:
+  - 367.75
+  - 365.3
+  - 360.45
+  - 352.01
+  - 342.5
+  note: Support 372.77, then 367.75, 365.3, 360.45, 352.01, 342.5
+- ticker: TSLA
+  price: 367.75
+  side: lose
+  allows: short
+  targets:
+  - 365.3
+  - 360.45
+  - 352.01
+  - 342.5
+  note: Then 367.75
+- ticker: TSLA
+  price: 365.3
+  side: lose
+  allows: short
+  targets:
+  - 360.45
+  - 352.01
+  - 342.5
+  note: Then 365.3
+- ticker: TSLA
+  price: 360.45
+  side: lose
+  allows: short
+  targets:
+  - 352.01
+  - 342.5
+  note: Then 360.45
+- ticker: TSLA
+  price: 352.01
+  side: lose
+  allows: short
+  targets:
+  - 342.5
+  note: Then 352.01
+- ticker: TSLA
+  price: 342.5
+  side: lose
+  allows: short
+  targets: []
+  note: Then 342.5
