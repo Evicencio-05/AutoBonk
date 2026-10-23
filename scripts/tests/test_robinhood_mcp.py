@@ -38,6 +38,23 @@ def test_the_cursor_token_blob_decrypts_without_printing_it():
     assert robinhood_mcp._decrypt_cursor(value)["access_token"] == "sample"
 
 
+def test_spendable_cash_is_the_buying_power_the_account_can_pay():
+    payload = {
+        "data": {
+            "total_value": "37.87",
+            "cash": "26.87",
+            "buying_power": {
+                "buying_power": "24.9200",
+                "unleveraged_buying_power": "24.9200",
+            },
+        }
+    }
+    assert robinhood_mcp.spendable_amount(payload) == 24.92
+    assert robinhood_mcp.spendable_amount({"data": {"cash": "38"}}) == 38.0
+    assert robinhood_mcp.spendable_amount({}) is None
+    assert robinhood_mcp.spendable_amount({"data": {"buying_power": {}}}) is None
+
+
 def test_a_contract_label_splits_into_the_strike():
     parsed = robinhood_mcp.contract_parts("10/23 327.5C", 2026)
     assert parsed is not None

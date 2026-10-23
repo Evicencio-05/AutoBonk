@@ -156,7 +156,7 @@ def test_green_retest_after_a_break_signals_a_put():
     text = claim_alerts.format_live(events[0])
     assert "SPCX put entry 146.00" in text
     assert "RSI purple 62.00 yellow 55.00" in text
-    assert "debit at most $100" in text
+    assert "fit the account balance" in text
     assert text.endswith("Not an order.")
 
 
@@ -502,6 +502,7 @@ def test_thursday_is_live_and_wednesday_stays_on_the_paper_tape():
         "fill": 340.35,
         "contract": "10/22 342.5C",
         "premium": 0.38,
+        "cash": 40,
         "bar": {
             "o": 340.42,
             "h": 340.74,
@@ -533,7 +534,7 @@ def test_thursday_is_live_and_wednesday_stays_on_the_paper_tape():
     assert claim_alerts.cash_fit(missing) == "none"
     notice = claim_alerts.live_notice(event)
     assert "Waiting for confirm." in notice
-    assert "The debit fits $50." in notice
+    assert "The debit fits the account balance." in notice
     assert notice.endswith("Not an order.")
     claim_alerts.append_live([event, over], live)
 
@@ -547,8 +548,12 @@ def test_thursday_is_live_and_wednesday_stays_on_the_paper_tape():
 
 
 def test_the_ladder_keeps_walking_past_the_one_dollar_strike():
-    assert claim_alerts._has_cash_strike([{"debit": 0.90}]) is False
-    assert claim_alerts._has_cash_strike([{"debit": 0.90}, {"debit": 0.49}]) is True
+    assert claim_alerts._has_cash_strike([{"debit": 0.90}], claim_alerts.premium_cap(40)) is False
+    assert (
+        claim_alerts._has_cash_strike([{"debit": 0.90}, {"debit": 0.49}], claim_alerts.premium_cap(49))
+        is True
+    )
+    assert claim_alerts._has_cash_strike([{"debit": 0.90}], claim_alerts.premium_cap(100)) is True
 
 
 def test_next_day_names_the_cash_strike_and_keeps_the_dollar_strike():
@@ -562,7 +567,7 @@ def test_next_day_names_the_cash_strike_and_keeps_the_dollar_strike():
     ]
 
     rows = claim_alerts.assemble_contracts(
-        session, {friday: quotes}, "put", 149.80, 146.6, 138.6
+        session, {friday: quotes}, "put", 149.80, 146.6, 138.6, cash=49
     )
 
     by_role = {row["role"]: row for row in rows}
@@ -586,6 +591,7 @@ def test_next_day_names_the_cash_strike_and_keeps_the_dollar_strike():
         "fill": 149.80,
         "contract": contract,
         "premium": premium,
+        "cash": 49,
         "contracts": rows,
         "bar": {"o": 148.81, "h": 149.91, "l": 148.28, "c": 149.80, "purple": 26.75, "yellow": 26.89},
     }
@@ -609,7 +615,7 @@ def test_zero_dte_halfway_blocks_the_cash_strike():
         {"strike": 139, "debit": 0.11},
     ]
     rows = claim_alerts.assemble_contracts(
-        session, {session: quotes}, "put", 149.80, 146.6, 138.6
+        session, {session: quotes}, "put", 149.80, 146.6, 138.6, cash=49
     )
     close_at = int(datetime(2026, 10, 22, 8, 30, tzinfo=ZoneInfo("America/Los_Angeles")).timestamp())
     by_role = {row["role"]: row for row in rows}
@@ -618,6 +624,31 @@ def test_zero_dte_halfway_blocks_the_cash_strike():
     contract, _premium = claim_alerts.named_live_contract(rows, close_at)
     assert contract == "10/22 146P"
     assert claim_alerts.halfway_blocks(rows, close_at) == "blocks"
+
+
+def test_the_balance_picks_the_nearest_strike_it_can_still_pay():
+    session = date(2026, 10, 22)
+    friday = date(2026, 10, 23)
+    quotes = [
+        {"strike": 150, "debit": 2.38},
+        {"strike": 146, "debit": 0.90},
+        {"strike": 144, "debit": 0.49},
+        {"strike": 139, "debit": 0.11},
+    ]
+
+    wide = claim_alerts.assemble_contracts(
+        session, {friday: quotes}, "put", 149.80, 146.6, 138.6, cash=100
+    )
+    tight = claim_alerts.assemble_contracts(
+        session, {friday: quotes}, "put", 149.80, 146.6, 138.6, cash=20
+    )
+    unread = claim_alerts.assemble_contracts(
+        session, {friday: quotes}, "put", 149.80, 146.6, 138.6
+    )
+
+    assert {row["role"]: row for row in wide}["cash"]["contract"] == "10/23 146P"
+    assert {row["role"]: row for row in tight}["cash"]["contract"] == "10/23 139P"
+    assert {row["role"]: row for row in unread}["cash"]["contract"] == "none"
 
 
 def test_a_blank_live_contract_is_quoted_again():
@@ -632,7 +663,7 @@ def test_a_blank_live_contract_is_quoted_again():
         "| 2026-10-22 08:30 PT | SPCX | entry | put | 150.00 | 149.80 | retest |  | | none |\n"
     )
 
-    def fake(ticker, side, stock, start, first, far):
+    def fake(ticker, side, stock, start, first, far, cash=None):
         return [
             {"role": "chosen", "contract": "10/23 146P", "premium": 0.90, "book": "fits"},
             {
@@ -651,6 +682,7 @@ def test_a_blank_live_contract_is_quoted_again():
             [{"ticker": "SPCX", "price": 150, "side": "lose", "allows": "short", "targets": [146.6, 138.6]}],
             live,
             contracts,
+            cash=49,
         )
     finally:
         claim_alerts.quote_contracts = original
@@ -957,7 +989,7 @@ def test_a_blank_contract_is_quoted_again():
         "| 2026-10-20 08:00 PT | AAPL | entry | call | 340.00 | 341.88 | sma | none |  |\n"
     )
 
-    def fake(ticker, side, stock, start, first, far):
+    def fake(ticker, side, stock, start, first, far, cash=None):
         return [{"role": "chosen", "contract": "10/21 222.5C", "premium": 0.44}]
 
     original = claim_alerts.quote_contracts
@@ -991,7 +1023,7 @@ def test_an_empty_ladder_stays_blank():
         "| 2026-10-20 07:50 PT | NVDA | entry | call | 217.50 | 217.70 | retest |  |  |\n"
     )
 
-    def fake(ticker, side, stock, start, first, far):
+    def fake(ticker, side, stock, start, first, far, cash=None):
         return []
 
     original = claim_alerts.quote_contracts
@@ -1797,6 +1829,7 @@ def _cash_entry(contract="10/23 655C", premium=0.32, halfway="inside", close=Non
         "contract": contract,
         "premium": premium,
         "contracts": rows,
+        "cash": 40,
         "bar": {"o": 646.06, "h": 646.08, "l": 644.73, "c": 645.43, "purple": 52.09, "yellow": 54.07},
     }
 
@@ -1812,7 +1845,7 @@ class _Broker:
             "state": "filled",
         }
 
-    def buy(self, ticker, label, year, ref_id):
+    def buy(self, ticker, label, year, ref_id, cash=None):
         self.buys.append((ticker, label, year, ref_id))
         return {"sent": True, "order_id": "buy-1", "price": "0.32", "state": "filled"}
 
@@ -1863,6 +1896,12 @@ def test_a_plan_is_not_sent_when_the_cash_strike_cannot_be_bought():
         close=datetime(2026, 10, 21, 9, 10, tzinfo=ZoneInfo("America/Los_Angeles"))
     )
     assert claim_alerts.entry_order_block(wednesday) == "paper"
+    missed = _cash_entry()
+    missed["cash"] = None
+    assert claim_alerts.entry_order_block(missed) == "unread"
+    claim_alerts.route_live_order(missed, broker, book)
+    assert broker.buys == []
+    assert "could not be read" in claim_alerts.live_notice(missed)
 
 
 def test_an_exit_sells_an_open_contract_and_a_working_sell_is_not_repeated():

@@ -264,9 +264,9 @@ def _live_session(root: Path) -> str:
     """Plans for the first live session. A row is not an order."""
     note = (
         "<p>Thursday 2026-10-22 is the first live session. Agentic only. "
-        "Cash is $50, so one contract at or under $0.50. "
-        "A row waits for confirm. This is not an order. "
-        "On a next-day expiration the contract column is the nearest strike at or under $0.50 "
+        "One contract. The live debit has to fit the account balance. "
+        "A row is the plan. "
+        "On a next-day expiration the contract column is the nearest strike the balance can buy "
         "that the far target can still reach. Halfway does not refuse that expiration. "
         "The $1 strike stays on the row. "
         "The open trades above are the paper tape through Wednesday.</p>"

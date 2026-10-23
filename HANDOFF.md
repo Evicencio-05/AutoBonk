@@ -27,9 +27,9 @@ python3 scripts/claim_alerts.py check
 - Robinhood Agentic only. Do not trade the taxable account or the IRA.
 - Paper never places an order. A live qualifying entry is sent on the Agentic account, and so is the sell when that contract is still open. Every other plan waits.
 - Monday 2026-10-19 through Wednesday 2026-10-21 are paper. Those rows stay in `alerts/paper.md`. The candle, RSI, SMAs, nearby levels, and volume for a row are in `alerts/context.md`. Do not place an order for a paper session, including after confirm. A paper row does not fill the journal Trade column and is not a pattern.
-- Thursday 2026-10-22 is the first live session. Agentic only. Cash is $50, so one contract at or under $0.50. The checker writes the plan in `alerts/live.md`. It sends that contract when the far target can still reach the strike. Halfway refuses 0DTE only. A cash strike of none, an empty ladder, or a debit over $0.50 stays a plan. The exit of an open Agentic contract is a sell. A sell that is already working is not sent again.
+- Thursday 2026-10-22 is the first live session. Agentic only. One contract. The live debit has to fit the Agentic account balance, read on that check. The checker writes the plan in `alerts/live.md`. It sends that contract when the far target can still reach the strike and the debit fits. Halfway refuses 0DTE only. A balance that cannot be read, a cash strike of none, an empty ladder, or a debit the balance cannot pay stays a plan. The exit of an open Agentic contract is a sell. A sell that is already working is not sent again.
 - The fade test in `alerts/fade_forward.md` covered 2026-10-19 through 2026-10-21. The gate passed: profit factor 3.17, net +8.56 stock points, 13 closes. The fade record is paper. The live checker stays on the retest.
-- A long option can cost up to $100 per contract.
+- A live long option is one contract, and the debit has to fit the account balance.
 - Do not write `config/agentic.yaml` or `.env`. Do not print `TA_BOT_TOKEN` or account numbers.
 
 ## Not inputs
