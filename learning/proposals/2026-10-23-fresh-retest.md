@@ -12,14 +12,14 @@ recommendation: accept
 After a reclaim stop at a level, the checker skipped nothing and re-entered the chop at that level. This rule waits until price has left the level by one ATR before entering there again. Accepted and shipped on 2026-10-23, before the freeze started (PR #19).
 
 ## The problem
-On Friday, `1023-1050-AVGO-put`, `1023-1100-GOOGL-put`, and `1023-1120-AVGO-call` were entries #2 and #3 at a level after a stop. They made −$19 (what-if), −$12, and −$3.
+On Friday, `1023-1050-AVGO-put`, `1023-1100-GOOGL-put`, and `1023-1120-AVGO-call` were entries #2 and #3 at a level after a stop. They made −$19 (what-if), +$12, and −$3. The GOOGL put was first recorded as −$12. Robinhood's expiring-option close actually sold it at $0.24, which the ledger now counts.
 
 ## The change
 After a reclaim stop at a level, the next entry there is skipped with reason `fresh`. The skip lasts until a finished 10-minute bar has traded one 14-period ATR away from the level, on either side. The `fresh_atr` setting is 1.0; 0 turns it off. The memory resets each session.
 
 ## Evidence
 - Only 2026-10-23 changes on the fixtures. The rule skips the AVGO 10:50 put and the 11:20 call.
-- It keeps the GOOGL 11:00 put, because price fell more than an ATR under 322.75 before retesting it. That trade reached +$49.
+- It keeps the GOOGL 11:00 put, because price fell more than an ATR under 322.75 before retesting it. That trade made +$12: Robinhood's expiring-option close sold it at $0.24, and its best while held was +$14. So the rule kept the one re-entry that worked.
 - Stock points that day went from −12.64 to −11.11.
 - One day of evidence. You accepted it as a rule of the frozen sample, not as a proven edge.
 
