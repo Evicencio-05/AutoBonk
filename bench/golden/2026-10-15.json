@@ -15,7 +15,7 @@
   "kind": "entry",
   "reason": "retest",
   "bar_time": "2026-10-15 07:30 PT",
-  "fill": 345.0824890136719
+  "fill": 344.8949890136719
  },
  {
   "ticker": "AAPL",
@@ -87,7 +87,7 @@
   "kind": "entry",
   "reason": "retest",
   "bar_time": "2026-10-15 06:50 PT",
-  "fill": 249.9600067138672
+  "fill": 250.8000030517578
  },
  {
   "ticker": "AMZN",
@@ -159,7 +159,7 @@
   "kind": "entry",
   "reason": "retest",
   "bar_time": "2026-10-15 12:40 PT",
-  "fill": 255.19000244140625
+  "fill": 255.0399932861328
  },
  {
   "ticker": "AMZN",
@@ -294,7 +294,7 @@
   "kind": "entry",
   "reason": "retest",
   "bar_time": "2026-10-15 10:50 PT",
-  "fill": 146.28500366210938
+  "fill": 146.80999755859375
  },
  {
   "ticker": "SPCX",
