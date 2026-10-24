@@ -181,6 +181,8 @@ class DiscordRead:
             record = {
                 "id": msg.get("id"),
                 "author": msg.get("author"),
+                "author_id": msg.get("author_id"),
+                "bot": msg.get("bot"),
                 "timestamp": msg.get("timestamp"),
                 "forwarded": msg.get("forwarded"),
                 "content": msg.get("content"),
