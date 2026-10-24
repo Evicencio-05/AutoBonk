@@ -84,6 +84,7 @@ def execution(rows: list[dict], book: dict) -> dict:
         "fill_lag_minutes": {"n": len(lags), "median": sorted(lags)[len(lags) // 2] if lags else None, "max": max(lags) if lags else None},
         "entry_slippage_per_share": {"n": len(slips), "mean": round(sum(slips) / len(slips), 4) if slips else None},
         "expired_without_a_sell": [r["ref"] for r in live if r.get("outcome") == "expired"],
+        "closed_by_robinhood_or_hand": [{"ref": r["ref"], "by": r.get("exit_by")} for r in live if r.get("exit_by") not in (None, "checker")],
         "exit_routing": dict(Counter(rec.get("status") for rec in exits)),
         "exit_retries_over_one": [key for key, rec in book.items() if rec.get("kind") == "exit" and int(rec.get("attempts") or 0) > 1],
         "gave_back": [

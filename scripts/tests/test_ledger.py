@@ -42,10 +42,12 @@ LIVE = """# Live plans
 """
 
 
-def _order(order_id, effect, fill, at, option_id="opt-avgo", ticker="AVGO", contract=("2026-10-23", "327.5", "call")):
+def _order(order_id, effect, fill, at, option_id="opt-avgo", ticker="AVGO", contract=("2026-10-23", "327.5", "call"), placed="agentic"):
     return broker_mod.normal_order(
         {
             "id": order_id,
+            "agent_initiated": placed == "agentic",
+            "placed_agent": placed,
             "chain_symbol": ticker,
             "state": "filled",
             "direction": "debit" if effect == "open" else "credit",
@@ -313,3 +315,30 @@ def test_the_review_says_where_entry_checks_spend_their_time(tmp_path):
     text = review.check_speed("2026-10-26", path)
     assert text.startswith("2 checks") and "first order after a median 280s" in text and "sellouts 250s" in text
     assert review.check_speed("2026-10-27", path) == "No timings recorded."
+
+
+def test_robinhood_closing_an_expiring_contract_counts_as_the_exit(tmp_path):
+    # 2026-10-23: the GOOGL 320P was bought at 0.12 and Robinhood's expiring-option close sold it at 0.24.
+    entry_id = claim.event_id("GOOGL", {"kind": "entry", "side": "put", "level": 322.75, "close_at": _at(11, 0), "reason": "retest"})
+    root = _root(tmp_path, {entry_id: {"order_id": "buy-2"}})
+    contract = ("2026-10-23", "320", "put")
+    orders = [
+        _order("buy-2", "open", 0.12, "2026-10-23T18:11:11Z", "opt-g", "GOOGL", contract),
+        _order("auto-1", "close", 0.24, "2026-10-23T19:30:58Z", "opt-g", "GOOGL", contract, placed="expiring_option"),
+    ]
+    rows = ledger.build(root, orders, _Broker())
+    trade = next(row for row in rows if row["ticker"] == "GOOGL")
+    assert trade["dollars"] == 12.0 and trade["outcome"] == "auto-closed"
+    assert trade["exit_by"] == "Robinhood auto-close" and not trade.get("exit_assumed")
+
+
+def test_a_sell_placed_by_hand_is_the_exit_too(tmp_path):
+    entry_id = claim.event_id("GOOGL", {"kind": "entry", "side": "put", "level": 322.75, "close_at": _at(11, 0), "reason": "retest"})
+    root = _root(tmp_path, {entry_id: {"order_id": "buy-2"}})
+    contract = ("2026-10-23", "320", "put")
+    orders = [
+        _order("buy-2", "open", 0.12, "2026-10-23T18:11:11Z", "opt-g", "GOOGL", contract),
+        _order("hand-1", "close", 0.30, "2026-10-23T19:00:00Z", "opt-g", "GOOGL", contract, placed="manual"),
+    ]
+    trade = next(row for row in ledger.build(root, orders, _Broker()) if row["ticker"] == "GOOGL")
+    assert trade["dollars"] == 18.0 and trade["outcome"] == "sold by hand"

@@ -341,7 +341,8 @@ def trades_table(rows: list[dict]) -> str:
             row.get("entry_fill") if live else row.get("plan_entry_premium"),
             row.get("exit_fill") if live else row.get("plan_exit_premium"),
             _money(dollars), _money(best), _money(worst),
-            row.get("exit_reason") or row.get("outcome"), row.get("operator_take") or "", row.get("operator_note") or "",
+            (row.get("exit_reason") or row.get("outcome") or "") + (" · Robinhood auto-close" if row.get("exit_by") == "Robinhood auto-close" else " · sold by hand" if row.get("exit_by") == "by hand" else ""),
+            row.get("operator_take") or "", row.get("operator_note") or "",
         ]
         tds = []
         for index, cell in enumerate(cells):

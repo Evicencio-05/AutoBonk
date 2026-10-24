@@ -31,7 +31,8 @@ NO_WRITE = (
     "alerts/state.json",
     "alerts/broker.json",
     # The checker's tapes. A row written by anything else can hide an open position from it:
-    # on 2026-10-23 a hand-added GOOGL exit row meant the real put was never sold.
+    # on 2026-10-23 a hand-added GOOGL exit row meant the checker never sent the put's sell (Robinhood's
+    # expiring-option close sold it at the cutoff instead).
     "alerts/live.md",
     "alerts/paper.md",
     "alerts/log.md",

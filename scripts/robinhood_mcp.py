@@ -390,6 +390,9 @@ def normal_order(row: dict) -> dict:
         "created_at": row.get("created_at") or "",
         "updated_at": row.get("updated_at") or "",
         "filled_at": executions[-1]["at"] if executions else "",
+        # "agent" for the checker, "expiring_option" for Robinhood's own close of an expiring
+        # contract, anything else is a sell placed by hand.
+        "initiator": "agent" if row.get("agent_initiated") else (row.get("placed_agent") or "manual"),
     }
 
 
@@ -581,6 +584,18 @@ class RobinhoodBroker:
         payload = self.tool(
             "get_option_orders",
             {"account_number": self.account(), "created_at_gte": since, "agent_initiated": True},
+        )
+        return [normal_order(row) for row in (payload.get("data") or payload).get("orders") or []]
+
+    def account_orders(self, since: str) -> list[dict]:
+        """Every option order on the Agentic account since an ISO time, whoever placed it. Read only.
+
+        Robinhood closes an expiring contract itself near its cutoff. That sell is not an
+        agent order, and missing it once made a +$12 trade look like an expired -$12 one.
+        """
+        payload = self.tool(
+            "get_option_orders",
+            {"account_number": self.account(), "created_at_gte": since},
         )
         return [normal_order(row) for row in (payload.get("data") or payload).get("orders") or []]
 

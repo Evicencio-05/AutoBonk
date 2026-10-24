@@ -372,7 +372,7 @@ def attach_orders(trades: list[dict], orders: list[dict], book: dict, broker=Non
             "ticker": order["ticker"],
             "side": order["option_type"],
             "level": None,
-            "reason": "manual or unmatched",
+            "reason": "manual" if order.get("initiator", "agent") != "agent" else "unmatched",
             "close_at": int(when.timestamp()),
             "entry_time": when.strftime("%Y-%m-%d %H:%M PT"),
             "contract": order["contract"],
@@ -443,7 +443,10 @@ def _fill_trade(trade: dict, buy: dict, sell: dict | None, broker) -> None:
         trade["exit_order"] = sell["id"]
         trade["exit_fill"] = sell["fill"]
         trade["exit_dollars"] = sell["premium"]
-        trade["outcome"] = "sold"
+        # Who sold it matters for the review: the checker, Robinhood's expiring-option close, or you.
+        initiator = sell.get("initiator") or "agent"
+        trade["exit_by"] = {"agent": "checker", "expiring_option": "Robinhood auto-close"}.get(initiator, "by hand")
+        trade["outcome"] = "sold" if initiator == "agent" else "auto-closed" if initiator == "expiring_option" else "sold by hand"
         end = _at(sell["filled_at"])
     else:
         expiration = date.fromisoformat(buy["expiration"]) if buy["expiration"] else None
@@ -666,7 +669,7 @@ def main(argv: list[str] | None = None) -> int:
             from robinhood_mcp import RobinhoodBroker
 
             broker = RobinhoodBroker()
-            orders = broker.agent_orders(FIRST_LIVE)
+            orders = broker.account_orders(FIRST_LIVE)
         rows = build(orders=orders, broker=broker)
         write(rows)
         print(f"{len(rows)} trades -> {TRADES_PATH.relative_to(ROOT)} and {CSV_PATH.relative_to(ROOT)}")
