@@ -11,9 +11,9 @@ Ask for one any time: "write a proposal about ...". Every proposal starts from `
 
 ## Open
 
-- [safety] Time every step of the 10-minute check, so we can find what delays entry orders. `learning/proposals/2026-10-23-time-the-check.md`
 - [decision] Keep confirming each entry on the fill bar; do not switch to sending on the signal. `learning/proposals/2026-10-23-keep-confirming-entries.md`
 
 ## Decided
 
+- 2026-10-23, accepted and shipped: Time every step of the 10-minute check. `learning/proposals/2026-10-23-time-the-check.md`. After 5 sessions, a follow-up proposal names the slowest step.
 - 2026-10-23, accepted: Wait for a fresh retest after a stop at the same level. `learning/proposals/2026-10-23-fresh-retest.md`

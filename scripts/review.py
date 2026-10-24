@@ -106,6 +106,51 @@ def _alarms() -> dict:
         return {}
 
 
+def check_speed(day: str, path: Path | None = None) -> str:
+    """How long the day's checks took, and where entry checks spent their time."""
+    file = path or ROOT / "alerts" / "check_times.jsonl"
+    runs = []
+    try:
+        for line in file.read_text().splitlines():
+            try:
+                item = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if str(item.get("at", "")).startswith(day):
+                runs.append(item)
+    except OSError:
+        pass
+    if not runs:
+        return "No timings recorded."
+
+    def median(values: list[float]) -> float:
+        values = sorted(values)
+        return values[len(values) // 2]
+
+    totals = [run["total"] for run in runs]
+    slowest = max(runs, key=lambda run: run["total"])
+    text = (
+        f"{len(runs)} checks, median {median(totals):.0f}s, slowest {slowest['total']:.0f}s at "
+        f"{slowest['at'][11:16]} (slowest step {max(slowest['steps'], key=slowest['steps'].get)})."
+    )
+    entries = [run for run in runs if run.get("entries")]
+    if entries:
+        steps: dict[str, list[float]] = defaultdict(list)
+        for run in entries:
+            for name, seconds in run["steps"].items():
+                steps[name].append(seconds)
+        ranked = sorted(steps, key=lambda name: -median(steps[name]))[:3]
+        orders = [run["first_order_s"] for run in entries if run.get("first_order_s") is not None]
+        text += (
+            f" {len(entries)} entry checks, median {median([r['total'] for r in entries]):.0f}s"
+            + (f", first order after a median {median(orders):.0f}s" if orders else ", no order sent")
+            + ". Slowest steps on entry checks: "
+            + ", ".join(f"{name} {median(steps[name]):.0f}s" for name in ranked)
+            + "."
+        )
+    return text
+
+
 def day_review(day: str, rows: list[dict]) -> str:
     path = REVIEWS / f"{day}.md"
     kept = _kept(path)
@@ -186,6 +231,7 @@ def day_review(day: str, rows: list[dict]) -> str:
     out += ["", "## Alarms still raised", ""]
     alarms = _alarms()
     out += [f"- {item['text']}" for item in alarms.values()] or ["None."]
+    out += ["", "## Check speed", "", check_speed(day)]
     out += ["", "## Fade and backtest", ""]
     out.append(
         "Append the day's fade closes to `alerts/fade_forward.md`. Run `python3 scripts/recap.py` and "
