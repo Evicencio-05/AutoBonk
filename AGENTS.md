@@ -13,7 +13,7 @@ This file is for every coding agent in this repo: Claude Code, Cursor in the edi
 - **Read or print `config/accounts.yaml`**, or any account number.
 - **Write `config/agentic.yaml`** (the operator's $100 cap), **`rules/ta_rules.md`** (the operator's TA), **`alerts/state.json`, or `alerts/broker.json`** (checker state. A hand edit can resend an order).
 - **Write a checker tape:** `alerts/live.md`, `paper.md`, `log.md`, `context.md`, `contracts.md`, or `events.jsonl`. This includes running code that writes one from a cloud agent. A cloud agent has no broker, and a tape row it writes can hide a real open position from the checker. On 2026-10-23 a GOOGL exit row added in a Cursor PR meant the live put was never sold, and it expired worthless. Generated data (`learning/trades.*`, `bench/golden/`) is rebuilt by its script, never by hand.
-- **Change a replayed decision during the freeze.** `config/freeze.yaml` is the operator's switch, and only the operator runs `scripts/freeze.py bless`. A bug fix that changes no decision ships as usual. A new rule, threshold, or buffer goes in `learning/proposals.md` for the weekly review.
+- **Change a replayed decision during the freeze.** `config/freeze.yaml` is the operator's switch, and only the operator runs `scripts/freeze.py bless`. A bug fix that changes no decision ships as usual. A new rule, threshold, or buffer becomes a proposal in `learning/proposals/` (the `proposal` skill) for the weekly review.
 - **Push to `master` or force-push.** Work on a branch and open a PR.
 - **Remove `robinhood-trading` from `.cursor/mcp.json`.** The live checker borrows that server's Cursor OAuth login (`_cursor_oauth` in `scripts/robinhood_mcp.py`).
 - **Invent a TA rule** or call one observation a pattern (see `.cursor/rules/ta-learning.mdc`).
@@ -23,7 +23,7 @@ This file is for every coding agent in this repo: Claude Code, Cursor in the edi
 - Read and change code under `scripts/`, and run the tests: `uvx --with pyyaml --with flask --with 'psycopg[binary]' pytest -q scripts/tests`.
 - Replay with `scripts/bench.py` and `scripts/regime_search.py`. A replay is an observation.
 - `scripts/discord_ta.py read|ingest`. Chart images land in `charts/inbox/`.
-- Write a levels file from an operator note, plus `learning/journal.md`, `learning/reviews/*.md`, `learning/drills.yaml`, `learning/proposals.md`, and `alerts/fade_forward.md`, as the learning rules describe. Never fill the "Would I take it" column for the operator.
+- Write a levels file from an operator note, plus `learning/journal.md`, `learning/reviews/*.md`, `learning/drills.yaml`, `learning/proposals.md` and `learning/proposals/*.md` (never the Operator decision section), and `alerts/fade_forward.md`, as the learning rules describe. Never fill the "Would I take it" column for the operator.
 - `scripts/ledger.py sync|snapshot|show`, `scripts/review.py day|week`, `scripts/freeze.py status|check`, and `scripts/alarm.py list`.
 - Read-only broker calls: quotes, positions, balance, `review_option_order`.
 
@@ -36,6 +36,7 @@ This file is for every coding agent in this repo: Claude Code, Cursor in the edi
 | Reading chart images into `alerts/levels.yaml`, journal, daily review, drills | **Claude Code** | Reads images and follows the exact wording in the learning rules. |
 | Backtests, fade and regime replays | **Claude Code** with the `backtest-expert` skill | Overfitting and robustness checks. |
 | Ledger, daily and weekly review drafts, testing a proposal against the ledger | **Claude Code** | Reads the dataset and the broker, then writes the observations. |
+| Researching and writing a proposal (weekly decisions, daily safety notes) | **Claude Code** with the `proposal` skill | Needs the ledger, the broker's option bars, and the bench. The weekly run is a local timer. |
 | Debugging a failure, or a refactor across files | **Claude Code** | Needs to read widely and run things. |
 | Recurring work after the close | **Claude Code** `/loop`, run locally | Needs the local `.env`. A cloud routine cannot reach it. |
 | Small change with a clear spec, one PR each (a field, a column, a Neon/Vercel/blotter/desk tweak) | **Cursor cloud agent** | Runs unattended and comes back as a PR. Run `/code-review` in Claude Code before merging if it touches the checker. |

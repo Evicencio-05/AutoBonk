@@ -360,3 +360,109 @@ def trades_table(rows: list[dict]) -> str:
         f"<table id='ledger-table'><thead><tr>{''.join(f'<th>{_esc(h)}</th>' for h in head)}</tr></thead>"
         f"<tbody>{''.join(body)}</tbody></table>"
     )
+
+
+# ---- proposals ---------------------------------------------------------------
+
+def _inline(text: str) -> str:
+    """**bold** and `code` inside one escaped line."""
+    import re
+
+    text = _esc(text)
+    text = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", text)
+    return re.sub(r"`(.+?)`", r"<code>\1</code>", text)
+
+
+def markdown(text: str) -> str:
+    """Enough Markdown for a proposal: headings, paragraphs, lists, tables, code blocks."""
+    if text.startswith("---\n"):
+        text = text[4:].split("\n---", 1)[-1].lstrip("-\n")
+    out: list[str] = []
+    para: list[str] = []
+    listing = ""
+    table: list[list[str]] = []
+    code: list[str] | None = None
+
+    def flush() -> None:
+        nonlocal listing, table
+        if para:
+            out.append(f"<p>{_inline(' '.join(para))}</p>")
+            para.clear()
+        if listing:
+            out.append(f"</{listing}>")
+            listing = ""
+        if table:
+            head, *rest = [row for row in table if not set("".join(row)) <= set("-: ")]
+            out.append(
+                "<table data-nosort><thead><tr>" + "".join(f"<th>{_inline(c)}</th>" for c in head) + "</tr></thead><tbody>"
+                + "".join("<tr>" + "".join(f"<td>{_inline(c)}</td>" for c in row) + "</tr>" for row in rest)
+                + "</tbody></table>"
+            )
+            table = []
+
+    for line in text.splitlines():
+        if code is not None:
+            if line.startswith("```"):
+                out.append(f"<pre class='sheet'>{_esc(chr(10).join(code))}</pre>")
+                code = None
+            else:
+                code.append(line)
+            continue
+        stripped = line.strip()
+        if stripped.startswith("```"):
+            flush()
+            code = []
+        elif stripped.startswith("<!--"):
+            continue
+        elif stripped.startswith("#"):
+            flush()
+            level = min(len(stripped) - len(stripped.lstrip("#")) + 2, 5)
+            out.append(f"<h{level}>{_inline(stripped.lstrip('#').strip())}</h{level}>")
+        elif stripped.startswith("|"):
+            if para or listing:
+                flush()
+            table.append([cell.strip() for cell in stripped.strip("|").split("|")])
+        elif stripped[:2] in ("- ", "* ") or (stripped[:1].isdigit() and ". " in stripped[:4]):
+            kind = "ul" if stripped[:2] in ("- ", "* ") else "ol"
+            if para or table or (listing and listing != kind):
+                flush()
+            if not listing:
+                out.append(f"<{kind}>")
+                listing = kind
+            out.append(f"<li>{_inline(stripped.split(' ', 1)[1] if ' ' in stripped else '')}</li>")
+        elif not stripped:
+            flush()
+        else:
+            if listing or table:
+                flush()
+            para.append(stripped)
+    flush()
+    return "".join(out)
+
+
+def proposals_panel(root) -> str:
+    import proposal_data
+
+    rows = proposal_data.proposals(root / "learning" / "proposals")
+    if not rows:
+        return "<p class='empty'>No proposals yet. The weekly run drafts them Friday after the close.</p>"
+    order = {"open": 0, "accepted": 1, "waiting": 2, "rejected": 3}
+    rows.sort(key=lambda p: (order.get(p["status"], 4), p["created"]))
+    cards = []
+    for item in rows:
+        text = (root / item["file"]).read_text()
+        summary = ""
+        if "## Summary" in text:
+            summary = text.split("## Summary", 1)[1].split("\n## ", 1)[0].strip()
+        decided = item["operator_decision"] or ("–" if item["status"] == "open" else item["status"])
+        cards.append(
+            f"<article class='proposal {_esc(item['status'])}'>"
+            f"<div class='proposal-head'><span class='pill'>{_esc(item['kind'])}</span>"
+            f"<span class='pill status'>{_esc(item['status'])}</span>"
+            f"<small>{_esc(item['created'])} · recommends <b>{_esc(item['recommendation'] or '–')}</b> · you: <b>{_esc(decided)}</b></small></div>"
+            f"<h3>{_esc(item['title'])}</h3><p>{_inline(' '.join(summary.split()))}</p>"
+            f"<details><summary>Read the proposal</summary><div class='doc'>{markdown(text)}</div>"
+            f"<p class='sub'>File: <code>{_esc(item['file'])}</code>. Write your decision under Operator decision, or tell Claude.</p></details>"
+            "</article>"
+        )
+    return "<p class='sub'>Open first. Decision proposals are decided at the weekly review; safety notes any day.</p>" + "".join(cards)

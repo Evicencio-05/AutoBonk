@@ -66,6 +66,7 @@ def render(root: Path) -> str:
         [
             ("Overview", overview.overview(rows, alarms, progress) + as_of, "overview"),
             ("All trades", overview.trades_table(rows), "ledger"),
+            ("Proposals", overview.proposals_panel(root), "proposals"),
             ("Open trades", _paper(root), "trades"),
             ("Live session", _live_session(root), "session"),
             ("Watch", _watches(root), "watch"),
@@ -1598,6 +1599,7 @@ def _page(sections: list[tuple[str, str, str]]) -> str:
 # Tabs on the desk, in order. Every section anchor lives in one tab.
 TABS = (
     ("Overview", "home", ("overview", "ledger")),
+    ("Proposals", "decide", ("proposals",)),
     ("Today", "today", ("session", "trades", "watch", "contracts")),
     ("Backtest", "test", ("backtest", "bench")),
     ("Learning", "learn", ("lessons", "journal", "training", "fade")),

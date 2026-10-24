@@ -1,0 +1,9 @@
+[Unit]
+Description=AutoBonk weekly proposal draft (Claude Code, headless)
+OnFailure=autobonk-alarm@%n.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/evice/repos/AutoBonk
+TimeoutStartSec=3900
+ExecStart=/home/evice/repos/AutoBonk/.venv/bin/python3 /home/evice/repos/AutoBonk/scripts/proposals_auto.py weekly

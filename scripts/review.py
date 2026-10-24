@@ -212,7 +212,7 @@ def day_review(day: str, rows: list[dict]) -> str:
     for header, prompt in (
         (KEEP[1], "Anything you would have done that no rule covers: a level you would have skipped, an exit you would have taken earlier."),
         (KEEP[2], "What repeated, and on which earlier day. A pattern needs more than one taken trade."),
-        (KEEP[3], "A rule change you want. It goes to `learning/proposals.md` for the weekly review, not into the checker."),
+        (KEEP[3], "A rule change you want. Claude researches it into `learning/proposals/` for the weekly review, not into the checker."),
     ):
         out += ["", kept.get(header) or f"{header}\n\n{prompt}"]
     return "\n".join(out).rstrip() + "\n"
@@ -262,7 +262,7 @@ def week_review(end: str, rows: list[dict]) -> str:
         f"# Week ending {end}",
         "",
         "Drafted by `scripts/review.py week`. Read this once a week. A rule changes only here, "
-        "only from `learning/proposals.md`, and only when the sample supports it.",
+        "only from an accepted proposal in `learning/proposals/`, and only when the sample supports it.",
         "",
         "## Totals",
         "",
@@ -313,7 +313,8 @@ def week_review(end: str, rows: list[dict]) -> str:
             f"{sum(row.get('dollars') or 0 for row in taken if row not in agree):+.2f}.",
         ]
     proposals = PROPOSALS.read_text() if PROPOSALS.is_file() else ""
-    out += ["", "## Proposals waiting", "", proposals.split("## Open", 1)[-1].split("\n## ", 1)[0].strip() or "None."]
+    out += ["", "## Proposals waiting", "", proposals.split("## Open", 1)[-1].split("\n## ", 1)[0].strip() or "None.", "",
+            "Each one is a full proposal in `learning/proposals/`; decide it under its Operator decision."]
     out += ["", "## Decisions", "", "For each proposal: accept, reject, or wait for more trades, and why."]
     return "\n".join(out).rstrip() + "\n"
 

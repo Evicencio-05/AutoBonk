@@ -249,3 +249,39 @@ def test_a_redraft_keeps_the_operator_answers(tmp_path, monkeypatch):
     (tmp_path / "2026-10-23.md").write_text(filled)
     again = review.day_review("2026-10-23", rows)
     assert "| plan | no | chop |" in again and "Re-entries lost." in again
+
+
+def test_proposals_are_read_with_their_status_and_decision(tmp_path):
+    data = _load("proposal_data")
+    (tmp_path / "2026-10-30-x.md").write_text(
+        "---\ntitle: Do a thing\nkind: decision\nstatus: open\ncreated: 2026-10-30\nrecommendation: wait\n---\n\n"
+        "# Do a thing\n\n## Summary\nWhy.\n\n## Operator decision\nDecision: accept\nNotes: fine\n"
+    )
+    (tmp_path / "2026-10-31-y.md").write_text("---\ntitle: Undecided\nkind: safety\nstatus: open\n---\n\n## Operator decision\nDecision: <!-- accept / reject / wait -->\n")
+    found = {p["title"]: p for p in data.proposals(tmp_path)}
+    assert found["Do a thing"]["operator_decision"] == "accept" and found["Do a thing"]["recommendation"] == "wait"
+    assert found["Undecided"]["operator_decision"] == "" and found["Undecided"]["kind"] == "safety"
+
+
+def test_the_daily_safety_run_only_fires_on_a_day_an_alarm_was_sent(tmp_path):
+    auto = _load("proposals_auto")
+    log = tmp_path / "alarm_log.jsonl"
+    friday = datetime(2026, 10, 23, 12, 51, tzinfo=PT)
+    log.write_text(
+        '{"key": "open|x", "text": "held past cutoff", "at": %d}\n{"key": "old", "text": "old", "at": %d}\n'
+        % (friday.timestamp(), friday.timestamp() - 86400)
+    )
+    today = auto.alarms_today(friday, log)
+    assert [item["key"] for item in today] == ["open|x"]
+    assert auto.alarms_today(datetime(2026, 10, 26, 9, 0, tzinfo=PT), log) == []
+    command = auto.command("hi")
+    assert "dontAsk" in command and "Bash(git push:*)" in command
+
+
+def test_proposal_markdown_renders_headings_lists_and_tables():
+    page = review.ledger  # keep the import used
+    from overview import markdown
+
+    html = markdown("---\ntitle: t\n---\n\n# T\n\n## Summary\nOne **bold** line.\n\n- a\n- b\n\n| A | B |\n|---|---|\n| 1 | 2 |\n")
+    assert "<h3>T</h3>" in html and "<strong>bold</strong>" in html
+    assert html.count("<li>") == 2 and "<td>1</td>" in html and "title: t" not in html

@@ -25,6 +25,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ALARMS_PATH = ROOT / "alerts" / "alarms.json"
+HISTORY_PATH = ROOT / "alerts" / "alarm_log.jsonl"
 REPEAT_SECONDS = 30 * 60
 
 
@@ -109,6 +110,10 @@ def raise_alarm(
     _save(path, book)
     if not due:
         return False
+    if path == ALARMS_PATH:
+        # Every alarm sent, kept after it clears, so the daily safety run can see what broke.
+        with HISTORY_PATH.open("a") as handle:
+            handle.write(json.dumps({"key": key, "text": text, "at": moment}) + "\n")
     if send is not None:
         send(key, text)
         return True
