@@ -1,0 +1,8 @@
+[Unit]
+Description=AutoBonk: arm the levels book from the operator's !levels command in #ta
+OnFailure=autobonk-alarm@%n.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/evice/repos/AutoBonk
+ExecStart=/home/evice/repos/AutoBonk/.venv/bin/python3 /home/evice/repos/AutoBonk/scripts/levels_ingest.py poll

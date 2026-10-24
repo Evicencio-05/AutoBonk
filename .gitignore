@@ -14,3 +14,6 @@ alerts/alarms.json
 alerts/alarm_log.jsonl
 learning/proposals/data/*.log
 alerts/check_times.jsonl
+alerts/levels_ingest.json
+alerts/levels.prev.yaml
+alerts/levels.tmp
