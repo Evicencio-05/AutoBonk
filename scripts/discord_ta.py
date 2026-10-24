@@ -76,6 +76,8 @@ def normalize_message(raw: dict) -> dict:
         "id": raw.get("id"),
         "channel_id": raw.get("channel_id"),
         "author": author.get("username"),
+        "author_id": author.get("id"),
+        "bot": bool(author.get("bot")),
         "timestamp": raw.get("timestamp"),
         "forwarded": forwarded,
         "content": "\n".join(content_parts),

@@ -1,0 +1,12 @@
+[Unit]
+Description=Look for a !levels command in #ta
+
+[Timer]
+# Every minute premarket and in the session, every 15 minutes otherwise.
+OnCalendar=Mon..Fri *-*-* 03..13:*:00 America/Los_Angeles
+OnCalendar=*-*-* *:00/15:00 America/Los_Angeles
+Persistent=false
+AccuracySec=10s
+
+[Install]
+WantedBy=timers.target
