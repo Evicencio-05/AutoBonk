@@ -319,6 +319,9 @@ def handoff(agent: str, tasks: list[str]) -> str:
         return (
             "Read AGENTS.md first and stay inside its limits.\n\n"
             f"Task:\n{task}\n\n{where}"
+            "Before coding, write a pre-mortem: up to five ways this change could break something, most likely and "
+            "most costly first (anything that can send, skip, or miss an order comes first). Give each one the test or "
+            "check you ran and its result, in a \"Pre-mortem\" section of the PR.\n\n"
             "Rules for this change:\n"
             "- Work on a cursor/ branch and open a PR to master.\n"
             "- Do not edit alerts/ tapes, bench/golden/, config/freeze.yaml, config/agentic.yaml, or .env. Never place a broker order.\n"
