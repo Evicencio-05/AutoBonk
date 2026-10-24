@@ -25,7 +25,7 @@ This file is for every coding agent in this repo: Claude Code, Cursor in the edi
 - Replay with `scripts/bench.py` and `scripts/regime_search.py`. A replay is an observation.
 - `scripts/discord_ta.py read|ingest`. Chart images land in `charts/inbox/`.
 - Write a levels file from an operator note, plus `learning/journal.md`, `learning/reviews/*.md`, `learning/drills.yaml`, `learning/proposals.md` and `learning/proposals/*.md` (never the Operator decision section), and `alerts/fade_forward.md`, as the learning rules describe. Never fill the "Would I take it" column for the operator.
-- `scripts/levels_ingest.py parse` (prints a book, writes nothing). The timer runs `poll`.
+- `scripts/levels_ingest.py parse` (prints a book, writes nothing) and `arm` (from a saved operator note or a corrected line, per the `levels` skill). The timer runs `poll`. Never write `alerts/levels.yaml` by hand.
 - `scripts/ledger.py sync|snapshot|show`, `scripts/review.py day|week`, `scripts/freeze.py status|check`, and `scripts/alarm.py list`.
 - Read-only broker calls: quotes, positions, balance, `review_option_order`.
 
@@ -36,7 +36,7 @@ This file is for every coding agent in this repo: Claude Code, Cursor in the edi
 | Checker logic: retests, flips, ATR band, skips, cutoffs, sizing, sells (`claim_alerts.py`, `robinhood_mcp.py`) | **Claude Code** | Rules interact across a 4,000-line file. Needs tests and bench replays, done with the operator present. |
 | Reviewing a Cursor PR before merge | **Claude Code** (`/code-review`) | A second model reads any code that can send an order. |
 | Arming the book from the text note | **No agent** (`!levels` in `#ta`) | `scripts/levels_ingest.py` reads the note with no model. |
-| Reading chart images into `alerts/levels.yaml`, journal, daily review, drills | **Claude Code** | Reads images and follows the exact wording in the learning rules. |
+| Correcting the book from chart images (the `levels` skill: `levels_ingest.py arm`, then only the pictures), journal, daily review, drills | **Claude Code** | Reads images and follows the exact wording in the learning rules. The script parses the note text. |
 | Backtests, fade and regime replays | **Claude Code** with the `backtest-expert` skill | Overfitting and robustness checks. |
 | Ledger, daily and weekly review drafts, testing a proposal against the ledger | **Claude Code** | Reads the dataset and the broker, then writes the observations. |
 | Researching and writing a proposal (weekly decisions, daily safety notes) | **Claude Code** with the `proposal` skill | Needs the ledger, the broker's option bars, and the bench. The weekly run is a local timer. |

@@ -26,6 +26,7 @@ price already crossed since then is held back: the checker could act on that
 crossing late, and a late entry is still sent live.
 
   python3 scripts/levels_ingest.py parse < note.txt   # print the book, write nothing
+  python3 scripts/levels_ingest.py arm --latest        # an agent arms the newest saved note
   python3 scripts/levels_ingest.py poll                # what the timer runs
 """
 
@@ -230,6 +231,7 @@ def arm(
     force: bool = False,
     fetch=None,
     warnings: list[str] | None = None,
+    described: str = "",
 ) -> dict:
     """Write the book. Returns what changed for the reply."""
     warnings = warnings if warnings is not None else []
@@ -239,6 +241,8 @@ def arm(
     note_of = f"the operator's {now.astimezone(PT):%Y-%m-%d %H:%M} PT note"
     if source:
         note_of += f" (Discord message {source})"
+    if described:
+        note_of = described
     old_armed = None
     if old and old.get("armed_at"):
         old_armed = datetime.fromisoformat(str(old["armed_at"]))
@@ -475,11 +479,67 @@ def _last_note(get, channel: str, command: dict, operators: set[str]):
     return {}, [], []
 
 
+def _latest_note(inbox: Path) -> Path | None:
+    """The newest saved #ta post from a person whose text has a ladder."""
+    for path in sorted(inbox.glob("*.json"), key=lambda p: int(p.stem), reverse=True):
+        record = json.loads(path.read_text())
+        if record.get("bot") or record.get("author") == "ta-bot":
+            continue
+        if parse_note(record.get("content") or "")[0]:
+            return path
+    return None
+
+
+def arm_command(args) -> int:
+    """Arm from a saved #ta post or note text. Prints the summary and the charts to read."""
+    images: list[str] = []
+    source = ""
+    if args.latest:
+        found = _latest_note(Path(args.inbox))
+        if found is None:
+            print("No saved note with levels in charts/inbox. Run discord_ta.py ingest first.")
+            return 1
+        args.file = str(found)
+    if not args.file or args.file == "-":
+        text = sys.stdin.read()
+    elif args.file.endswith(".json"):
+        record = json.loads(Path(args.file).read_text())
+        text = record.get("content") or ""
+        source = str(record.get("id") or "")
+        images = [item["file"] for item in record.get("attachments") or [] if item.get("file")]
+    else:
+        text = Path(args.file).read_text()
+    books, warnings, errors = parse_note(text)
+    if not books:
+        print(reply_text(books, warnings, errors) if errors else "No levels found in that note.")
+        return 1
+    result = arm(
+        books,
+        datetime.now(PT),
+        path=Path(args.book),
+        source=source,
+        force=args.force,
+        warnings=warnings,
+        described=args.described or "",
+    )
+    print(reply_text(books, warnings, errors, result))
+    if images:
+        print("Charts: " + " ".join(images))
+    return 0 if result["tickers"] else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Arm alerts/levels.yaml from the operator's note")
     sub = parser.add_subparsers(dest="command", required=True)
     parse_cmd = sub.add_parser("parse", help="Print the book a note makes. Writes nothing.")
     parse_cmd.add_argument("file", nargs="?", help="Note text (default: stdin)")
+    arm_cmd = sub.add_parser("arm", help="Arm a saved #ta post (.json), a text file, or stdin")
+    arm_cmd.add_argument("file", nargs="?", help="charts/inbox/<id>.json, a text file, or - for stdin")
+    arm_cmd.add_argument("--latest", action="store_true", help="The newest saved note in charts/inbox")
+    arm_cmd.add_argument("--force", action="store_true", help="Arm numbers price already crossed")
+    arm_cmd.add_argument("--from", dest="described", help="Where the numbers came from, for the header")
+    arm_cmd.add_argument("--book", default=str(LEVELS_PATH), help=argparse.SUPPRESS)
+    arm_cmd.add_argument("--inbox", default=str(ROOT / "charts" / "inbox"), help=argparse.SUPPRESS)
     sub.add_parser("poll", help="Handle !levels commands in #ta")
     args = parser.parse_args(argv)
     if args.command == "parse":
@@ -491,6 +551,8 @@ def main(argv: list[str] | None = None) -> int:
         for line in errors:
             print(f"error: {line}", file=sys.stderr)
         return 1 if errors else 0
+    if args.command == "arm":
+        return arm_command(args)
     for reply in poll():
         print(reply)
         print()

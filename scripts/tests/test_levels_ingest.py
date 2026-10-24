@@ -213,3 +213,25 @@ def test_a_command_older_than_half_an_hour_is_ignored(tmp_path):
     state.write_text(json.dumps({"channel": "9"}))
     ingest.poll(_at(7, 30), get=get, post=post, path=tmp_path / "l.yaml", state_path=state)
     assert sent == []
+
+
+def test_an_agent_arms_the_newest_saved_note_and_gets_its_charts(tmp_path, capsys, monkeypatch):
+    monkeypatch.setattr(ingest, "crossed", lambda *args, **kwargs: [])
+    inbox = tmp_path / "inbox"
+    inbox.mkdir()
+    (inbox / "100.json").write_text(json.dumps({"id": "100", "author": "boingbingbonk",
+        "content": FRIDAY, "attachments": [{"file": "charts/inbox/100_0.webp"}]}))
+    (inbox / "200.json").write_text(json.dumps({"id": "200", "author": "ta-bot",
+        "content": "- AAPL: Res: 1 / Sup: 2"}))
+    (inbox / "300.json").write_text(json.dumps({"id": "300", "author": "boingbingbonk",
+        "content": "nice day"}))
+    book = tmp_path / "levels.yaml"
+    code = ingest.main(["arm", "--latest", "--inbox", str(inbox), "--book", str(book)])
+    out = capsys.readouterr().out
+    assert code == 0
+    assert "Armed a new book" in out and "Charts: charts/inbox/100_0.webp" in out
+    assert "Discord message 100" in book.read_text()
+    fix = tmp_path / "fix.txt"
+    fix.write_text("- TSLA: Res: 380 / Sup: 372.77")
+    ingest.main(["arm", str(fix), "--book", str(book), "--from", "the TSLA chart labels"])
+    assert "TSLA replaced from the TSLA chart labels" in book.read_text()
