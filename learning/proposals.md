@@ -11,7 +11,13 @@ Ask for one any time: "write a proposal about ...". Every proposal starts from `
 
 ## Open
 
-- [decision] Keep confirming each entry on the fill bar; do not switch to sending on the signal. `learning/proposals/2026-10-23-keep-confirming-entries.md`
+None.
+
+## Waiting for more data
+
+Re-tested at every weekly run, with the new numbers written into the proposal.
+
+- [decision] Keep confirming each entry on the fill bar; do not switch to sending on the signal. Re-test with `scripts/entry_timing.py --options`; decide at 30+ live trades. `learning/proposals/2026-10-23-keep-confirming-entries.md`
 
 ## Decided
 
