@@ -138,36 +138,36 @@
   "ticker": "AVGO",
   "side": "put",
   "level": 324.6,
-  "kind": "entry",
-  "reason": "retest",
-  "bar_time": "2026-10-23 10:50 PT",
-  "fill": 324.3299865722656
+  "kind": "skip",
+  "reason": "fresh",
+  "bar_time": "2026-10-23 10:40 PT",
+  "fill": null
  },
  {
   "ticker": "AVGO",
   "side": "put",
   "level": 324.6,
-  "kind": "exit",
-  "reason": "reclaim",
-  "bar_time": "2026-10-23 11:00 PT",
+  "kind": "watch",
+  "reason": "sma",
+  "bar_time": "2026-10-23 10:40 PT",
   "fill": null
  },
  {
   "ticker": "AVGO",
   "side": "call",
   "level": 324.6,
-  "kind": "entry",
-  "reason": "retest",
-  "bar_time": "2026-10-23 11:20 PT",
-  "fill": 324.83990478515625
+  "kind": "skip",
+  "reason": "fresh",
+  "bar_time": "2026-10-23 11:10 PT",
+  "fill": null
  },
  {
   "ticker": "AVGO",
   "side": "call",
   "level": 324.6,
-  "kind": "exit",
-  "reason": "reclaim",
-  "bar_time": "2026-10-23 12:00 PT",
+  "kind": "skip",
+  "reason": "fresh",
+  "bar_time": "2026-10-23 11:20 PT",
   "fill": null
  },
  {
@@ -382,9 +382,18 @@
   "side": "call",
   "level": 645.0,
   "kind": "skip",
-  "reason": "chase",
-  "bar_time": "2026-10-23 11:20 PT",
-  "fill": 645.510009765625
+  "reason": "fresh",
+  "bar_time": "2026-10-23 11:10 PT",
+  "fill": null
+ },
+ {
+  "ticker": "META",
+  "side": "call",
+  "level": 645.0,
+  "kind": "watch",
+  "reason": "sma",
+  "bar_time": "2026-10-23 11:10 PT",
+  "fill": null
  },
  {
   "ticker": "META",
