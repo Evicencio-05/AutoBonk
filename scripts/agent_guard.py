@@ -243,37 +243,165 @@ def route(prompt: str) -> tuple[str, str, dict[str, int]] | None:
     return agent, why, scores
 
 
+_LEAD = re.compile(r"^(?:\(?\d+[.)]\s*)?(?:(?:and|also|then|plus)\b[,:]?\s*)*", re.IGNORECASE)
+_SPLIT = re.compile(r"(?:\n+|(?<=[.?!;])(?<!\d[.)])\s+|\s+(?=\(?\d+[.)]\s)|\s+also,?\s+)", re.IGNORECASE)
+
+
+def split_tasks(prompt: str) -> list[str]:
+    """The separate asks in one message: lines, sentences, numbered items, and "also ..." clauses."""
+    parts = []
+    for part in _SPLIT.split(prompt.replace(OVERRIDE, " ")):
+        part = _LEAD.sub("", (part or "").strip(" -*\t"))
+        if part:
+            parts.append(part[0].upper() + part[1:])
+    tasks: list[str] = []
+    for part in parts:
+        if len(part.split()) < 3 and tasks:
+            tasks[-1] += " " + part
+        elif len(part.split()) >= 2:
+            tasks.append(part)
+    return tasks
+
+
+def plan(prompt: str) -> list[tuple[str | None, str]]:
+    """(agent, task) per ask. A task with no clear route follows the task before it."""
+    out: list[tuple[str | None, str]] = []
+    for task in split_tasks(prompt):
+        found = route(task)
+        agent = found[0] if found else (out[-1][0] if out else None)
+        out.append((agent, task))
+    return out
+
+
+def _tool(agent: str | None) -> str | None:
+    if agent in (CURSOR_CLOUD, CURSOR_EDITOR):
+        return "cursor"
+    return agent
+
+
+# Where a Cursor task most likely lives, so the handoff can name files.
+_FILES = (
+    (r"dashboard|css|html|styl|colou?r|layout|button|font|padding|margin|align|tooltip|legend|dark mode|page|chart|tab\b",
+     ("scripts/dashboard_page.html (styles and page script)", "scripts/overview.py (Overview charts, trades table, proposals)",
+      "scripts/dashboard.py (sections and tabs)")),
+    (r"blotter|neon|database", ("scripts/blotter.py",)),
+    (r"vercel|hosted|deploy", ("app.py", "vercel.json")),
+    (r"desk\.py|studio", ("scripts/desk.py",)),
+    (r"discord", ("scripts/discord_ta.py",)),
+    (r"bar widget|waybar|omarchy bar", ("scripts/bar_status.py",)),
+)
+
+TEST_COMMAND = "uvx --with pyyaml --with flask --with 'psycopg[binary]' pytest -q scripts/tests"
+
+
+def _files(tasks: list[str]) -> list[str]:
+    found: list[str] = []
+    text = " ".join(tasks)
+    for pattern, files in _FILES:
+        if re.search(pattern, text, re.IGNORECASE):
+            found += [name for name in files if name not in found]
+    return found
+
+
+def handoff(agent: str, tasks: list[str]) -> str:
+    """A prompt to paste into the other tool, with what it needs to do the job inside the repo's limits."""
+    task = "\n".join(f"- {item}" for item in tasks) if len(tasks) > 1 else tasks[0]
+    files = _files(tasks)
+    where = ("Files to start with:\n" + "\n".join(f"- {name}" for name in files) + "\n\n") if files else ""
+    if agent == CURSOR_EDITOR:
+        return (
+            f"{task}\n\n{where}"
+            "Keep the change to those files. Preview the desk with `python3 scripts/dashboard.py serve` "
+            "(http://127.0.0.1:8765). Do not touch alerts/, config/, or bench/golden/."
+        )
+    if agent == CURSOR_CLOUD:
+        return (
+            "Read AGENTS.md first and stay inside its limits.\n\n"
+            f"Task:\n{task}\n\n{where}"
+            "Rules for this change:\n"
+            "- Work on a cursor/ branch and open a PR to master.\n"
+            "- Do not edit alerts/ tapes, bench/golden/, config/freeze.yaml, config/agentic.yaml, or .env. Never place a broker order.\n"
+            f"- Run `{TEST_COMMAND}`; every test must pass, including test_freeze.\n"
+            "- If you change scripts/claim_alerts.py or scripts/robinhood_mcp.py, say so at the top of the PR so Claude reviews it before merge.\n\n"
+            "Done when: the PR is open, tests pass, and its description says what changed and how you checked it."
+        )
+    return (
+        f"{task}\n\n"
+        "(Handed over from Cursor. Follow AGENTS.md. If this changes what the checker decides, write it as a "
+        "proposal with the proposal skill instead of changing the code.)"
+    )
+
+
+def _block(agent: str, tasks: list[str]) -> str:
+    return f"Paste into {_NAMES[agent]}:\n```\n{handoff(agent, tasks)}\n```"
+
+
 def advice(prompt: str) -> str:
-    found = route(prompt)
-    if not found:
+    steps = plan(prompt)
+    if not steps or all(agent is None for agent, _ in steps):
         return "No clear route. Default: Claude Code for logic, Cursor for quick edits. See AGENTS.md."
-    agent, why, _ = found
-    if agent == NOBODY:
-        return f"Best fit: no agent. {why}"
-    return f"Best fit: {_NAMES[agent]}, because {why}"
+    lines = []
+    for agent, task in steps:
+        lines.append(f"- {_NAMES.get(agent, 'unclear')}: {task}")
+    blocks = []
+    for agent in (CLAUDE, CURSOR_CLOUD, CURSOR_EDITOR):
+        tasks = [task for who, task in steps if who == agent]
+        if tasks:
+            blocks.append(_block(agent, tasks))
+    nobody = [task for who, task in steps if who == NOBODY]
+    if nobody:
+        blocks.append(f"No agent for: {'; '.join(nobody)}. {next(w for a, _, w in _COMPILED if a == NOBODY)}")
+    return "Split:\n" + "\n".join(lines) + "\n\n" + "\n\n".join(blocks)
+
+
+def route_prompt(prompt: str, here: str) -> tuple[str, str]:
+    """What a prompt hook should do: ("allow", ""), ("block", message), or ("context", note for the agent).
+
+    All of it belongs elsewhere: block, and hand the operator a ready prompt.
+    Part of it belongs elsewhere: in Claude Code, let it run and tell Claude to
+    hand back a ready Cursor prompt for that part; Cursor cannot be told, so it
+    blocks with both prompts split out.
+    """
+    if OVERRIDE in prompt:
+        return "allow", ""
+    steps = [(agent, task) for agent, task in plan(prompt) if agent]
+    if not steps:
+        return "allow", ""
+    mine = [task for agent, task in steps if _tool(agent) == here]
+    theirs = [(agent, task) for agent, task in steps if _tool(agent) not in (here, NOBODY)]
+    nobody = [task for agent, task in steps if agent == NOBODY]
+    if nobody and not mine and not theirs:
+        why = next(w for a, _, w in _COMPILED if a == NOBODY)
+        return "block", f"AutoBonk: {why} Resend with {OVERRIDE} if you meant a code change."
+    if not theirs:
+        return "allow", ""
+    groups: dict[str, list[str]] = {}
+    for agent, task in theirs:
+        groups.setdefault(agent, []).append(task)
+    blocks = "\n\n".join(_block(agent, tasks) for agent, tasks in groups.items())
+    if not mine:
+        why = next(w for a, _, w in _COMPILED if a == theirs[0][0])
+        return "block", (
+            f"AutoBonk routing: this is a job for {_NAMES[theirs[0][0]]}, because {why}\n\n{blocks}\n\n"
+            f"Or resend with {OVERRIDE} to run it here anyway."
+        )
+    if here == CLAUDE:
+        return "context", (
+            "AutoBonk routing: part of this message belongs in Cursor. Do the Claude Code parts. For these parts, do not "
+            "do the work; end your reply with the ready-to-paste prompt below, in a code block, so the operator can "
+            f"send it:\n\n{blocks}"
+        )
+    return "block", (
+        "AutoBonk routing: this message mixes Claude Code and Cursor work.\n\n"
+        f"{_block(CLAUDE, [task for agent, task in steps if _tool(agent) == CLAUDE])}\n\n"
+        f"Then resend only this here:\n```\n{chr(10).join(mine)}\n```\n\nOr resend with {OVERRIDE} to do all of it here."
+    )
 
 
 def mismatch(prompt: str, here: str) -> str | None:
-    """A block message when the task belongs to a different tool than `here`."""
-    if OVERRIDE in prompt:
-        return None
-    found = route(prompt)
-    if not found:
-        return None
-    agent, why, scores = found
-    if agent == NOBODY:
-        return f"AutoBonk: {why} Resend with {OVERRIDE} if you meant something else (say, a code change)."
-    tool = CLAUDE if agent == CLAUDE else "cursor"
-    if tool == here:
-        return None
-    # Only block on a clear signal: the current tool scored nothing.
-    mine = scores[CLAUDE] if here == CLAUDE else scores[CURSOR_CLOUD] + scores[CURSOR_EDITOR]
-    if mine:
-        return None
-    return (
-        f"AutoBonk routing: this looks like a job for {_NAMES[agent]}, because {why} "
-        f"Open it there, or resend with {OVERRIDE} to run it here anyway."
-    )
+    """A block message when all of the task belongs to a different tool than `here`."""
+    action, message = route_prompt(prompt, here)
+    return message if action == "block" else None
 
 
 # ---- hook adapters ----------------------------------------------------------
@@ -324,9 +452,11 @@ def main(argv: list[str] | None = None) -> int:
             _claude_deny(reason)
         return 0
     if mode == "claude-prompt":
-        message = mismatch(data.get("prompt", ""), CLAUDE)
-        if message:
+        action, message = route_prompt(data.get("prompt", ""), CLAUDE)
+        if action == "block":
             print(json.dumps({"decision": "block", "reason": message}))
+        elif action == "context":
+            print(json.dumps({"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": message}}))
         return 0
     if mode == "cursor-shell":
         _cursor_permission(shell_refusal(data.get("command", "")))

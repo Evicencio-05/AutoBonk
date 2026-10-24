@@ -1,7 +1,7 @@
 ---
 title: Keep confirming each entry on the fill bar; do not switch to sending on the signal
 kind: decision
-status: open
+status: waiting
 created: 2026-10-23
 recommendation: accept
 ---
@@ -50,5 +50,5 @@ Re-run `entry_timing.py --options` at each weekly review on all live days. Revis
 Nothing to roll out. A later proposal will score bench entries at the fill-bar close instead of its open. That one moves golden fills, so it will need your bless.
 
 ## Operator decision
-Decision: <!-- accept / reject / wait -->
-Notes:
+Decision: wait
+Notes: 2026-10-23. Keep today's process while live trades come in. Claude re-runs the comparison at each weekly review and updates this proposal; decide when the evidence is there (30+ live trades).

@@ -11,7 +11,7 @@ The operator does the TA and makes the decisions. You do the research and the da
 
 | Kind | When | Changes a replayed decision? | Ships |
 |---|---|---|---|
-| `decision` | the weekly run (Friday after the close), or when asked | yes: entries, exits, skips, sizing, contract choice | only after the operator accepts it at the weekly review, then `freeze.py bless` by the operator |
+| `decision` | the weekly run (Friday after the close), or when asked. A `waiting` one is re-tested every weekly run | yes: entries, exits, skips, sizing, contract choice | only after the operator accepts it at the weekly review, then `freeze.py bless` by the operator |
 | `safety` | a day an alarm fired, a check crashed, or an exit failed | no: a crash, a retry, an alert, routing plumbing | any day, once the operator accepts it |
 
 If you are not sure, it is `decision`. Never label a decision change `safety` to get it in sooner.
@@ -19,8 +19,9 @@ If you are not sure, it is `decision`. Never label a decision change `safety` to
 ## Steps
 
 1. **Gather the data.** Run `python3 scripts/proposal_data.py` (add `--offline` if the broker is unreachable). Read the pack it writes in `learning/proposals/data/`: ledger totals, cuts, freeze progress, skips, alarms, and the open and decided proposals. Then read `learning/proposals.md` and every open file in `learning/proposals/`, so you never repeat a proposal or reopen a rejected one without new evidence.
-2. **Find the problem worth solving.** Rank the candidates by dollars at stake times how often they happen. A good candidate is a repeated loss pattern, a gap between live and what-if, an execution leak (slippage, fill lag, failed exits), or something the operator flagged in "What I saw that the checker did not" or in "Would I take it" answers that disagree with the checker. Pick one per proposal. On a weekly run, write at most two `decision` proposals.
-3. **Research it.** Use the tools that exist rather than eyeballing:
+2. **Re-test what is waiting.** For every proposal with `status: waiting`, re-run its test on the data that came in since. Add a dated "Update" section under Evidence with the new numbers. Revise the recommendation if the evidence moved, and say whether it has reached the sample it asked for. When it has, set `status: open` so the operator decides it at this week's review. Do this before writing new proposals.
+3. **Find the problem worth solving.** Rank the candidates by dollars at stake times how often they happen. A good candidate is a repeated loss pattern, a gap between live and what-if, an execution leak (slippage, fill lag, failed exits), or something the operator flagged in "What I saw that the checker did not" or in "Would I take it" answers that disagree with the checker. Pick one per proposal. On a weekly run, write at most two `decision` proposals.
+4. **Research it.** Use the tools that exist rather than eyeballing:
    - `python3 scripts/bench.py compare ...` on every fixture day for a setting change;
    - the ledger rows, cited by `ref`, for what each affected trade did and would have done;
    - `python3 scripts/entry_timing.py --options` for timing questions;
@@ -28,9 +29,9 @@ If you are not sure, it is `decision`. Never label a decision change `safety` to
    - the `backtest-expert` skill for robustness and overfitting checks.
 
    Test at least one alternative against the proposal. Count how many trades the evidence rests on.
-4. **Judge the evidence honestly.** State the sample. Under 10 affected trades is an anecdote. Under 30 is suggestive, not proven. Say whether a few trades drive the whole result, and what the result would be without the best one. If the evidence is not there yet, write the proposal anyway with **Recommendation: wait**, and say how many more trades would settle it.
-5. **Write the file** from the template below, as `learning/proposals/YYYY-MM-DD-short-slug.md`. Then add one line under Open in `learning/proposals.md`.
-6. **Do not implement it.** Implementation happens only after the operator marks it accepted, in a separate step: a setting with an off switch, tests, the freeze check, and the operator's bless.
+5. **Judge the evidence honestly.** State the sample. Under 10 affected trades is an anecdote. Under 30 is suggestive, not proven. Say whether a few trades drive the whole result, and what the result would be without the best one. If the evidence is not there yet, write the proposal anyway with **Recommendation: wait**, and say how many more trades would settle it.
+6. **Write the file** from the template below, as `learning/proposals/YYYY-MM-DD-short-slug.md`. Then add one line under Open in `learning/proposals.md`.
+7. **Do not implement it.** Implementation happens only after the operator marks it accepted, in a separate step: a setting with an off switch, tests, the freeze check, and the operator's bless.
 
 ## Template
 

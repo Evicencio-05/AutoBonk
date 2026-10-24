@@ -109,3 +109,33 @@ def test_hook_adapters_speak_each_tools_format(monkeypatch, capsys):
     assert _run("cursor-mcp", {"tool_name": "place_option_order"}, monkeypatch, capsys)["permission"] == "deny"
     assert _run("cursor-tool", {"tool_name": "Write", "tool_input": {"file_path": "config/agentic.yaml"}}, monkeypatch, capsys)["permission"] == "deny"
     assert _run("cursor-tool", {"tool_name": "Write", "tool_input": {"file_path": "scripts/x.py"}}, monkeypatch, capsys)["permission"] == "allow"
+
+
+def test_a_message_is_split_into_its_tasks():
+    tasks = guard.split_tasks("Make the dashboard legend bigger. Also why did the checker skip the retest?\n2. add a column to the blotter")
+    assert tasks == ["Make the dashboard legend bigger.", "Why did the checker skip the retest?", "Add a column to the blotter"]
+    agents = [agent for agent, _ in guard.plan("Make the dashboard legend bigger. Also why did the checker skip the retest?")]
+    assert agents == [guard.CURSOR_EDITOR, guard.CLAUDE]
+
+
+def test_a_redirect_hands_over_a_ready_prompt():
+    action, message = guard.route_prompt("add a column to the blotter and open a PR", guard.CLAUDE)
+    assert action == "block"
+    assert "Paste into a Cursor cloud agent" in message and "Read AGENTS.md first" in message
+    assert "scripts/blotter.py" in message and "cursor/ branch" in message and "test_freeze" in message
+
+
+def test_a_mixed_message_runs_here_and_hands_back_the_cursor_part(monkeypatch, capsys):
+    mixed = {"prompt": "why did the checker skip the retest? also make the dashboard legend bigger"}
+    out = _run("claude-prompt", mixed, monkeypatch, capsys)
+    note = out["hookSpecificOutput"]["additionalContext"]
+    assert "Do the Claude Code parts" in note and "Make the dashboard legend bigger" in note
+    assert "scripts/dashboard_page.html" in note and "Why did the checker" not in note.split("```")[1]
+    in_cursor = _run("cursor-prompt", mixed, monkeypatch, capsys)
+    assert in_cursor["continue"] is False
+    assert "Paste into Claude Code" in in_cursor["user_message"] and "Then resend only this here" in in_cursor["user_message"]
+
+
+def test_the_cli_shows_every_part_with_its_prompt():
+    text = guard.advice("Make the dashboard legend bigger. Also why did the checker skip the retest?")
+    assert text.startswith("Split:") and "Paste into Claude Code" in text and "Paste into Cursor in the editor" in text

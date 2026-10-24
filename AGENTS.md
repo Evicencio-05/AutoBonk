@@ -47,10 +47,17 @@ If a task names the checker's order logic and also the page (for example, "show 
 
 ## Routing check
 
-`beforeSubmitPrompt` (Cursor) and `UserPromptSubmit` (Claude Code) run the same router. A prompt that clearly belongs to the other tool is stopped with a note saying where to take it. Put `!here` in the prompt to run it where you are anyway. To check a task by hand:
+`beforeSubmitPrompt` (Cursor) and `UserPromptSubmit` (Claude Code) run the same router. It splits a message into its tasks (lines, sentences, numbered items, "also ...") and routes each one.
+
+- **All of it belongs in the other tool:** the prompt is stopped, and the message includes a ready-to-paste prompt for that tool. The prompt carries what it needs: read AGENTS.md, the files to start with, the limits, the test command, and what done means.
+- **A mix, sent to Claude Code:** Claude does its parts and ends its reply with a ready-to-paste Cursor prompt for the rest.
+- **A mix, sent to Cursor:** the prompt is stopped, with the Claude Code part as a ready prompt and the Cursor part to resend.
+- **`!here`** anywhere in the prompt runs all of it where you are.
+
+To see the split and the prompts without sending anything:
 
 ```bash
-python3 scripts/agent_guard.py route "describe the task"
+python3 scripts/agent_guard.py route "describe the task, or several"
 ```
 
-When a task you were handed belongs to another agent in the table, say so in the first line of your reply before doing any work.
+When a task you were handed belongs to another agent in the table, say so in the first line of your reply and give the ready-to-paste prompt for it.
