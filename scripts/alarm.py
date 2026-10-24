@@ -4,6 +4,7 @@
   python3 scripts/alarm.py test                  # one toast and one post, to check the wiring
   python3 scripts/alarm.py systemd autobonk-claims.service   # systemd OnFailure= calls this
   python3 scripts/alarm.py list                  # alarms still raised
+  python3 scripts/alarm.py ping AUTOBONK_CLOSE_HEARTBEAT_URL   # the close run pings its own check
 
 An alarm repeats every REPEAT_SECONDS while it stays raised, and stops when the
 checker clears it. Nothing here places or cancels an order.
@@ -76,8 +77,8 @@ def _discord(text: str) -> None:
         return
 
 
-def heartbeat(fail: bool = False, body: str = "") -> None:
-    url = _env("AUTOBONK_HEARTBEAT_URL")
+def heartbeat(fail: bool = False, body: str = "", name: str = "AUTOBONK_HEARTBEAT_URL") -> None:
+    url = _env(name)
     if not url:
         return
     target = url.rstrip("/") + ("/fail" if fail else "")
@@ -147,6 +148,10 @@ def main(argv: list[str] | None = None) -> int:
         toast("AutoBonk alarm test", "If you can read this, alarms reach the desktop.", "normal")
         _discord("AutoBonk alarm test. Alarms reach #ta. Not an order.")
         print("Sent one toast and one #ta post.")
+        return 0
+    if args[0] == "ping":
+        # The close run's own dead-man check: AUTOBONK_CLOSE_HEARTBEAT_URL in .env.
+        heartbeat(name=args[1] if len(args) > 1 else "AUTOBONK_HEARTBEAT_URL")
         return 0
     if args[0] == "systemd":
         unit = args[1] if len(args) > 1 else "autobonk"

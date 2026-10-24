@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import sys
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from pathlib import Path
 
 _SCRIPTS = Path(__file__).resolve().parent
@@ -23,6 +24,7 @@ if str(_SCRIPTS) not in sys.path:
 import dashboard  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
+PT = ZoneInfo("America/Los_Angeles")
 
 
 def _local(path: Path) -> str:
@@ -87,14 +89,17 @@ def _paper_open(root: Path) -> list[dict]:
     return opens
 
 
-def _watch_items(root: Path) -> list[dict]:
+def _watch_items(root: Path, today: str) -> list[dict]:
+    """Today's watches only. Friday's watches do not sit on the bar all weekend."""
     rows = dashboard._watch_rows(_local(root / "alerts" / "log.md"))
+    rows = [row for row in rows if str(row.get("time", "")).startswith(today)]
     return sorted(rows, key=lambda row: row["time"], reverse=True)
 
 
-def status(root: Path | None = None) -> dict:
+def status(root: Path | None = None, now: datetime | None = None) -> dict:
     root = ROOT if root is None else root
-    watches = _watch_items(root)
+    today = (now or datetime.now(PT)).astimezone(PT).date().isoformat()
+    watches = _watch_items(root, today)
     live = _live_open(root)
     paper = _paper_open(root)
     opens = live + paper

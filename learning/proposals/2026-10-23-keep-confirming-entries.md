@@ -32,6 +32,8 @@ Run it yourself with `python3 scripts/entry_timing.py --options`.
 - In option dollars asap won 4, lost 3, and tied 1. One TSLA trade (−$28 vs −$59) is more than its whole edge. Without it, asap trails confirm by $12 over 7 trades (−$150 vs −$138).
 - Luck can explain a gap this size on this many trades.
 
+- **Update 2026-10-23:** the bench now fills at the fill-bar close (`2026-10-24-honest-bench.md`), so the "Bench model" row equals "Confirm" from here on.
+
 ## Expected impact
 Keeping confirm: none, by definition. Switching to asap: somewhere between −$5 and +$5 per trade on this evidence. Low confidence either way.
 

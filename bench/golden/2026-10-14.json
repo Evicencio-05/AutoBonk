@@ -33,7 +33,7 @@
   "kind": "entry",
   "reason": "retest",
   "bar_time": "2026-10-14 08:00 PT",
-  "fill": 345.0899963378906
+  "fill": 345.239990234375
  },
  {
   "ticker": "AAPL",
@@ -105,7 +105,7 @@
   "kind": "entry",
   "reason": "retest",
   "bar_time": "2026-10-14 11:00 PT",
-  "fill": 152.27000427246094
+  "fill": 151.85040283203125
  },
  {
   "ticker": "SPCX",
@@ -132,7 +132,7 @@
   "kind": "entry",
   "reason": "retest",
   "bar_time": "2026-10-14 12:10 PT",
-  "fill": 151.66000366210938
+  "fill": 151.41000366210938
  },
  {
   "ticker": "SPCX",
@@ -222,7 +222,7 @@
   "kind": "entry",
   "reason": "retest",
   "bar_time": "2026-10-14 08:10 PT",
-  "fill": 354.1300048828125
+  "fill": 353.45001220703125
  },
  {
   "ticker": "GOOGL",
@@ -258,7 +258,7 @@
   "kind": "entry",
   "reason": "retest",
   "bar_time": "2026-10-14 10:00 PT",
-  "fill": 351.1449890136719
+  "fill": 350.5400085449219
  },
  {
   "ticker": "GOOGL",
@@ -312,7 +312,7 @@
   "kind": "entry",
   "reason": "retest",
   "bar_time": "2026-10-14 06:40 PT",
-  "fill": 225.60499572753906
+  "fill": 225.32400512695312
  },
  {
   "ticker": "NVDA",

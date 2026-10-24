@@ -69,7 +69,7 @@
   "kind": "entry",
   "reason": "retest",
   "bar_time": "2026-10-23 07:00 PT",
-  "fill": 324.5799865722656
+  "fill": 325.19000244140625
  },
  {
   "ticker": "AVGO",
@@ -114,7 +114,7 @@
   "kind": "entry",
   "reason": "retest",
   "bar_time": "2026-10-23 09:40 PT",
-  "fill": 324.9200134277344
+  "fill": 325.3949890136719
  },
  {
   "ticker": "AVGO",
@@ -195,7 +195,7 @@
   "kind": "entry",
   "reason": "retest",
   "bar_time": "2026-10-23 07:40 PT",
-  "fill": 322.9800109863281
+  "fill": 323.0
  },
  {
   "ticker": "GOOGL",
@@ -267,7 +267,7 @@
   "kind": "entry",
   "reason": "retest",
   "bar_time": "2026-10-23 11:00 PT",
-  "fill": 322.42498779296875
+  "fill": 322.2799987792969
  },
  {
   "ticker": "GOOGL",
@@ -330,7 +330,7 @@
   "kind": "entry",
   "reason": "retest",
   "bar_time": "2026-10-23 09:10 PT",
-  "fill": 645.4099731445312
+  "fill": 646.635009765625
  },
  {
   "ticker": "META",
@@ -501,7 +501,7 @@
   "kind": "entry",
   "reason": "retest",
   "bar_time": "2026-10-23 10:40 PT",
-  "fill": 146.8249969482422
+  "fill": 146.9398956298828
  },
  {
   "ticker": "SPCX",
@@ -564,7 +564,7 @@
   "kind": "entry",
   "reason": "retest",
   "bar_time": "2026-10-23 06:40 PT",
-  "fill": 373.135009765625
+  "fill": 372.7560119628906
  },
  {
   "ticker": "TSLA",
@@ -618,7 +618,7 @@
   "kind": "entry",
   "reason": "retest",
   "bar_time": "2026-10-23 09:00 PT",
-  "fill": 372.8900146484375
+  "fill": 373.1549987792969
  },
  {
   "ticker": "TSLA",

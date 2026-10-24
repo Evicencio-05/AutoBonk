@@ -96,6 +96,10 @@ CHASE = 0.50
 # price must first trade this many 10-minute ATRs away from the level. 0 turns it off.
 FRESH_ATR = 1.0
 FRESH_SECONDS = 20 * 60
+# The cheapest live contract the checker will buy, per share. Below it the bid-ask spread alone
+# eats 13-17% of the trade (at 0.12-0.15). The operator set 0.15 for now and will raise it later (proposal 2026-10-24-contract-floor). The plan is still written and
+# scored as a what-if. 0 turns it off. This gates the order only; no replayed decision moves.
+MIN_PREMIUM = 0.15
 # $1 comparison. The debit compared below is the price of one share of the option.
 CONTRACT_CAP = 1.0
 # Thursday 2026-10-22 is the first live session. One contract.
@@ -193,6 +197,15 @@ VARIABLES = {
         "default": FRESH_ATR,
         "allowed": None,
         "decision": "entry",
+    },
+    # Where an entry is priced. The checker buys after the fill bar has closed, so "close" is what
+    # it can get. "open" is the old bench price, which used the fill bar's open while still knowing
+    # how that bar closed. The chase and reclaim checks are the same either way.
+    "entry_price": {
+        "type": "str",
+        "default": "close",
+        "allowed": ("close", "open"),
+        "decision": "fill",
     },
 }
 
@@ -996,7 +1009,10 @@ def _resolve_fill(
     if accept is not None and not accept(pending, bar):
         events.append(_event("skip", pending, bar, "contract", fill))
         return None
-    events.append(_event("entry", pending, bar, pending["reason"], fill))
+    at_close = (settings.get("entry_price") or "close") == "close"
+    entry = _event("entry", pending, bar, pending["reason"], bar["c"] if at_close else fill)
+    entry["fill_at"] = bar["close_at"] if at_close else bar["close_at"] - TEN_MIN
+    events.append(entry)
     return pending
 
 
@@ -2106,7 +2122,8 @@ def quote_paper(
             continue
         try:
             if event["kind"] == "entry":
-                start = event["close_at"] - TEN_MIN
+                # Price the contract when the order goes out: the fill bar's close.
+                start = int(event.get("fill_at") or event["close_at"] - TEN_MIN)
                 first, far = _target_pair(levels, event)
                 found = quote_contracts(
                     event["ticker"],
@@ -2481,6 +2498,8 @@ def entry_order_block(event: dict) -> str:
     named, premium = named_live_contract(rows, close_at)
     if named != label or premium is None:
         return "none"
+    if MIN_PREMIUM and float(premium) < MIN_PREMIUM:
+        return "floor"
     if not debit_fits(premium, event.get("cash")):
         return "over"
     return ""
@@ -2535,7 +2554,9 @@ def route_live_order(
     if event.get("kind") == "entry":
         if event.get("open") is False:
             return event
-        if not retry and entry_order_block(event):
+        blocked = "" if retry else entry_order_block(event)
+        if blocked:
+            event["order_block"] = blocked
             return event
         if not label:
             label = ((_role_row(event.get("contracts"), "cash") or {}).get("contract")) or ""

@@ -292,7 +292,8 @@ def test_a_backtest_reports_profit_and_follows_the_exit_variable():
     stats = report["summary"]["strategy"]
     assert report["name"] == "This test"
     assert stats["trades"] == 1
-    assert round(stats["net"], 2) == -0.75
+    # Priced at the fill bar's close, where the checker actually buys (entry_price), not its open.
+    assert round(stats["net"], 2) == -0.80
     assert stats["gross_loss"] == stats["max_drawdown"]
     assert stats["profit_factor"] == 0
     assert stats["wins"] == 0
@@ -301,7 +302,7 @@ def test_a_backtest_reports_profit_and_follows_the_exit_variable():
     assert report["settings"]["entry"] == "retest"
     assert report["settings"]["exit"] == "target"
     assert "stop_mode" not in report["settings"]
-    assert round(held["report"]["summary"]["strategy"]["net"], 2) == 5.55
+    assert round(held["report"]["summary"]["strategy"]["net"], 2) == 5.50  # priced at the fill bar close (entry_price)
     assert held["report"]["settings"]["flatten"] == "none"
     assert live["window"]["bars"] == 7
 

@@ -12,3 +12,5 @@ ExecStart=-/home/evice/repos/AutoBonk/.venv/bin/python3 /home/evice/repos/AutoBo
 ExecStart=/home/evice/repos/AutoBonk/.venv/bin/python3 /home/evice/repos/AutoBonk/scripts/review.py day
 # A safety note only when an alarm fired today. Its failure does not fail the close run.
 ExecStart=-/home/evice/repos/AutoBonk/.venv/bin/python3 /home/evice/repos/AutoBonk/scripts/proposals_auto.py daily
+# Last: tell the close run's dead-man check it finished. A failed step above stops the run before this.
+ExecStart=-/home/evice/repos/AutoBonk/.venv/bin/python3 /home/evice/repos/AutoBonk/scripts/alarm.py ping AUTOBONK_CLOSE_HEARTBEAT_URL
