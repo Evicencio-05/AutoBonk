@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Run Claude Code headless to draft proposals. The systemd timers call this.
 
-  python3 scripts/proposals_auto.py weekly          # Friday after the close: up to two decision proposals
+  python3 scripts/proposals_auto.py weekly          # Friday after the close: the automation audit, then up to
+                                                    # two decision proposals and one automation proposal
   python3 scripts/proposals_auto.py daily           # after the close: a safety note, only if something broke today
   python3 scripts/proposals_auto.py daily --dry-run # say what would run, run nothing
 
@@ -43,7 +44,9 @@ DENY = ["Bash(git push:*)", "Bash(git commit:*)", "WebFetch", "WebSearch"]
 
 WEEKLY = (
     "!here Use the proposal skill for the weekly AutoBonk proposal run. Run "
-    "python3 scripts/proposal_data.py first. Write at most two decision proposals in "
+    "python3 scripts/proposal_data.py first. Read learning/automation/latest.md (already written) "
+    "and write at most one automation proposal if a candidate passes the skill's automation rules. "
+    "Write at most two decision proposals in "
     "learning/proposals/, each with a recommendation, and list them under Open in "
     "learning/proposals.md. If the evidence does not support any change yet, write one "
     "short proposal that says so and what data would settle it. Do not implement anything, "
@@ -112,6 +115,13 @@ def main(argv: list[str] | None = None) -> int:
         if dry:
             print("would run the weekly proposal session")
             return 0
+        # The audit needs no model. If it fails, the proposal run still goes ahead.
+        try:
+            import automation_audit
+
+            automation_audit.main([])
+        except Exception as exc:  # noqa: BLE001
+            print(f"automation audit failed: {type(exc).__name__}: {exc}")
         return run(WEEKLY, "weekly")
     today = alarms_today()
     if not today:

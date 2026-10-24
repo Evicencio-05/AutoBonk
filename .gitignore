@@ -17,3 +17,4 @@ alerts/check_times.jsonl
 alerts/levels_ingest.json
 alerts/levels.prev.yaml
 alerts/levels.tmp
+learning/automation/

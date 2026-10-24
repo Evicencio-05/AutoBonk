@@ -26,6 +26,7 @@ This file is for every coding agent in this repo: Claude Code, Cursor in the edi
 - `scripts/discord_ta.py read|ingest`. Chart images land in `charts/inbox/`.
 - Write a levels file from an operator note, plus `learning/journal.md`, `learning/reviews/*.md`, `learning/drills.yaml`, `learning/proposals.md` and `learning/proposals/*.md` (never the Operator decision section), and `alerts/fade_forward.md`, as the learning rules describe. Never fill the "Would I take it" column for the operator.
 - `scripts/levels_ingest.py parse` (prints a book, writes nothing) and `arm` (from a saved operator note or a corrected line, per the `levels` skill). The timer runs `poll`. Never write `alerts/levels.yaml` by hand.
+- `scripts/automation_audit.py` (reads transcripts, writes `learning/automation/`).
 - `scripts/ledger.py sync|snapshot|show`, `scripts/review.py day|week`, `scripts/freeze.py status|check`, and `scripts/alarm.py list`.
 - Read-only broker calls: quotes, positions, balance, `review_option_order`.
 
@@ -47,6 +48,14 @@ This file is for every coding agent in this repo: Claude Code, Cursor in the edi
 | Placing, closing, or changing a trade | **No agent** | Checker or operator only. |
 
 If a task names the checker's order logic and also the page (for example, "show the cutoff on the dashboard"), it goes to Claude Code.
+
+## Pre-mortem
+
+Before building a change to `claim_alerts.py`, `robinhood_mcp.py`, or anything that writes the book or checker state, and before merging a Cursor PR, list up to five ways it could fail, money paths first, and run a check for each (the `premortem` skill). An item without a check does not count. Put the table in the PR under "Pre-mortem". Cursor cloud prompts from the router ask for this, and `/code-review` checks it.
+
+## Scripts before tokens
+
+Repeated mechanical work should be a script, not an agent run. `python3 scripts/automation_audit.py` reads the Claude Code and Cursor transcripts with no model and writes `learning/automation/latest.md`: the kinds of task, how often they come up, what they cost in tokens, and the command recipes that repeat. The weekly proposal run reads it and may write one `automation` proposal. The rule: keep the agent when its judgment is worth much more than its cost; otherwise script the mechanical part and leave the agent only the judgment, the way `levels_ingest.py arm` parses the note and the agent reads only the charts.
 
 ## Routing check
 
