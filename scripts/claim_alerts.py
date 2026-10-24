@@ -92,6 +92,9 @@ ATR_LENGTH = 14
 # A close has to clear the level by this much of the 10-minute ATR.
 BREAK_ATR = 0.5
 CHASE = 0.50
+# After a reclaim stop at a level, the next entry there needs a fresh retest:
+# price must first trade this many 10-minute ATRs away from the level. 0 turns it off.
+FRESH_ATR = 1.0
 FRESH_SECONDS = 20 * 60
 # $1 comparison. The debit compared below is the price of one share of the option.
 CONTRACT_CAP = 1.0
@@ -184,6 +187,12 @@ VARIABLES = {
         "default": BREAK_ATR,
         "allowed": None,
         "decision": "exit",
+    },
+    "fresh_atr": {
+        "type": "float",
+        "default": FRESH_ATR,
+        "allowed": None,
+        "decision": "entry",
     },
 }
 
@@ -900,6 +909,9 @@ def replay(
     prev = None
     seen: list[dict] = []
     history: list[dict] = []
+    # Levels stopped out by a reclaim this session, still waiting for price to leave.
+    stale: set[float] = set()
+    session = None
     for bar in bars:
         prior = history
         history = history + [bar]
@@ -907,6 +919,10 @@ def replay(
             prev2, prev = prev, bar
             continue
         seen.append(bar)
+        day = datetime.fromtimestamp(bar["close_at"], PT).date()
+        if day != session:
+            session, stale = day, set()
+        stale = {level for level in stale if not _left_level(bar, level, chosen)}
         if pending:
             opened = _resolve_fill(pending, bar, events, chosen, accept)
             pending = None
@@ -918,6 +934,8 @@ def replay(
             continue
         if position:
             if _finish(position, bar, events, include_reclaim=True, settings=chosen):
+                if events[-1]["reason"] == "reclaim" and float(chosen.get("fresh_atr") or 0) > 0:
+                    stale.add(round(float(position["level"]), 4))
                 position = None
             else:
                 watch = _rsi_watch(position, prev, bar)
@@ -930,6 +948,9 @@ def replay(
             if pending and _next_failed(seen, pending, chosen["touch"], chosen):
                 events.append(_event("skip", pending, bar, "next", None))
                 pending = None
+            if pending and round(float(pending["level"]), 4) in stale:
+                events.append(_event("skip", pending, bar, "fresh", None))
+                pending = None
             for watch in _sma_watches(prev2, prev, bar, levels, chosen, prior):
                 if (
                     pending
@@ -940,6 +961,15 @@ def replay(
                 events.append(_event("watch", watch, bar, "sma", None))
         prev2, prev = prev, bar
     return events
+
+
+def _left_level(bar: dict, level: float, settings: dict) -> bool:
+    """This bar traded fresh_atr ATRs away from the level, on either side. No ATR yet is not away."""
+    atr = bar.get("atr")
+    if not atr:
+        return False
+    distance = float(settings.get("fresh_atr") or 0) * float(atr)
+    return bar["h"] - level >= distance or level - bar["l"] >= distance
 
 
 def _resolve_fill(
@@ -1137,6 +1167,8 @@ def format_live(event: dict) -> str:
         extra = f" Next open {event['fill']:.2f} left the level."
     elif event["kind"] == "skip" and event["reason"] == "next":
         extra = " The next number was tagged and did not hold."
+    elif event["kind"] == "skip" and event["reason"] == "fresh":
+        extra = " Stopped at this level earlier and price has not left it since."
     elif event["kind"] == "skip" and event["reason"] == "contract":
         if event.get("last") is None and event.get("next") is None:
             extra = " This level has no further number, so no contract was chosen."
