@@ -101,8 +101,10 @@ None.
     assert "None." in page
     assert "No open trade." in page
     assert "No live plan yet." in page
-    assert "first live session" in page
-    assert page.index("<h2>Open trades</h2>") < page.index("<h2>Live session</h2>")
+    assert "The checker sends a qualifying entry and its exit" in page
+    assert page.index("<h2>Overview</h2>") < page.index("<h2>Live session</h2>") < page.index("<h2>Open trades</h2>")
+    assert "The ledger is empty" in page
+    assert "data-tab='home'" in page and "data-panel='reference'" in page
     assert "not an order" in page
     assert page.index("<h2>Open trades</h2>") < page.index("<h2>Live book</h2>")
     assert 'id="loaded"' in page
@@ -520,3 +522,27 @@ def test_a_short_calendar_asks_yahoo_for_five_days():
     assert dashboard._yahoo_span(date(2026, 10, 1), today) == "1mo"
     assert "about one month" in dashboard._calendar_note((date(2026, 9, 1), today), today)
     assert dashboard._calendar_note((date(2026, 10, 1), today), today) == ""
+
+
+def test_the_overview_scores_live_and_what_if_dollars():
+    import overview
+
+    rows = [
+        {"ref": "a", "mode": "live", "close_at": 1, "dollars": -11.0, "level_entry_number": 1, "minutes_after_open": 70,
+         "entry_fill": 0.13, "exit_reason": "reclaim", "ticker": "GOOGL", "side": "call", "day": "2026-10-23",
+         "entry_time": "2026-10-23 07:40 PT"},
+        {"ref": "b", "mode": "live", "close_at": 2, "dollars": 30.0, "level_entry_number": 2, "minutes_after_open": 270,
+         "entry_fill": 0.12, "exit_reason": "target", "ticker": "GOOGL", "side": "put", "day": "2026-10-23",
+         "entry_time": "2026-10-23 11:00 PT"},
+        {"ref": "c", "mode": "plan", "close_at": 3, "plan_dollars": -23.0, "level_entry_number": 1,
+         "plan_entry_premium": 0.41, "exit_reason": "reclaim", "ticker": "AVGO", "side": "call", "day": "2026-10-23",
+         "entry_time": "2026-10-23 09:40 PT"},
+    ]
+    page = overview.overview(rows, {}, {"active": True, "started": "2026-10-26", "target": 40, "closed": 1, "net": 30.0})
+    assert "+$19.00" in page and "−$23.00" in page
+    assert "1 of 40 closed live trades" in page
+    assert "None raised" in page and "data-tip=" in page and "Show as table" in page
+    table = overview.trades_table(rows)
+    assert table.count("<tr data-mode=") == 3 and "data-mode='plan'" in table
+    raised = overview.overview(rows, {"open|x": {"text": "GOOGL 320P still held"}}, {"target": 40})
+    assert "1 raised" in raised and "GOOGL 320P still held" in raised

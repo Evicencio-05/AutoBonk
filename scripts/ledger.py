@@ -670,6 +670,12 @@ def main(argv: list[str] | None = None) -> int:
         rows = build(orders=orders, broker=broker)
         write(rows)
         print(f"{len(rows)} trades -> {TRADES_PATH.relative_to(ROOT)} and {CSV_PATH.relative_to(ROOT)}")
+        import alarm
+        import blotter
+
+        snapshot_payload = {"rows": rows, "alarms": alarm.raised(), "updated_at": datetime.now(PT).isoformat()}
+        if blotter.store_ledger(snapshot_payload):
+            print("Snapshot stored for the hosted desk.")
         for mode in ("live", "plan", "paper"):
             print(summary(rows, mode))
         return 0

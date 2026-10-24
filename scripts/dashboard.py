@@ -30,9 +30,42 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "dashboard" / "index.html"
 
 
+def _ledger_data(root: Path) -> tuple[list[dict], dict, dict, str]:
+    """Ledger rows, raised alarms, freeze progress, and when the rows were built.
+
+    The hosted desk reads the snapshot `ledger.py sync` stores in the database.
+    Without one it reads the committed learning/trades.jsonl.
+    """
+    import freeze as freeze_mod
+    import ledger as ledger_mod
+
+    stamp = ""
+    rows: list[dict] = []
+    alarms: dict = {}
+    snapshot = blotter.load_ledger() if root.resolve() == ROOT.resolve() else None
+    if snapshot and isinstance(snapshot.get("rows"), list):
+        rows = snapshot["rows"]
+        alarms = snapshot.get("alarms") or {}
+        stamp = str(snapshot.get("updated_at") or "")
+    else:
+        rows = ledger_mod.load(root / "learning" / "trades.jsonl")
+        try:
+            alarms = json.loads((root / "alerts" / "alarms.json").read_text())
+        except (OSError, json.JSONDecodeError):
+            alarms = {}
+    progress = freeze_mod.progress(rows, freeze_mod.config(root / "config" / "freeze.yaml"))
+    return rows, alarms, progress, stamp
+
+
 def render(root: Path) -> str:
+    import overview
+
+    rows, alarms, progress, stamp = _ledger_data(root)
+    as_of = f"<p class='sub'>Ledger built {_esc(stamp[:16].replace('T', ' '))} PT.</p>" if stamp else ""
     return _page(
         [
+            ("Overview", overview.overview(rows, alarms, progress) + as_of, "overview"),
+            ("All trades", overview.trades_table(rows), "ledger"),
             ("Open trades", _paper(root), "trades"),
             ("Live session", _live_session(root), "session"),
             ("Watch", _watches(root), "watch"),
@@ -261,15 +294,11 @@ def _open_table(trades: list[dict]) -> str:
 
 
 def _live_session(root: Path) -> str:
-    """Plans for the first live session. A row is not an order."""
+    """The live tape: every entry and exit the checker wrote on a live session."""
     note = (
-        "<p>Thursday 2026-10-22 is the first live session. Agentic only. "
-        "One contract. The live debit has to fit the account balance. "
-        "A row is the plan. "
-        "On a next-day expiration the contract column is the nearest strike the balance can buy "
-        "that the far target can still reach. Halfway does not refuse that expiration. "
-        "The $1 strike stays on the row. "
-        "The open trades above are the paper tape through Wednesday.</p>"
+        "<p>Agentic account, one contract. The checker sends a qualifying entry and its exit. "
+        "A row with no order stays a plan: a balance that cannot pay, a 0DTE strike past halfway, "
+        "or an empty ladder. Broker fills and dollars for each row are on the Overview.</p>"
     )
     text = _read(root / "alerts" / "live.md")
     detailed = "$1 strike" in text
@@ -1537,38 +1566,43 @@ def _contain_tables(part: str) -> str:
 
 def _page(sections: list[tuple[str, str, str]]) -> str:
 
-    body = "".join(
-        f"<section id='{anchor}'><h2>{html.escape(title)}</h2>{_contain_tables(part)}</section>"
-        for title, part, anchor in sections
-    )
-    by_anchor = {anchor: title for title, _part, anchor in sections}
-    groups = (
-        ("Trades", ("trades", "session", "watch", "contracts")),
-        ("Lessons", ("lessons", "journal", "training")),
-        ("Rules", ("rules",)),
-        ("Backtest", ("backtest",)),
-        ("Rest", ("book", "fade", "alerts", "bench", "archives")),
-    )
-    used = {anchor for _label, anchors in groups for anchor in anchors}
-    nav_groups = []
-    for label, anchors in groups:
-        links = "".join(
-            f"<a href='#{anchor}'>{html.escape(by_anchor[anchor])}</a>"
-            for anchor in anchors
-            if anchor in by_anchor
-        )
-        if links:
-            nav_groups.append(f"<div class='nav-group'><span>{html.escape(label)}</span>{links}</div>")
-    leftover = "".join(
-        f"<a href='#{anchor}'>{html.escape(title)}</a>"
-        for title, _part, anchor in sections
-        if anchor not in used
-    )
+    by_anchor = {anchor: (title, part) for title, part, anchor in sections}
+    used = {anchor for _label, _tab, anchors in TABS for anchor in anchors}
+    tabs = [
+        (label, tab, [anchor for anchor in anchors if anchor in by_anchor]) for label, tab, anchors in TABS
+    ]
+    leftover = [anchor for _title, _part, anchor in sections if anchor not in used]
     if leftover:
-        nav_groups.append(f"<div class='nav-group'><span>Rest</span>{leftover}</div>")
-    nav = "".join(nav_groups)
+        tabs.append(("More", "more", leftover))
+    nav = []
+    panels = []
+    for label, tab, anchors in tabs:
+        if not anchors:
+            continue
+        nav.append(f"<a href='#{tab}' data-tab='{tab}' role='tab' aria-controls='{tab}'>{html.escape(label)}</a>")
+        inside = "".join(
+            f"<section id='{anchor}'><h2>{html.escape(by_anchor[anchor][0])}</h2>"
+            f"{_contain_tables(by_anchor[anchor][1])}</section>"
+            for anchor in anchors
+        )
+        jump = ""
+        if len(anchors) > 1:
+            jump = "<p class='jump'>" + " · ".join(
+                f"<a href='#{anchor}'>{html.escape(by_anchor[anchor][0])}</a>" for anchor in anchors
+            ) + "</p>"
+        panels.append(f"<div class='panel' id='{tab}' role='tabpanel' data-panel='{tab}'>{jump}{inside}</div>")
     template = Path(__file__).with_name("dashboard_page.html").read_text()
-    return template.replace("__NAV__", nav).replace("__BODY__", body)
+    return template.replace("__NAV__", "".join(nav)).replace("__BODY__", "".join(panels))
+
+
+# Tabs on the desk, in order. Every section anchor lives in one tab.
+TABS = (
+    ("Overview", "home", ("overview", "ledger")),
+    ("Today", "today", ("session", "trades", "watch", "contracts")),
+    ("Backtest", "test", ("backtest", "bench")),
+    ("Learning", "learn", ("lessons", "journal", "training", "fade")),
+    ("Reference", "reference", ("rules", "book", "alerts", "archives")),
+)
 
 
 def serve(host: str = "127.0.0.1", port: int = 8765) -> None:

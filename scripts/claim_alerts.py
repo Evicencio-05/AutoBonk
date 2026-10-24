@@ -1218,13 +1218,24 @@ def fetch_five_minute(ticker: str, span: str = "5d") -> list[tuple]:
         {"interval": "5m", "range": span, "includePrePost": "true"}
     )
     url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}?{query}"
-    request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-    try:
-        with urllib.request.urlopen(request, timeout=20) as response:
-            payload = json.loads(response.read().decode())
-    except urllib.error.HTTPError as exc:
-        detail = exc.read().decode(errors="replace")[:180]
-        raise SystemExit(f"{ticker} price history {exc.code}: {detail}") from exc
+    payload = None
+    for attempt in range(RETRIES):
+        request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        try:
+            with urllib.request.urlopen(request, timeout=20) as response:
+                payload = json.loads(response.read().decode())
+            break
+        except urllib.error.HTTPError as exc:
+            if exc.code in RETRY_CODES and attempt < RETRIES - 1:
+                _pause(exc, attempt)
+                continue
+            detail = exc.read().decode(errors="replace")[:180]
+            raise SystemExit(f"{ticker} price history {exc.code}: {detail}") from exc
+        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            if attempt < RETRIES - 1:
+                _pause(None, attempt)
+                continue
+            raise SystemExit(f"{ticker} price history unreachable: {exc}") from exc
     result = (payload.get("chart") or {}).get("result") or []
     if not result:
         raise SystemExit(f"{ticker} price history was empty")
@@ -1253,54 +1264,83 @@ def _token() -> str:
     return token
 
 
+RETRIES = 3
+RETRY_CODES = (429, 500, 502, 503, 504)
+# A Retry-After longer than this is not waited out inside a 10-minute check.
+MAX_PAUSE = 10.0
+
+
+def _pause(exc: urllib.error.HTTPError | None, attempt: int) -> None:
+    """Wait what the server asked for (Retry-After), else 1s then 2s."""
+    wait = float(attempt + 1)
+    if exc is not None:
+        header = (exc.headers or {}).get("Retry-After") if exc.headers else None
+        try:
+            wait = float(header) if header else wait
+        except ValueError:
+            pass
+    time.sleep(min(max(wait, 0.0), MAX_PAUSE))
+
+
+def _discord_call(token: str, path: str, body: dict | None = None):
+    """One Discord API call, retried on a rate limit or a server error."""
+    for attempt in range(RETRIES):
+        request = urllib.request.Request(
+            "https://discord.com/api/v10" + path,
+            data=None if body is None else json.dumps(body).encode(),
+            headers={
+                "Authorization": f"Bot {token}",
+                "User-Agent": "AutoBonk claim-alerts",
+                "Content-Type": "application/json",
+            },
+            method="GET" if body is None else "POST",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=20) as response:
+                raw = response.read()
+            return json.loads(raw.decode()) if raw else {}
+        except urllib.error.HTTPError as exc:
+            if exc.code in RETRY_CODES and attempt < RETRIES - 1:
+                _pause(exc, attempt)
+                continue
+            raise
+
+
 def _discord_get(token: str, path: str):
-    request = urllib.request.Request(
-        "https://discord.com/api/v10" + path,
-        headers={
-            "Authorization": f"Bot {token}",
-            "User-Agent": "AutoBonk claim-alerts",
-        },
-    )
-    with urllib.request.urlopen(request, timeout=20) as response:
-        return json.loads(response.read().decode())
+    return _discord_call(token, path)
 
 
 def _send_alert(text: str, notify: bool) -> None:
-    """Post one alert. A Discord refusal does not stop the rest of the check."""
+    """Post one alert. Nothing Discord does can stop the rest of the check."""
     if not notify:
         return
     try:
         notify_discord(text)
-    except urllib.error.HTTPError:
+    except Exception:  # noqa: BLE001
         return
+    except SystemExit:
+        return
+
+
+# The #ta channel id, found once per process. Every alert used to list every guild and channel.
+_CHANNEL: dict[str, str] = {}
+
+
+def _ta_channel(token: str) -> str:
+    if "ta" in _CHANNEL:
+        return _CHANNEL["ta"]
+    for guild in _discord_get(token, "/users/@me/guilds"):
+        for channel in _discord_get(token, f"/guilds/{guild['id']}/channels"):
+            if channel.get("name") == "ta" and channel.get("type") == 0:
+                _CHANNEL["ta"] = channel["id"]
+                return channel["id"]
+    raise SystemExit("Discord #ta was not found")
 
 
 def notify_discord(text: str) -> None:
     """Post one alert to #ta. The token is never printed."""
     token = _token()
-    channel_id = None
-    for guild in _discord_get(token, "/users/@me/guilds"):
-        for channel in _discord_get(token, f"/guilds/{guild['id']}/channels"):
-            if channel.get("name") == "ta" and channel.get("type") == 0:
-                channel_id = channel["id"]
-                break
-        if channel_id:
-            break
-    if not channel_id:
-        raise SystemExit("Discord #ta was not found")
-    body = json.dumps({"content": text}).encode()
-    request = urllib.request.Request(
-        f"https://discord.com/api/v10/channels/{channel_id}/messages",
-        data=body,
-        headers={
-            "Authorization": f"Bot {token}",
-            "User-Agent": "AutoBonk claim-alerts",
-            "Content-Type": "application/json",
-        },
-        method="POST",
-    )
-    with urllib.request.urlopen(request, timeout=20) as response:
-        response.read()
+    _discord_call(token, f"/channels/{_ta_channel(token)}/messages", {"content": text})
 
 
 def _store_rows(kind: str, lines: list[str], path: Path, real: Path) -> None:
@@ -4054,7 +4094,20 @@ def check(now: int | None = None, notify: bool = False) -> list[str]:
 
     originals = []
     for ticker, levels in grouped.items():
-        bars = add_indicators(ten_minute_bars(fetch_five_minute(ticker), moment))
+        try:
+            fetched = fetch_five_minute(ticker)
+        except (SystemExit, Exception) as exc:  # noqa: BLE001
+            # One ticker's bars failing skips that ticker this check. It does not stop the others.
+            if SEND_ORDERS:
+                alarm.raise_alarm(
+                    f"data|{ticker}",
+                    f"{ticker} price history failed ({str(exc)[:120]}). Its entries and exits wait for the next check.",
+                    now=moment,
+                )
+            continue
+        if SEND_ORDERS:
+            alarm.clear_alarm(f"data|{ticker}")
+        bars = add_indicators(ten_minute_bars(fetched, moment))
         usable = [
             bar
             for bar in bars

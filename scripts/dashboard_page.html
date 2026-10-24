@@ -175,6 +175,66 @@ try {
   @media (max-width: 560px) {
     .nav-group { flex-wrap: wrap; }
   }
+
+  /* Overview. Chart colors are validated against --card in both modes (dataviz palette). */
+  :root {
+    --s1: #2a78d6; --s2: #eb6834; --gain: #2a78d6; --loss: #e34948;
+    --grid: color-mix(in srgb, var(--ink) 12%, transparent);
+    --good: #0ca30c; --critical: #d03b3b;
+  }
+  html[data-theme="dark"] { --s1: #3987e5; --s2: #d95926; --gain: #3987e5; --loss: #e66767; }
+  .panel[hidden] { display: none; }
+  .jump { font-size: 0.85rem; margin: 0 0 10px; color: var(--status); }
+  .jump a { color: var(--brand); font-weight: 700; }
+  .hero { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px 28px; align-items: end; margin-bottom: 14px; }
+  .hero-label { display: block; color: var(--th); font-size: 0.72rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+  .hero-value { display: block; font-size: 3.4rem; font-weight: 800; line-height: 1.05; letter-spacing: -0.02em; color: var(--ink); }
+  .hero-note { margin: 4px 0 0; }
+  .meter { height: 12px; border-radius: 999px; background: color-mix(in srgb, var(--s1) 18%, var(--card)); overflow: hidden; margin: 8px 0 6px; }
+  .meter i { display: block; height: 100%; background: var(--s1); border-radius: 999px; }
+  .freeze small, .tile small { display: block; color: var(--muted); font-size: 0.8rem; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; margin: 0 0 16px; }
+  .tile { border: 2px solid var(--rule); border-radius: 14px; padding: 10px 12px; background: var(--sheet); min-width: 0; }
+  .tile span { display: block; color: var(--th); font-size: 0.7rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; }
+  .tile strong { display: block; font-size: 1.35rem; font-weight: 800; color: var(--ink); }
+  .tile.alert { border-color: var(--critical); }
+  .tile.alert b { color: var(--critical); }
+  .tile.ok b { color: var(--good); }
+  .chart-card { border: 2px solid var(--rule); border-radius: 14px; padding: 10px 12px 4px; background: var(--card); margin: 0 0 12px; min-width: 0; }
+  .chart-card h3 { margin: 2px 0 2px; font-size: 1rem; }
+  .chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr)); gap: 12px; }
+  .sub, .empty { font-size: 0.85rem; color: var(--muted); margin: 2px 0 8px; }
+  svg.chart { width: 100%; height: auto; display: block; overflow: visible; }
+  svg.chart .grid { stroke: var(--grid); stroke-width: 1; }
+  svg.chart .grid.zero { stroke: color-mix(in srgb, var(--ink) 35%, transparent); }
+  svg.chart .tick, svg.chart .value, svg.chart .end-label { fill: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+  svg.chart .end-label { fill: var(--ink); font-weight: 700; }
+  svg.chart .line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  svg.chart .line.s1 { stroke: var(--s1); } svg.chart .line.s2 { stroke: var(--s2); }
+  svg.chart .dot { stroke: var(--card); stroke-width: 2; }
+  svg.chart .dot.s1, svg.chart .bar.s1 { fill: var(--s1); }
+  svg.chart .dot.s2, svg.chart .bar.s2 { fill: var(--s2); }
+  svg.chart .hit { fill: transparent; cursor: pointer; outline: none; }
+  svg.chart .hit:focus-visible { stroke: var(--ink); stroke-width: 1.5; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 2px 0 4px; font-size: 0.82rem; color: var(--muted); }
+  .key { display: inline-flex; align-items: center; gap: 6px; }
+  .swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  .swatch.s1 { background: var(--s1); } .swatch.s2 { background: var(--s2); }
+  .tip { position: fixed; z-index: 50; pointer-events: none; max-width: 280px; padding: 6px 9px; border-radius: 8px;
+    background: var(--ink); color: var(--card); font-size: 0.8rem; font-weight: 700; box-shadow: 0 4px 14px rgb(0 0 0 / 25%); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 6px; }
+  .chip { box-shadow: none; background: var(--pill); color: var(--pill-ink); border-radius: 999px; padding: 2px 12px; }
+  .chip[aria-pressed="true"] { background: var(--current); color: #1a140f; }
+  #ledger-table td, #ledger-table th { white-space: nowrap; }
+  svg.chart.narrow-only { display: none; }
+  @media (max-width: 720px) {
+    svg.chart.wide-only { display: none; }
+    svg.chart.narrow-only { display: block; }
+    .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .hero { grid-template-columns: 1fr; }
+    .hero-value { font-size: 2.6rem; }
+    .chart-grid { grid-template-columns: 1fr; }
+  }
 </style>
 </head>
 <body>
@@ -182,7 +242,7 @@ try {
 <div class="mast">
 <a class="brand" href="#trades">AutoBonk <span class="stamp">BONK</span></a>
 <div class="status-line">
-<p class="status">Paper session. A row on this page is not an order.</p>
+<p class="status">Live on the Agentic account. The checker sends qualifying entries and their exits. This page sends nothing.</p>
 <p class="status" id="loaded">Loaded</p>
 </div>
 <button type="button" id="theme-toggle" aria-pressed="false">Dark</button>
@@ -223,18 +283,8 @@ if (themeToggle) {
   });
 }
 
-const navLinks = Array.from(document.querySelectorAll("nav a[href^='#']"));
-const navSections = navLinks
-  .map((link) => document.getElementById(link.getAttribute("href").slice(1)))
-  .filter(Boolean);
-function markCurrent(id) {
-  navLinks.forEach((link) => {
-    const on = link.getAttribute("href") === "#" + id;
-    link.classList.toggle("is-current", on);
-    if (on) link.setAttribute("aria-current", "location");
-    else link.removeAttribute("aria-current");
-  });
-}
+const tabLinks = Array.from(document.querySelectorAll("nav a[data-tab]"));
+const panels = Array.from(document.querySelectorAll(".panel"));
 function syncScrollPadding() {
   const bar = document.querySelector(".topbar");
   if (!bar) return;
@@ -243,18 +293,72 @@ function syncScrollPadding() {
 syncScrollPadding();
 window.addEventListener("resize", syncScrollPadding);
 
-const firstOnPage = navSections.slice().sort((a, b) => a.offsetTop - b.offsetTop)[0];
-if (location.hash) markCurrent(location.hash.slice(1));
-else if (firstOnPage) markCurrent(firstOnPage.id);
-if (navSections.length && "IntersectionObserver" in window) {
-  const seen = new IntersectionObserver((entries) => {
-    const visible = entries
-      .filter((entry) => entry.isIntersecting)
-      .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-    if (visible) markCurrent(visible.target.id);
-  }, { rootMargin: "-180px 0px -50% 0px", threshold: [0.15, 0.4] });
-  navSections.forEach((section) => seen.observe(section));
+// A hash names a tab or a section. A section opens its tab, then scrolls to itself.
+function showTab(tab, keepScroll) {
+  panels.forEach((panel) => { panel.hidden = panel.dataset.panel !== tab; });
+  tabLinks.forEach((link) => {
+    const on = link.dataset.tab === tab;
+    link.classList.toggle("is-current", on);
+    link.setAttribute("aria-selected", on ? "true" : "false");
+  });
+  try { localStorage.setItem("autobonk-tab", tab); } catch (error) {}
+  if (!keepScroll) window.scrollTo(0, 0);
 }
+function route() {
+  const id = location.hash.slice(1);
+  const target = id && document.getElementById(id);
+  const panel = target && (target.classList.contains("panel") ? target : target.closest(".panel"));
+  if (panel) {
+    showTab(panel.dataset.panel, target !== panel);
+    if (target !== panel) target.scrollIntoView();
+    return;
+  }
+  let saved = "";
+  try { saved = localStorage.getItem("autobonk-tab") || ""; } catch (error) {}
+  const first = panels.find((p) => p.dataset.panel === saved) || panels[0];
+  if (first) showTab(first.dataset.panel, true);
+}
+window.addEventListener("hashchange", route);
+route();
+
+// One floating tooltip for every chart mark with data-tip, on hover and on keyboard focus.
+const tip = document.createElement("div");
+tip.className = "tip";
+tip.setAttribute("role", "tooltip");
+tip.hidden = true;
+document.body.appendChild(tip);
+function placeTip(event, mark) {
+  tip.textContent = mark.getAttribute("data-tip");
+  tip.hidden = false;
+  const box = mark.getBoundingClientRect();
+  const x = event && event.clientX ? event.clientX : box.left + box.width / 2;
+  const y = event && event.clientY ? event.clientY : box.top;
+  const left = Math.min(Math.max(8, x + 12), window.innerWidth - tip.offsetWidth - 8);
+  const top = y - tip.offsetHeight - 12 < 8 ? y + 16 : y - tip.offsetHeight - 12;
+  tip.style.left = left + "px";
+  tip.style.top = top + "px";
+}
+document.querySelectorAll("[data-tip]").forEach((mark) => {
+  mark.addEventListener("mousemove", (event) => placeTip(event, mark));
+  mark.addEventListener("focus", () => placeTip(null, mark));
+  mark.addEventListener("mouseleave", () => { tip.hidden = true; });
+  mark.addEventListener("blur", () => { tip.hidden = true; });
+});
+
+// Mode chips above the trades table.
+document.querySelectorAll(".chips .chip").forEach((chip) => {
+  chip.addEventListener("click", () => {
+    const mode = chip.dataset.mode;
+    chip.parentElement.querySelectorAll(".chip").forEach((other) => {
+      other.setAttribute("aria-pressed", other === chip ? "true" : "false");
+    });
+    const table = document.getElementById("ledger-table");
+    if (!table) return;
+    Array.from(table.tBodies[0].rows).forEach((row) => {
+      row.hidden = mode !== "all" && row.dataset.mode !== mode;
+    });
+  });
+});
 
 function sortKey(text) {
   const raw = text.replace(/\s+mark$/i, "").trim();
