@@ -16,7 +16,7 @@ Read `PROJECT.md` once, then `rules/ta_rules.md`, `charts/pm_levels_index.md`, a
 - The fade test in `alerts/fade_forward.md` covered 2026-10-19 through 2026-10-21. The gate passed: profit factor 3.17, net +8.56 stock points, 13 closes. The fade record is paper. The live checker stays on the retest.
 - Do not edit `config/agentic.yaml` or `.env`. Do not print `TA_BOT_TOKEN` or account numbers.
 - Do not invent TA rules. If `rules/ta_rules.md` is still the blank template, stop and ask.
-- While `config/freeze.yaml` is active, no change may move a replayed decision (`scripts/tests/test_freeze.py`). Put rule ideas in `learning/proposals.md`. Never write the checker's tapes in `alerts/`. Only the checker writes them.
+- While `config/freeze.yaml` is active, no change may move a replayed decision (`scripts/tests/test_freeze.py`). Rule ideas become proposals in `learning/proposals/` (see `learning/proposals.md`). Never write the checker's tapes in `alerts/`. Only the checker writes them.
 - After new TA or a confirmed trade, update `learning/journal.md`. Patterns come only from trades that were taken.
 - The fast RSI line is purple: 14 RSI. Yellow is the 14 SMA smoothing. A claim or lose is a finished 10-minute close beyond the level by half the 14-period ATR. A close inside that band has not broken the level. The 15-cent touch is still only the wick. An alert is not an order.
 - Buy calls on a red candle and puts on a green candle. Sell calls into strength and puts into weakness. Posted levels are targets, so profit can be taken before the print.

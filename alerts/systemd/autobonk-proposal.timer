@@ -1,0 +1,9 @@
+[Unit]
+Description=Draft AutoBonk proposals after Friday's close
+
+[Timer]
+OnCalendar=Fri *-*-* 14:00:00 America/Los_Angeles
+Persistent=true
+
+[Install]
+WantedBy=timers.target

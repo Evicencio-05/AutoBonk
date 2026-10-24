@@ -11,3 +11,5 @@ alerts/broker.json
 .vercel
 .env*
 alerts/alarms.json
+alerts/alarm_log.jsonl
+learning/proposals/data/*.log

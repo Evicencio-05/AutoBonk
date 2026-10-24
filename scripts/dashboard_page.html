@@ -226,6 +226,16 @@ try {
   .chip { box-shadow: none; background: var(--pill); color: var(--pill-ink); border-radius: 999px; padding: 2px 12px; }
   .chip[aria-pressed="true"] { background: var(--current); color: #1a140f; }
   #ledger-table td, #ledger-table th { white-space: nowrap; }
+  .proposal { border: 2px solid var(--rule); border-radius: 14px; padding: 10px 14px; margin: 0 0 12px; background: var(--sheet); }
+  .proposal.open { border-color: var(--line); }
+  .proposal h3 { margin: 6px 0 4px; }
+  .proposal-head { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+  .proposal-head small { color: var(--muted); }
+  .pill { font-size: 0.7rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; padding: 1px 8px;
+    border-radius: 999px; border: 1px solid var(--rule); color: var(--th); }
+  .proposal.open .pill.status { background: var(--current); color: #1a140f; border-color: var(--current); }
+  .doc h3, .doc h4, .doc h5 { font-family: inherit; margin: 14px 0 4px; }
+  .doc code { font-size: 0.88em; }
   svg.chart.narrow-only { display: none; }
   @media (max-width: 720px) {
     svg.chart.wide-only { display: none; }

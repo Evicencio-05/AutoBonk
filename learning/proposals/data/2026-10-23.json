@@ -1,0 +1,417 @@
+{
+ "built": "2026-10-23T19:26-07:00",
+ "totals": {
+  "live": {
+   "mode": "live",
+   "trades": 3,
+   "net": -26.0,
+   "win_rate": 0.0,
+   "avg_win": null,
+   "avg_loss": -8.67,
+   "expectancy": -8.67,
+   "profit_factor": 0.0
+  },
+  "plan": {
+   "mode": "plan",
+   "trades": 7,
+   "net": -45.0,
+   "win_rate": 14.3,
+   "avg_win": 213.0,
+   "avg_loss": -43.0,
+   "expectancy": -6.43,
+   "profit_factor": 0.83
+  },
+  "paper": {
+   "mode": "paper",
+   "trades": 6,
+   "net": 480.0,
+   "win_rate": 33.3,
+   "avg_win": 328.5,
+   "avg_loss": -44.25,
+   "expectancy": 80.0,
+   "profit_factor": 3.71
+  }
+ },
+ "freeze": {
+  "active": true,
+  "started": "2026-10-26",
+  "target": 40,
+  "closed": 0,
+  "net": 0,
+  "done": false
+ },
+ "cuts": {
+  "entry_number_at_level": {
+   "1": {
+    "live": {
+     "n": 1,
+     "net": -11.0,
+     "win": 0
+    },
+    "what_if": {
+     "n": 6,
+     "net": -26.0,
+     "win": 17
+    }
+   },
+   "2": {
+    "live": {
+     "n": 1,
+     "net": -12.0,
+     "win": 0
+    },
+    "what_if": {
+     "n": 1,
+     "net": -19.0,
+     "win": 0
+    }
+   },
+   "3": {
+    "live": {
+     "n": 1,
+     "net": -3.0,
+     "win": 0
+    },
+    "what_if": null
+   }
+  },
+  "after_a_stop_at_the_level": {
+   "False": {
+    "live": {
+     "n": 1,
+     "net": -11.0,
+     "win": 0
+    },
+    "what_if": {
+     "n": 6,
+     "net": -26.0,
+     "win": 17
+    }
+   },
+   "True": {
+    "live": {
+     "n": 2,
+     "net": -15.0,
+     "win": 0
+    },
+    "what_if": {
+     "n": 1,
+     "net": -19.0,
+     "win": 0
+    }
+   }
+  },
+  "hour": {
+   "06h PT": {
+    "live": null,
+    "what_if": {
+     "n": 1,
+     "net": -142.0,
+     "win": 0
+    }
+   },
+   "07h PT": {
+    "live": {
+     "n": 1,
+     "net": -11.0,
+     "win": 0
+    },
+    "what_if": null
+   },
+   "08h PT": {
+    "live": null,
+    "what_if": {
+     "n": 1,
+     "net": 213.0,
+     "win": 100
+    }
+   },
+   "09h PT": {
+    "live": null,
+    "what_if": {
+     "n": 3,
+     "net": -75.0,
+     "win": 0
+    }
+   },
+   "10h PT": {
+    "live": null,
+    "what_if": {
+     "n": 2,
+     "net": -41.0,
+     "win": 0
+    }
+   },
+   "11h PT": {
+    "live": {
+     "n": 2,
+     "net": -15.0,
+     "win": 0
+    },
+    "what_if": null
+   }
+  },
+  "ticker": {
+   "AVGO": {
+    "live": {
+     "n": 1,
+     "net": -3.0,
+     "win": 0
+    },
+    "what_if": {
+     "n": 2,
+     "net": -42.0,
+     "win": 0
+    }
+   },
+   "GOOGL": {
+    "live": {
+     "n": 2,
+     "net": -23.0,
+     "win": 0
+    },
+    "what_if": null
+   },
+   "META": {
+    "live": null,
+    "what_if": {
+     "n": 1,
+     "net": -17.0,
+     "win": 0
+    }
+   },
+   "SPCX": {
+    "live": null,
+    "what_if": {
+     "n": 2,
+     "net": 191.0,
+     "win": 50
+    }
+   },
+   "TSLA": {
+    "live": null,
+    "what_if": {
+     "n": 2,
+     "net": -177.0,
+     "win": 0
+    }
+   }
+  },
+  "side": {
+   "call": {
+    "live": {
+     "n": 2,
+     "net": -14.0,
+     "win": 0
+    },
+    "what_if": {
+     "n": 5,
+     "net": -239.0,
+     "win": 0
+    }
+   },
+   "put": {
+    "live": {
+     "n": 1,
+     "net": -12.0,
+     "win": 0
+    },
+    "what_if": {
+     "n": 2,
+     "net": 194.0,
+     "win": 50
+    }
+   }
+  },
+  "days_to_expiration": {
+   "0": {
+    "live": {
+     "n": 3,
+     "net": -26.0,
+     "win": 0
+    },
+    "what_if": {
+     "n": 5,
+     "net": -116.0,
+     "win": 0
+    }
+   },
+   "1": {
+    "live": null,
+    "what_if": {
+     "n": 1,
+     "net": 213.0,
+     "win": 100
+    }
+   },
+   "7": {
+    "live": null,
+    "what_if": {
+     "n": 1,
+     "net": -142.0,
+     "win": 0
+    }
+   }
+  },
+  "premium": {
+   "0.20-0.50": {
+    "live": null,
+    "what_if": {
+     "n": 5,
+     "net": -116.0,
+     "win": 0
+    }
+   },
+   "0.50-1.00": {
+    "live": null,
+    "what_if": {
+     "n": 1,
+     "net": 213.0,
+     "win": 100
+    }
+   },
+   "<0.20": {
+    "live": {
+     "n": 3,
+     "net": -26.0,
+     "win": 0
+    },
+    "what_if": null
+   },
+   ">=1.00": {
+    "live": null,
+    "what_if": {
+     "n": 1,
+     "net": -142.0,
+     "win": 0
+    }
+   }
+  },
+  "exit_reason": {
+   "clock": {
+    "live": null,
+    "what_if": {
+     "n": 1,
+     "net": 213.0,
+     "win": 100
+    }
+   },
+   "expiry": {
+    "live": {
+     "n": 1,
+     "net": -12.0,
+     "win": 0
+    },
+    "what_if": null
+   },
+   "reclaim": {
+    "live": {
+     "n": 2,
+     "net": -14.0,
+     "win": 0
+    },
+    "what_if": {
+     "n": 6,
+     "net": -258.0,
+     "win": 0
+    }
+   }
+  },
+  "candle": {
+   "green": {
+    "live": {
+     "n": 1,
+     "net": -12.0,
+     "win": 0
+    },
+    "what_if": {
+     "n": 2,
+     "net": 194.0,
+     "win": 50
+    }
+   },
+   "red": {
+    "live": {
+     "n": 2,
+     "net": -14.0,
+     "win": 0
+    },
+    "what_if": {
+     "n": 5,
+     "net": -239.0,
+     "win": 0
+    }
+   }
+  },
+  "operator_take": {
+   "unlabeled": {
+    "live": {
+     "n": 3,
+     "net": -26.0,
+     "win": 0
+    },
+    "what_if": {
+     "n": 7,
+     "net": -45.0,
+     "win": 14
+    }
+   }
+  }
+ },
+ "execution": {
+  "live_trades": 3,
+  "fill_lag_minutes": {
+   "n": 3,
+   "median": 11.216666666666667,
+   "max": 30.7
+  },
+  "entry_slippage_per_share": {
+   "n": 3,
+   "mean": -0.01
+  },
+  "expired_without_a_sell": [
+   "1023-1100-GOOGL-put"
+  ],
+  "exit_routing": {
+   "skip": 3,
+   "sent": 1
+  },
+  "exit_retries_over_one": [],
+  "gave_back": [
+   {
+    "ref": "1023-1100-GOOGL-put",
+    "best": 49.0,
+    "result": -12.0
+   }
+  ]
+ },
+ "skips_by_day": {
+  "2026-10-16": {
+   "chase": 1,
+   "reclaim": 1
+  },
+  "2026-10-19": {
+   "reclaim": 1
+  },
+  "2026-10-20": {
+   "reclaim": 1
+  },
+  "2026-10-21": {
+   "contract": 2,
+   "reclaim": 3
+  },
+  "2026-10-22": {
+   "chase": 6,
+   "next": 27,
+   "contract": 1
+  },
+  "2026-10-23": {
+   "next": 14,
+   "chase": 3,
+   "reclaim": 1
+  }
+ },
+ "alarms_raised": {},
+ "operator_notes": [],
+ "proposals": []
+}

@@ -16,7 +16,7 @@ The draft fills Numbers, Taken, Signals with no order, Re-entries, Skips, and Al
 1. **Would I take it.** One word per signal (yes, no, or unsure) and a short reason, from your own read of the chart at that candle. This is the main check: it measures whether the checker trades your TA, and `ledger.py sync` copies the answers into the dataset as `operator_take`.
 2. **What I saw that the checker did not.** Levels you would have skipped, exits you would have taken, anything no rule covers.
 3. **Lessons.** What repeated, and on which earlier day. A pattern needs the same feature in more than one taken trade.
-4. **Proposals.** A rule you want changed goes to `learning/proposals.md`, not into the checker.
+4. **Proposals.** A rule you want changed: write it here, or ask Claude for a proposal. Claude researches it into `learning/proposals/` for the weekly review, and nothing goes into the checker before then.
 
 Then run `python3 scripts/ledger.py sync` once more so your answers land in the ledger.
 
