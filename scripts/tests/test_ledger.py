@@ -285,3 +285,31 @@ def test_proposal_markdown_renders_headings_lists_and_tables():
     html = markdown("---\ntitle: t\n---\n\n# T\n\n## Summary\nOne **bold** line.\n\n- a\n- b\n\n| A | B |\n|---|---|\n| 1 | 2 |\n")
     assert "<h3>T</h3>" in html and "<strong>bold</strong>" in html
     assert html.count("<li>") == 2 and "<td>1</td>" in html and "title: t" not in html
+
+
+def test_a_check_records_its_steps_and_first_order(tmp_path):
+    clock = claim._StepClock()
+    clock.lap("balance")
+    clock.add("routing", 1.5)
+    clock.ordered()
+    clock.requests["option"] += 3
+    path = tmp_path / "times.jsonl"
+    clock.record(_at(11, 1), [{"kind": "entry"}, {"kind": "exit"}], path)
+    line = __import__("json").loads(path.read_text())
+    assert line["entries"] == 1 and line["exits"] == 1 and line["steps"]["routing"] == 1.5
+    assert line["first_order_s"] is not None and line["requests"]["option"] == 3
+    clock.record(_at(11, 1), [], tmp_path / "missing" / "times.jsonl")
+
+
+def test_the_review_says_where_entry_checks_spend_their_time(tmp_path):
+    import json
+
+    path = tmp_path / "times.jsonl"
+    path.write_text("\n".join(json.dumps(run) for run in (
+        {"at": "2026-10-26T09:01", "total": 300.0, "first_order_s": 280.0, "entries": 1, "steps": {"pricing": 1.0, "sellouts": 250.0}},
+        {"at": "2026-10-26T09:11", "total": 5.0, "first_order_s": None, "entries": 0, "steps": {"pricing": 0.0, "sellouts": 2.0}},
+        {"at": "2026-10-25T09:11", "total": 99.0, "entries": 0, "steps": {"x": 99.0}},
+    )))
+    text = review.check_speed("2026-10-26", path)
+    assert text.startswith("2 checks") and "first order after a median 280s" in text and "sellouts 250s" in text
+    assert review.check_speed("2026-10-27", path) == "No timings recorded."

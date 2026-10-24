@@ -36,6 +36,10 @@ CURSOR_DB = Path.home() / ".config" / "Cursor" / "User" / "globalStorage" / "sta
 _SAFE_STORAGE = b"peanuts"
 
 
+# Tool calls made by this process. The checker logs it per check (alerts/check_times.jsonl).
+CALLS = 0
+
+
 class BrokerError(RuntimeError):
     """The trading MCP could not take the order."""
 
@@ -469,6 +473,8 @@ class RobinhoodBroker:
         self._post({"jsonrpc": "2.0", "method": "notifications/initialized"})
 
     def tool(self, name: str, arguments: dict) -> dict:
+        global CALLS
+        CALLS += 1
         self._ensure()
         return unwrap_tool(
             self._post(

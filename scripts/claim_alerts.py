@@ -1214,6 +1214,7 @@ def _rsi_text(bar: dict) -> str:
 
 
 def fetch_five_minute(ticker: str, span: str = "5d") -> list[tuple]:
+    _CLOCK.requests["stock"] += 1
     query = urllib.parse.urlencode(
         {"interval": "5m", "range": span, "includePrePost": "true"}
     )
@@ -1788,6 +1789,7 @@ def fetch_option_minutes(symbol: str, span: str = "1d") -> list[tuple]:
     that limit as a missing strike empties the ladder and leaves no status.
     A minute that printed a close still counts when the open is blank.
     """
+    _CLOCK.requests["option"] += 1
     query = urllib.parse.urlencode(
         {"interval": "1m", "range": span, "includePrePost": "true"}
     )
@@ -4077,9 +4079,63 @@ def audit_positions(moment: int, broker=None, book_path: Path | None = None, rai
     return raised
 
 
+CHECK_TIMES_PATH = ROOT / "alerts" / "check_times.jsonl"
+
+
+class _StepClock:
+    """Seconds per step of one check, and how long until its first order went out.
+
+    Accepted proposal 2026-10-23-time-the-check: entry checks took 2.5 to 6
+    minutes and nobody knew where. Timing never changes a decision, and a
+    timing failure is ignored.
+    """
+
+    def __init__(self) -> None:
+        self.start = time.monotonic()
+        self.last = self.start
+        self.steps: dict[str, float] = {}
+        self.first_order: float | None = None
+        self.requests: dict[str, int] = {"stock": 0, "option": 0}
+
+    def lap(self, name: str) -> None:
+        now = time.monotonic()
+        self.steps[name] = round(self.steps.get(name, 0.0) + now - self.last, 2)
+        self.last = now
+
+    def add(self, name: str, seconds: float) -> None:
+        self.steps[name] = round(self.steps.get(name, 0.0) + seconds, 2)
+
+    def ordered(self) -> None:
+        if self.first_order is None:
+            self.first_order = round(time.monotonic() - self.start, 2)
+
+    def record(self, moment: int, live: list[dict], path: Path | None = None) -> None:
+        try:
+            broker = sys.modules.get("robinhood_mcp")
+            line = {
+                "at": datetime.fromtimestamp(moment, PT).isoformat(timespec="minutes"),
+                "total": round(time.monotonic() - self.start, 2),
+                "first_order_s": self.first_order,
+                "entries": sum(1 for event in live if event.get("kind") == "entry"),
+                "exits": sum(1 for event in live if event.get("kind") == "exit"),
+                "steps": self.steps,
+                "requests": {**self.requests, "broker": getattr(broker, "CALLS", 0) if broker else 0},
+            }
+            with (path or CHECK_TIMES_PATH).open("a") as handle:
+                handle.write(json.dumps(line) + "\n")
+        except Exception:  # noqa: BLE001
+            return
+
+
+_CLOCK = _StepClock()
+
+
 def check(now: int | None = None, notify: bool = False) -> list[str]:
+    global _CLOCK
+    clock = _CLOCK = _StepClock()
     spec = load_levels()
     cash = read_agentic_cash()
+    clock.lap("balance")
     armed_at = int(spec["armed_at"].timestamp())
     moment = int(datetime.now(PT).timestamp()) if now is None else now
     fired = load_state()
@@ -4094,8 +4150,10 @@ def check(now: int | None = None, notify: bool = False) -> list[str]:
 
     originals = []
     for ticker, levels in grouped.items():
+        fetch_started = time.monotonic()
         try:
             fetched = fetch_five_minute(ticker)
+            clock.add("bars_fetch", time.monotonic() - fetch_started)
         except (SystemExit, Exception) as exc:  # noqa: BLE001
             # One ticker's bars failing skips that ticker this check. It does not stop the others.
             if SEND_ORDERS:
@@ -4122,6 +4180,7 @@ def check(now: int | None = None, notify: bool = False) -> list[str]:
                 continue
             originals.append(event)
     save_state(fired, no_contract=blocked, taken=taken)
+    clock.lap("bars_and_replay")
     paper_src = []
     live_src = []
     other = []
@@ -4137,8 +4196,12 @@ def check(now: int | None = None, notify: bool = False) -> list[str]:
     paper_open = paper_rows(paper_text)
     live_open = paper_rows(live_text)
     stamp_sellouts(live_open)
+    clock.lap("sellouts")
+    quoted_paper = quote_paper(paper_src, spec["levels"]) if paper_src else []
+    quoted_live = quote_paper(live_src, spec["levels"], path=LIVE_PATH, cash=cash) if live_src else []
+    clock.lap("pricing")
     final_paper = apply_contract_exits(
-        quote_paper(paper_src, spec["levels"]) if paper_src else [],
+        quoted_paper,
         paper_open,
         moment,
         marks=_mark_premiums(paper_text),
@@ -4146,13 +4209,14 @@ def check(now: int | None = None, notify: bool = False) -> list[str]:
         option_mark=_option_mark_at,
     )
     final_live = apply_contract_exits(
-        quote_paper(live_src, spec["levels"], path=LIVE_PATH, cash=cash) if live_src else [],
+        quoted_live,
         live_open,
         moment,
         marks=_mark_premiums(live_text),
         stock_bar=_stock_bar_at,
         option_mark=_option_mark_at,
     )
+    clock.lap("exits")
     cached: dict[str, list[dict]] = {}
 
     def bars_for(ticker: str, at: int) -> list[dict]:
@@ -4176,6 +4240,7 @@ def check(now: int | None = None, notify: bool = False) -> list[str]:
         final_paper.extend(quote_paper(settled_paper, spec["levels"]))
     if settled_live:
         final_live.extend(quote_paper(settled_live, spec["levels"], path=LIVE_PATH, cash=cash))
+    clock.lap("settle")
     messages = []
     quiet = []
     paper = []
@@ -4191,21 +4256,27 @@ def check(now: int | None = None, notify: bool = False) -> list[str]:
         if routed == "drop" and event.get("reason") != "expiry" and not kept:
             return
         if live_row and event.get("kind") in ("entry", "exit"):
+            routing_started = time.monotonic()
             try:
                 route_live_order(event, cash=cash)
+                if event.get("order_id"):
+                    clock.ordered()
             except Exception as exc:
                 alarm.raise_alarm(
                     f"route|{identity}",
                     f"{event['ticker']} live {event['kind']} could not be routed "
                     f"({type(exc).__name__}). Check the Agentic account by hand.",
                 )
+            clock.add("routing", time.monotonic() - routing_started)
         if routed != "drop" or kept:
             line = live_notice(event) if live_row else format_live(event)
             if routed == "alert":
+                alert_started = time.monotonic()
                 _send_alert(line, notify)
                 messages.append(line)
                 if live_row:
                     notify_live(event)
+                clock.add("alerts", time.monotonic() - alert_started)
             else:
                 quiet.append(line)
         if event.get("kind") in ("entry", "exit"):
@@ -4221,6 +4292,7 @@ def check(now: int | None = None, notify: bool = False) -> list[str]:
     for event in final_live:
         publish(event, True)
     save_state(fired, no_contract=blocked, taken=taken)
+    clock.lap("publish")
     logged = messages + quiet
     if logged:
         append_log(logged)
@@ -4236,27 +4308,32 @@ def check(now: int | None = None, notify: bool = False) -> list[str]:
     for event in paper:
         if route_event(event, moment) == "alert":
             notify_paper(event)
+    clock.lap("tapes")
     repaired = fill_missing_contracts(spec["levels"])
     repaired_live = fill_missing_contracts(spec["levels"], LIVE_PATH, cash=cash)
     repaired_premium = repair_exit_premiums(PAPER_PATH)
     repaired_premium_live = repair_exit_premiums(LIVE_PATH)
     comparison = close_expired_contracts(moment)
-    if (
+    changed = (
         paper
         or live
         or repaired
         or repaired_live
         or repaired_premium
         or repaired_premium_live
-        or         comparison
+        or comparison
         or refresh_open_marks(now=moment)
         or refresh_contract_marks(now=moment)
-    ):
+    )
+    clock.lap("repairs_and_marks")
+    if changed:
         refresh_dashboard()
+    clock.lap("dashboard")
     try:
         retry_live_orders(cash=cash)
     except Exception as exc:
         alarm.raise_alarm("retry", f"Retrying failed live orders broke ({type(exc).__name__}).")
+    clock.lap("retry")
     record_events(live, "live")
     record_events(paper, "paper")
     if not SEND_ORDERS:
@@ -4279,6 +4356,8 @@ def check(now: int | None = None, notify: bool = False) -> list[str]:
                 f"Open Agentic positions could not be checked ({type(exc).__name__}). Check them by hand.",
                 now=moment,
             )
+    clock.lap("audit")
+    clock.record(moment, live)
     return logged
 
 

@@ -1,7 +1,7 @@
 ---
 title: Time every step of the 10-minute check, so we can find what delays entry orders
 kind: safety
-status: open
+status: accepted
 created: 2026-10-23
 recommendation: accept
 ---
@@ -43,5 +43,5 @@ Every Friday check that found an entry took 4 to 6 minutes; every check without 
 - Rollback: delete the timer lines. Nothing reads the file except the review.
 
 ## Operator decision
-Decision: <!-- accept / reject / wait -->
-Notes:
+Decision: accept
+Notes: Accepted by the operator 2026-10-23. Shipped the same night: alerts/check_times.jsonl and the Check speed line in the daily review.
