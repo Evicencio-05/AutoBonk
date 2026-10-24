@@ -322,7 +322,8 @@ def attach_orders(trades: list[dict], orders: list[dict], book: dict, broker=Non
             trade["mode"] = "plan"
             _counterfactual(trade, broker)
             trade["no_order_reason"] = (
-                entry_record.get("broker_reason")
+                trade.get("order_block")
+                or entry_record.get("broker_reason")
                 or entry_record.get("status")
                 or ("over balance" if trade.get("cash_fit") == "over" else "")
                 or ("past halfway" if trade.get("halfway") == "past" else "")
@@ -550,6 +551,9 @@ def build(root: Path = ROOT, orders: list[dict] | None = None, broker=None) -> l
     flips = _flips(fired)
     for trade in trades:
         trade.update(features(trade, trades, flips, events.get(trade["id"])))
+        # Why a live entry sent no order, as the checker decided it (floor, over, halfway, ...).
+        if (events.get(trade["id"]) or {}).get("order_block"):
+            trade["order_block"] = events[trade["id"]]["order_block"]
     book = claim._broker_book(root / "alerts" / "broker.json")
     trades = attach_orders(trades, orders or [], book, broker)
     labels = operator_labels(root / "learning" / "reviews")

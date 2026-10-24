@@ -342,3 +342,22 @@ def test_a_sell_placed_by_hand_is_the_exit_too(tmp_path):
     ]
     trade = next(row for row in ledger.build(root, orders, _Broker()) if row["ticker"] == "GOOGL")
     assert trade["dollars"] == 18.0 and trade["outcome"] == "sold by hand"
+
+
+def test_the_bar_counts_only_todays_watches(tmp_path):
+    bar = _load("bar_status")
+    (tmp_path / "alerts").mkdir()
+    (tmp_path / "alerts" / "log.md").write_text(
+        "# Alert log\n"
+        "- PLTR put watch 200.00 at 2026-10-23 09:10 PT. Candle green O 1 H 1 L 1 C 1. Not a fill. Not an order.\n"
+    )
+    friday = bar.status(tmp_path, datetime(2026, 10, 23, 12, 0, tzinfo=PT))
+    monday = bar.status(tmp_path, datetime(2026, 10, 26, 6, 0, tzinfo=PT))
+    assert friday["counts"]["watches"] == 1 and monday["counts"]["watches"] == 0
+
+
+def test_the_close_run_pings_its_own_check(monkeypatch):
+    seen = []
+    monkeypatch.setattr(alarm, "heartbeat", lambda fail=False, body="", name="": seen.append(name))
+    alarm.main(["ping", "AUTOBONK_CLOSE_HEARTBEAT_URL"])
+    assert seen == ["AUTOBONK_CLOSE_HEARTBEAT_URL"]

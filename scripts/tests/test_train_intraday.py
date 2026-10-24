@@ -149,7 +149,10 @@ def test_the_live_retest_buys_the_confirmed_spcx_bottom():
     assert entries[0]["side"] == "put"
     assert entries[0]["reason"] == "retest"
     assert entries[0]["bar"]["close_at"] == nine_twenty
-    assert abs(entries[0]["fill"] - pushed["c"]) < 0.02
+    # The order goes out once the fill bar after the 09:20 push has closed, at that close.
+    assert entries[0]["signal_at"] == int(nine_twenty)
+    fill_bar = next(bar for bar in bars if bar["close_at"] == entries[0]["fill_at"])
+    assert entries[0]["fill_at"] == int(nine_twenty) + 600 and entries[0]["fill"] == fill_bar["c"]
     assert claim.live_settings()["entry"] == "retest"
 
 

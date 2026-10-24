@@ -21,5 +21,7 @@ Re-tested at every weekly run, with the new numbers written into the proposal.
 
 ## Decided
 
+- 2026-10-23, accepted: Do not buy a live contract under $0.20. `learning/proposals/2026-10-24-contract-floor.md`
+- 2026-10-23, accepted: Score replayed entries where the checker can actually buy. `learning/proposals/2026-10-24-honest-bench.md`
 - 2026-10-23, accepted and shipped: Time every step of the 10-minute check. `learning/proposals/2026-10-23-time-the-check.md`. After 5 sessions, a follow-up proposal names the slowest step.
 - 2026-10-23, accepted: Wait for a fresh retest after a stop at the same level. `learning/proposals/2026-10-23-fresh-retest.md`

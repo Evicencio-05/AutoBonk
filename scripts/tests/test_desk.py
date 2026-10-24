@@ -97,7 +97,8 @@ def test_never_exit_and_a_near_target_are_scored_from_the_closes():
     near = runs["Near the next level"]["trades"][0]
 
     assert live["exit_reason"] == "reclaim"
-    assert round(live["points"], 2) == -0.75
+    # Priced at the fill bar's close, where the checker actually buys (entry_price), not its open.
+    assert round(live["points"], 2) == -0.80
     assert live["book"] == "fits"
     assert round(live["option_dollars"], 2) == 52.0
     assert live["inputs"]["purple"] == 70.6
@@ -106,12 +107,12 @@ def test_never_exit_and_a_near_target_are_scored_from_the_closes():
 
     assert never["marked"] is True
     assert never["exit_reason"] == "mark"
-    assert round(never["points"], 2) == 5.55
+    assert round(never["points"], 2) == 5.50  # priced at the fill bar close (entry_price)
     assert runs["Never exit"]["summary"]["fits"]["stock"]["profit_factor"] is None
     assert runs["Never exit"]["summary"]["fits"]["stock"]["net"] == never["points"]
 
     assert near["exit_reason"] == "near"
-    assert round(near["points"], 2) == 4.75
+    assert round(near["points"], 2) == 4.70  # priced at the fill bar close (entry_price)
     assert near["exit_close"] == 345.10
 
 

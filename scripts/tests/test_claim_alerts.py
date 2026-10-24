@@ -2133,3 +2133,18 @@ def test_an_exit_sells_an_open_contract_and_a_working_sell_is_not_repeated():
     assert sold["order_id"] == "sell-1"
     assert sold["order_price"] == "0.02"
     assert "Sold at 0.02." in claim_alerts.live_notice(sold)
+
+
+def test_a_contract_under_the_premium_floor_stays_a_plan():
+    cheap = _cash_entry(premium=0.14)
+    assert claim_alerts.entry_order_block(cheap) == "floor"
+    assert claim_alerts.entry_order_block(_cash_entry(premium=0.32)) == ""
+    broker = _Broker()
+    routed = claim_alerts.route_live_order(_cash_entry(premium=0.14), broker=broker, book_path=Path("/tmp/autobonk-floor-book.json"))
+    assert routed["order_block"] == "floor" and broker.buys == []
+    original = claim_alerts.MIN_PREMIUM
+    claim_alerts.MIN_PREMIUM = 0
+    try:
+        assert claim_alerts.entry_order_block(cheap) == ""
+    finally:
+        claim_alerts.MIN_PREMIUM = original
