@@ -25,9 +25,20 @@ import dashboard  # noqa: E402
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def _local(path: Path) -> str:
+    """The tape as the checker wrote it on this machine.
+
+    The website merges in rows stored in the database; the bar does not need
+    them, because the checker writes these files here. Reading the database
+    also cost a connection per refresh and once re-added stale copies of
+    closed entries as open trades.
+    """
+    return path.read_text() if path.is_file() else ""
+
+
 def _live_open(root: Path) -> list[dict]:
-    """Unpaired live.md entries. A row waits for confirm; it is not an order."""
-    text = dashboard._read(root / "alerts" / "live.md")
+    """Unpaired live.md entries: contracts the checker opened and has not exited yet."""
+    text = _local(root / "alerts" / "live.md")
     open_entries: list[dict] = []
     for cells in dashboard._table_rows(text):
         if cells[0] == "Time":
@@ -63,7 +74,7 @@ def _live_open(root: Path) -> list[dict]:
 
 
 def _paper_open(root: Path) -> list[dict]:
-    rows, marks = dashboard._paper_rows(dashboard._read(root / "alerts" / "paper.md"))
+    rows, marks = dashboard._paper_rows(_local(root / "alerts" / "paper.md"))
     opens = []
     for trade in dashboard._paired_trades(rows, marks):
         if trade["exit"] is not None:
@@ -77,7 +88,7 @@ def _paper_open(root: Path) -> list[dict]:
 
 
 def _watch_items(root: Path) -> list[dict]:
-    rows = dashboard._watch_rows(dashboard._read(root / "alerts" / "log.md"))
+    rows = dashboard._watch_rows(_local(root / "alerts" / "log.md"))
     return sorted(rows, key=lambda row: row["time"], reverse=True)
 
 

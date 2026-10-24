@@ -79,8 +79,17 @@ def append_missing(kind: str, text: str, rows: list[str]) -> str:
             return text
         extra = "\n".join(f"- {row}" for row in added)
         return text.rstrip() + "\n" + extra + "\n"
-    existing = {line.strip() for line in text.splitlines() if line.startswith("|")}
-    added = [row for row in fresh if row not in existing]
+    # A row is the same trade event when its time, ticker, action, side, and level match. The checker
+    # fills in the contract after it first stores a row, so the stored text can be older than the file's.
+    existing = {_row_key(line) for line in text.splitlines() if line.startswith("|")}
+    added = []
+    for row in fresh:
+        # A fragment (a stored row cut short) is not a trade event.
+        if len(_row_key(row)) < 5 or not all(_row_key(row)):
+            continue
+        if _row_key(row) not in existing:
+            existing.add(_row_key(row))
+            added.append(row)
     if not added:
         return text
     addition = "\n".join(added) + "\n"
@@ -131,6 +140,10 @@ _LEDGER_TABLE = """
         updated_at timestamptz not null default now()
     )
 """
+
+
+def _row_key(line: str) -> tuple[str, ...]:
+    return tuple(cell.strip() for cell in line.strip().strip("|").split("|")[:5])
 
 
 def _connect():
