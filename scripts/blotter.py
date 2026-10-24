@@ -7,6 +7,7 @@ of the file that was deployed.
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 
@@ -87,6 +88,49 @@ def append_missing(kind: str, text: str, rows: list[str]) -> str:
     if separator:
         return head.rstrip() + "\n" + addition + "\n## Open marks\n" + marks
     return text.rstrip() + "\n" + addition
+
+
+def store_ledger(payload: dict) -> bool:
+    """Keep the latest ledger snapshot (rows, alarms, time) for the hosted desk. True when stored."""
+    if not connection_string():
+        return False
+    try:
+        with _connect() as conn:
+            conn.execute(_LEDGER_TABLE)
+            conn.execute(
+                "insert into ledger_snapshot (name, body, updated_at) values ('trades', %s, now()) "
+                "on conflict (name) do update set body = excluded.body, updated_at = now()",
+                (json.dumps(payload, default=str),),
+            )
+            conn.commit()
+        return True
+    except Exception:
+        return False
+
+
+def load_ledger() -> dict | None:
+    """The stored snapshot, or None when there is no database or no snapshot yet."""
+    if not connection_string():
+        return None
+    try:
+        with _connect() as conn:
+            conn.execute(_LEDGER_TABLE)
+            found = conn.execute("select body from ledger_snapshot where name = 'trades'").fetchone()
+    except Exception:
+        return None
+    if not found:
+        return None
+    body = found[0]
+    return json.loads(body) if isinstance(body, str) else body
+
+
+_LEDGER_TABLE = """
+    create table if not exists ledger_snapshot (
+        name text primary key,
+        body jsonb not null,
+        updated_at timestamptz not null default now()
+    )
+"""
 
 
 def _connect():
