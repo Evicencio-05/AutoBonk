@@ -17,6 +17,6 @@ Leave `rules/ta_rules.md` unchanged. Record options-exposure comments as their w
 
 `learning/goals.yaml` holds goals. The first is sniping the bottom on contracts. A goal is a lesson, not a live rule.
 
-After the cash close, fill `learning/daily_review.md` into `learning/reviews/YYYY-MM-DD.md` and append that day's fade fills in `alerts/fade_forward.md`. Run `python3 scripts/recap.py` and paste `learning/parameter_search.md` into the Backtest section. A pass can write buffer sizes to `alerts/parameters.yaml`. Entry stays the retest. A review is not a pattern and does not place an order.
+After the cash close, follow `learning/daily_review.md`: `scripts/review.py day` drafts `learning/reviews/YYYY-MM-DD.md` from the trade ledger, and the operator fills "Would I take it", "What I saw", "Lessons", and "Proposals". An agent never fills the operator's yes or no answers. Append that day's fade fills in `alerts/fade_forward.md`. Judge results in option dollars from `learning/trades.jsonl`, not stock points. Run `python3 scripts/recap.py` and paste `learning/parameter_search.md` into the Backtest section. A pass can write buffer sizes to `alerts/parameters.yaml`. Entry stays the retest. A review is not a pattern and does not place an order.
 
 `scripts/bench.py` replays one frozen levels file and one settings snapshot. A replay is an observation. It does not change `rules/ta_rules.md` or the live defaults.

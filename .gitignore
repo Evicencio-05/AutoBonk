@@ -10,3 +10,4 @@ alerts/state.json
 alerts/broker.json
 .vercel
 .env*
+alerts/alarms.json

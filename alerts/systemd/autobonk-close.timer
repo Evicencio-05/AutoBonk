@@ -1,0 +1,9 @@
+[Unit]
+Description=Draft the AutoBonk review after the cash close
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 13:20:00 America/Los_Angeles
+Persistent=true
+
+[Install]
+WantedBy=timers.target

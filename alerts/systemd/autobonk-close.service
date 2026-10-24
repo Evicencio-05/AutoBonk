@@ -1,0 +1,11 @@
+[Unit]
+Description=AutoBonk after-close ledger, fixture, freeze check, and review draft
+OnFailure=autobonk-alarm@%n.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/evice/repos/AutoBonk
+ExecStart=/home/evice/repos/AutoBonk/.venv/bin/python3 /home/evice/repos/AutoBonk/scripts/ledger.py sync
+ExecStart=-/home/evice/repos/AutoBonk/.venv/bin/python3 /home/evice/repos/AutoBonk/scripts/ledger.py snapshot
+ExecStart=-/home/evice/repos/AutoBonk/.venv/bin/python3 /home/evice/repos/AutoBonk/scripts/freeze.py check
+ExecStart=/home/evice/repos/AutoBonk/.venv/bin/python3 /home/evice/repos/AutoBonk/scripts/review.py day

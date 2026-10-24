@@ -1,0 +1,7 @@
+[Unit]
+Description=AutoBonk alarm for a failed %i
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/evice/repos/AutoBonk
+ExecStart=/home/evice/repos/AutoBonk/.venv/bin/python3 /home/evice/repos/AutoBonk/scripts/alarm.py systemd %i

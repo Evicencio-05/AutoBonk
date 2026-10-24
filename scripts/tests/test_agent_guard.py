@@ -51,6 +51,15 @@ def test_operator_files_cannot_be_written_but_can_be_read():
     assert guard.tool_refusal("Read", {"file_path": "/home/evice/repos/AutoBonk/.env"})
     assert guard.tool_refusal("Read", {"file_path": "config/accounts.yaml"})
     assert guard.tool_refusal("Edit", {"file_path": "scripts/dashboard.py"}) is None
+    assert guard.tool_refusal("Edit", {"file_path": "alerts/live.md"})
+    assert guard.tool_refusal("Write", {"file_path": "bench/golden/2026-10-23.json"})
+    assert guard.tool_refusal("Edit", {"file_path": "config/freeze.yaml"})
+    assert guard.tool_refusal("Edit", {"file_path": "learning/proposals.md"}) is None
+    assert guard.shell_refusal("python3 scripts/freeze.py bless")
+    assert guard.shell_refusal("python3 scripts/freeze.py check") is None
+    assert guard.shell_refusal("cat > x.json <<'EOF'\n\"Bash(python3 scripts/freeze.py bless:*)\"\nEOF") is None
+    assert guard.shell_refusal("bash <<'EOF'\npython3 scripts/freeze.py bless\nEOF")
+    assert guard.shell_refusal("python3 scripts/ledger.py sync") is None
 
 
 def test_broker_order_tools_are_refused_and_reads_are_not():

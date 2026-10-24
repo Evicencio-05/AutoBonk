@@ -1,0 +1,7 @@
+[Unit]
+Description=Keep the machine awake from premarket through the cash close
+
+[Service]
+Type=simple
+# 06:00 to 13:30 PT. A sleeping laptop runs no checks and sends no exits.
+ExecStart=/usr/bin/systemd-inhibit --what=sleep:idle:handle-lid-switch --who=AutoBonk --why="Live session: open positions need their exits" --mode=block sleep 27000

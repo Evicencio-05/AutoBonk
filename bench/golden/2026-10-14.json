@@ -1,0 +1,380 @@
+[
+ {
+  "ticker": "AAPL",
+  "side": "call",
+  "level": 345.0,
+  "kind": "skip",
+  "reason": "chase",
+  "bar_time": "2026-10-14 07:00 PT",
+  "fill": 346.0799865722656
+ },
+ {
+  "ticker": "AAPL",
+  "side": "put",
+  "level": 345.0,
+  "kind": "skip",
+  "reason": "reclaim",
+  "bar_time": "2026-10-14 07:30 PT",
+  "fill": 344.9100036621094
+ },
+ {
+  "ticker": "AAPL",
+  "side": "call",
+  "level": 345.0,
+  "kind": "watch",
+  "reason": "sma",
+  "bar_time": "2026-10-14 07:40 PT",
+  "fill": null
+ },
+ {
+  "ticker": "AAPL",
+  "side": "call",
+  "level": 345.0,
+  "kind": "entry",
+  "reason": "retest",
+  "bar_time": "2026-10-14 08:00 PT",
+  "fill": 345.0899963378906
+ },
+ {
+  "ticker": "AAPL",
+  "side": "call",
+  "level": 345.0,
+  "kind": "watch",
+  "reason": "rsi",
+  "bar_time": "2026-10-14 08:40 PT",
+  "fill": null
+ },
+ {
+  "ticker": "AAPL",
+  "side": "call",
+  "level": 345.0,
+  "kind": "watch",
+  "reason": "rsi",
+  "bar_time": "2026-10-14 08:50 PT",
+  "fill": null
+ },
+ {
+  "ticker": "AAPL",
+  "side": "call",
+  "level": 345.0,
+  "kind": "exit",
+  "reason": "reclaim",
+  "bar_time": "2026-10-14 09:10 PT",
+  "fill": null
+ },
+ {
+  "ticker": "AAPL",
+  "side": "put",
+  "level": 345.0,
+  "kind": "watch",
+  "reason": "sma",
+  "bar_time": "2026-10-14 09:20 PT",
+  "fill": null
+ },
+ {
+  "ticker": "AAPL",
+  "side": "put",
+  "level": 345.0,
+  "kind": "watch",
+  "reason": "sma",
+  "bar_time": "2026-10-14 10:50 PT",
+  "fill": null
+ },
+ {
+  "ticker": "AAPL",
+  "side": "put",
+  "level": 345.0,
+  "kind": "watch",
+  "reason": "sma",
+  "bar_time": "2026-10-14 11:10 PT",
+  "fill": null
+ },
+ {
+  "ticker": "SPCX",
+  "side": "call",
+  "level": 152.0,
+  "kind": "skip",
+  "reason": "chase",
+  "bar_time": "2026-10-14 06:50 PT",
+  "fill": 153.2899932861328
+ },
+ {
+  "ticker": "SPCX",
+  "side": "call",
+  "level": 152.0,
+  "kind": "entry",
+  "reason": "retest",
+  "bar_time": "2026-10-14 11:00 PT",
+  "fill": 152.27000427246094
+ },
+ {
+  "ticker": "SPCX",
+  "side": "call",
+  "level": 152.0,
+  "kind": "exit",
+  "reason": "reclaim",
+  "bar_time": "2026-10-14 11:40 PT",
+  "fill": null
+ },
+ {
+  "ticker": "SPCX",
+  "side": "put",
+  "level": 152.0,
+  "kind": "watch",
+  "reason": "sma",
+  "bar_time": "2026-10-14 11:50 PT",
+  "fill": null
+ },
+ {
+  "ticker": "SPCX",
+  "side": "put",
+  "level": 152.0,
+  "kind": "entry",
+  "reason": "retest",
+  "bar_time": "2026-10-14 12:10 PT",
+  "fill": 151.66000366210938
+ },
+ {
+  "ticker": "SPCX",
+  "side": "put",
+  "level": 152.0,
+  "kind": "watch",
+  "reason": "rsi",
+  "bar_time": "2026-10-14 12:20 PT",
+  "fill": null
+ },
+ {
+  "ticker": "SPCX",
+  "side": "put",
+  "level": 152.0,
+  "kind": "exit",
+  "reason": "reclaim",
+  "bar_time": "2026-10-14 12:30 PT",
+  "fill": null
+ },
+ {
+  "ticker": "AMZN",
+  "side": "put",
+  "level": 259.5,
+  "kind": "skip",
+  "reason": "next",
+  "bar_time": "2026-10-14 06:50 PT",
+  "fill": null
+ },
+ {
+  "ticker": "AMZN",
+  "side": "call",
+  "level": 257.0,
+  "kind": "skip",
+  "reason": "next",
+  "bar_time": "2026-10-14 07:10 PT",
+  "fill": null
+ },
+ {
+  "ticker": "AMZN",
+  "side": "put",
+  "level": 259.5,
+  "kind": "watch",
+  "reason": "sma",
+  "bar_time": "2026-10-14 07:30 PT",
+  "fill": null
+ },
+ {
+  "ticker": "AMZN",
+  "side": "put",
+  "level": 257.0,
+  "kind": "skip",
+  "reason": "chase",
+  "bar_time": "2026-10-14 07:50 PT",
+  "fill": 256.4599914550781
+ },
+ {
+  "ticker": "AMZN",
+  "side": "put",
+  "level": 257.0,
+  "kind": "watch",
+  "reason": "sma",
+  "bar_time": "2026-10-14 08:20 PT",
+  "fill": null
+ },
+ {
+  "ticker": "AMZN",
+  "side": "put",
+  "level": 257.0,
+  "kind": "watch",
+  "reason": "sma",
+  "bar_time": "2026-10-14 09:10 PT",
+  "fill": null
+ },
+ {
+  "ticker": "GOOGL",
+  "side": "call",
+  "level": 353.7,
+  "kind": "skip",
+  "reason": "chase",
+  "bar_time": "2026-10-14 07:20 PT",
+  "fill": 354.5350036621094
+ },
+ {
+  "ticker": "GOOGL",
+  "side": "call",
+  "level": 353.7,
+  "kind": "entry",
+  "reason": "retest",
+  "bar_time": "2026-10-14 08:10 PT",
+  "fill": 354.1300048828125
+ },
+ {
+  "ticker": "GOOGL",
+  "side": "call",
+  "level": 353.7,
+  "kind": "watch",
+  "reason": "rsi",
+  "bar_time": "2026-10-14 08:40 PT",
+  "fill": null
+ },
+ {
+  "ticker": "GOOGL",
+  "side": "call",
+  "level": 353.7,
+  "kind": "exit",
+  "reason": "reclaim",
+  "bar_time": "2026-10-14 09:10 PT",
+  "fill": null
+ },
+ {
+  "ticker": "GOOGL",
+  "side": "put",
+  "level": 353.7,
+  "kind": "watch",
+  "reason": "sma",
+  "bar_time": "2026-10-14 09:50 PT",
+  "fill": null
+ },
+ {
+  "ticker": "GOOGL",
+  "side": "put",
+  "level": 351.5,
+  "kind": "entry",
+  "reason": "retest",
+  "bar_time": "2026-10-14 10:00 PT",
+  "fill": 351.1449890136719
+ },
+ {
+  "ticker": "GOOGL",
+  "side": "put",
+  "level": 351.5,
+  "kind": "watch",
+  "reason": "rsi",
+  "bar_time": "2026-10-14 11:50 PT",
+  "fill": null
+ },
+ {
+  "ticker": "GOOGL",
+  "side": "put",
+  "level": 351.5,
+  "kind": "watch",
+  "reason": "rsi",
+  "bar_time": "2026-10-14 12:00 PT",
+  "fill": null
+ },
+ {
+  "ticker": "GOOGL",
+  "side": "put",
+  "level": 351.5,
+  "kind": "watch",
+  "reason": "rsi",
+  "bar_time": "2026-10-14 12:20 PT",
+  "fill": null
+ },
+ {
+  "ticker": "GOOGL",
+  "side": "put",
+  "level": 351.5,
+  "kind": "exit",
+  "reason": "clock",
+  "bar_time": "2026-10-14 12:50 PT",
+  "fill": null
+ },
+ {
+  "ticker": "MSFT",
+  "side": "put",
+  "level": 540.15,
+  "kind": "watch",
+  "reason": "sma",
+  "bar_time": "2026-10-14 09:30 PT",
+  "fill": null
+ },
+ {
+  "ticker": "NVDA",
+  "side": "call",
+  "level": 225.5,
+  "kind": "entry",
+  "reason": "retest",
+  "bar_time": "2026-10-14 06:40 PT",
+  "fill": 225.60499572753906
+ },
+ {
+  "ticker": "NVDA",
+  "side": "call",
+  "level": 225.5,
+  "kind": "exit",
+  "reason": "reclaim",
+  "bar_time": "2026-10-14 07:00 PT",
+  "fill": null
+ },
+ {
+  "ticker": "NVDA",
+  "side": "put",
+  "level": 225.5,
+  "kind": "watch",
+  "reason": "sma",
+  "bar_time": "2026-10-14 07:50 PT",
+  "fill": null
+ },
+ {
+  "ticker": "TSLA",
+  "side": "put",
+  "level": 370.5,
+  "kind": "watch",
+  "reason": "sma",
+  "bar_time": "2026-10-14 07:50 PT",
+  "fill": null
+ },
+ {
+  "ticker": "TSLA",
+  "side": "put",
+  "level": 370.5,
+  "kind": "watch",
+  "reason": "sma",
+  "bar_time": "2026-10-14 08:20 PT",
+  "fill": null
+ },
+ {
+  "ticker": "META",
+  "side": "call",
+  "level": 742.0,
+  "kind": "skip",
+  "reason": "chase",
+  "bar_time": "2026-10-14 08:30 PT",
+  "fill": 743.2905883789062
+ },
+ {
+  "ticker": "META",
+  "side": "put",
+  "level": 742.0,
+  "kind": "watch",
+  "reason": "sma",
+  "bar_time": "2026-10-14 09:50 PT",
+  "fill": null
+ },
+ {
+  "ticker": "META",
+  "side": "put",
+  "level": 742.0,
+  "kind": "watch",
+  "reason": "sma",
+  "bar_time": "2026-10-14 10:10 PT",
+  "fill": null
+ }
+]

@@ -22,6 +22,9 @@ Agentic trading from the operator's own technical analysis. Ideas come from char
 ## What runs
 
 - `scripts/claim_alerts.py` checks finished 10-minute bars from the systemd timer in `alerts/systemd/` and can post an alert to Discord `#ta`. An alert is not an order. A live entry is a level retest. A lost support is resistance, and a claimed resistance is support. An SMA hold, or an RSI cross on an open trade, is a watch. A watch is not a paper row and not an order.
+- The checker raises an alarm (a desktop toast that stays up, a `#ta` post, and a failed heartbeat) when it crashes, cannot read the balance, cannot route an order, keeps failing an exit, or sees an Agentic contract still held past its cutoff or a sell that will not fill. `python3 scripts/alarm.py list` shows what is still raised.
+- After the close, `autobonk-close.timer` runs `scripts/ledger.py sync` (one row per signal with broker fills, plan premiums, and features in `learning/trades.jsonl` and `.csv`), `ledger.py snapshot` (the day becomes a bench fixture), `scripts/freeze.py check`, and `scripts/review.py day`. See `learning/daily_review.md`.
+- `config/freeze.yaml` holds the checker's decisions still until enough live trades exist to judge them. `python3 scripts/freeze.py status` shows progress. Rule ideas wait in `learning/proposals.md` for the weekly review.
 - `scripts/bench.py` replays one frozen levels file and one settings snapshot.
 - `scripts/discord_ta.py` reads `#ta` forwards. A normal Discord client shows those posts as empty. Image URLs expire; `ingest` saves files under `charts/inbox/`.
 

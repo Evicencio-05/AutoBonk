@@ -1,0 +1,37 @@
+name: tests
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - run: pip install -r requirements.txt pytest
+      # Includes scripts/tests/test_freeze.py: a replayed decision that moved fails the build.
+      - run: python -m pytest -q scripts/tests
+
+  tapes:
+    # The checker's tapes and the freeze are written only by the checker and the operator.
+    # A cloud agent has no broker, so a tape row it writes can hide a real open position.
+    if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'cursor/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Refuse tape, golden, and freeze edits from an agent branch
+        run: |
+          changed=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
+          blocked=$(echo "$changed" | grep -E '^(alerts/(live|paper|log|context|contracts)\.md|alerts/(events\.jsonl|state\.json|broker\.json)|bench/golden/|config/freeze\.yaml|learning/trades\.(jsonl|csv))' || true)
+          if [ -n "$blocked" ]; then
+            echo "An agent branch changed files only the checker or the operator writes:"
+            echo "$blocked"
+            exit 1
+          fi

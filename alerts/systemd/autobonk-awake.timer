@@ -1,0 +1,9 @@
+[Unit]
+Description=Start the AutoBonk session inhibitor before premarket
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 06:00:00 America/Los_Angeles
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,7 +1,8 @@
 [Unit]
 Description=AutoBonk 10-minute claim check
+OnFailure=autobonk-alarm@%n.service
 
 [Service]
 Type=oneshot
 WorkingDirectory=/home/evice/repos/AutoBonk
-ExecStart=/usr/bin/python3 /home/evice/repos/AutoBonk/scripts/claim_alerts.py check --notify
+ExecStart=/home/evice/repos/AutoBonk/.venv/bin/python3 /home/evice/repos/AutoBonk/scripts/claim_alerts.py check --notify
