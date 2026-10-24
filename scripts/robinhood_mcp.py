@@ -494,21 +494,23 @@ class RobinhoodBroker:
         if parsed is None:
             return ""
         expiration, strike, side = parsed
-        payload = self.tool(
-            "get_option_instruments",
-            {
-                "chain_symbol": ticker,
-                "expiration_dates": expiration.isoformat(),
-                "strike_price": f"{strike:.4f}",
-                "type": side,
-            },
-        )
-        instruments = (payload.get("data") or {}).get("instruments") or payload.get(
-            "instruments"
-        ) or []
-        if not instruments:
-            return ""
-        return str(instruments[0].get("id") or "")
+        query = {
+            "chain_symbol": ticker,
+            "expiration_dates": expiration.isoformat(),
+            "strike_price": f"{strike:.4f}",
+            "type": side,
+        }
+        # Only active contracts come back by default. The ledger also looks up ones that expired.
+        for extra in ({}, {"state": "expired"}):
+            payload = self.tool("get_option_instruments", {**query, **extra})
+            instruments = (payload.get("data") or {}).get("instruments") or payload.get(
+                "instruments"
+            ) or []
+            if instruments:
+                return str(instruments[0].get("id") or "")
+            if expiration > datetime.now(PT).date():
+                break
+        return ""
 
     def sellout(self, ticker: str, label: str, year: int) -> datetime | None:
         """This contract's broker sellout. None when the instrument has no time."""
