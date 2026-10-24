@@ -97,9 +97,9 @@ CHASE = 0.50
 FRESH_ATR = 1.0
 FRESH_SECONDS = 20 * 60
 # The cheapest live contract the checker will buy, per share. Below it the bid-ask spread alone
-# eats 8-17% of the trade (proposal 2026-10-24-contract-floor). The plan is still written and
+# eats 13-17% of the trade (at 0.12-0.15). The operator set 0.15 for now and will raise it later (proposal 2026-10-24-contract-floor). The plan is still written and
 # scored as a what-if. 0 turns it off. This gates the order only; no replayed decision moves.
-MIN_PREMIUM = 0.20
+MIN_PREMIUM = 0.15
 # $1 comparison. The debit compared below is the price of one share of the option.
 CONTRACT_CAP = 1.0
 # Thursday 2026-10-22 is the first live session. One contract.
